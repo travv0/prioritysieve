@@ -252,9 +252,8 @@ def _populate_priorities_with_lemmas_and_inflections_from_full_priority_file(
         lemma = row[file_type_and_format.lemma_header_index]
         inflection = row[file_type_and_format.inflection_header_index]
         key = (lemma, inflection)
-        morph_priority_dict[key] = int(
-            row[file_type_and_format.inflection_priority_header_index]
-        )
+        priority = int(row[file_type_and_format.inflection_priority_header_index])
+        _assign_priority_if_lower(morph_priority_dict, key, priority)
 
 
 def _populate_priorities_with_lemmas_and_inflections_from_full_study_plan(
@@ -269,7 +268,7 @@ def _populate_priorities_with_lemmas_and_inflections_from_full_study_plan(
         lemma = row[file_type_and_format.lemma_header_index]
         inflection = row[file_type_and_format.inflection_header_index]
         key = (lemma, inflection)
-        morph_priority_dict[key] = index
+        _assign_priority_if_lower(morph_priority_dict, key, index)
 
 
 def _populate_priorities_with_lemmas_from_full_priority_file(
@@ -283,9 +282,8 @@ def _populate_priorities_with_lemmas_from_full_priority_file(
             break
         lemma = row[file_type_and_format.lemma_header_index]
         key = (lemma, lemma)
-        morph_priority_dict[key] = int(
-            row[file_type_and_format.lemma_priority_header_index]
-        )
+        priority = int(row[file_type_and_format.lemma_priority_header_index])
+        _assign_priority_if_lower(morph_priority_dict, key, priority)
 
 
 def _populate_priorities_with_lemmas_from_minimal_priority_file(
@@ -299,4 +297,12 @@ def _populate_priorities_with_lemmas_from_minimal_priority_file(
             break
         lemma = row[file_type_and_format.lemma_header_index]
         key = (lemma, lemma)
-        morph_priority_dict[key] = index
+        _assign_priority_if_lower(morph_priority_dict, key, index)
+
+
+def _assign_priority_if_lower(
+    priority_dict: dict[tuple[str, str], int], key: tuple[str, str], priority: int
+) -> None:
+    existing = priority_dict.get(key)
+    if existing is None or priority < existing:
+        priority_dict[key] = priority

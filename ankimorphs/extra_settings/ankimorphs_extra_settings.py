@@ -17,6 +17,7 @@ from .extra_settings_keys import (
     PreprocessKeys,
     ProgressionWindowKeys,
     SpacyManagerWindowKeys,
+    SudachiManagerWindowKeys,
 )
 
 
@@ -81,6 +82,13 @@ class AnkiMorphsExtraSettings(QSettings):
         # fmt: off
         self.beginGroup(keys.Dialogs.SPACY_MANAGER_WINDOW)
         self.setValue(SpacyManagerWindowKeys.WINDOW_GEOMETRY, geometry)
+        self.endGroup()
+        # fmt: on
+
+    def sudachi_manager_window_settings(self, geometry: QByteArray) -> None:
+        # fmt: off
+        self.beginGroup(keys.Dialogs.SUDACHI_MANAGER_WINDOW)
+        self.setValue(SudachiManagerWindowKeys.WINDOW_GEOMETRY, geometry)
         self.endGroup()
         # fmt: on
 

@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+from .. import ankimorphs_globals
 from ..morphemizers import spacy_wrapper
 from ..morphemizers.jieba_morphemizer import JiebaMorphemizer
 from ..morphemizers.mecab_morphemizer import MecabMorphemizer
 from ..morphemizers.morphemizer import Morphemizer
 from ..morphemizers.simple_space_morphemizer import SimpleSpaceMorphemizer
 from ..morphemizers.spacy_morphemizer import SpacyMorphemizer
+from ..morphemizers.sudachi_morphemizer import SudachiMorphemizer
+from ..morphemizers import sudachi_wrapper
+from ..morphemizers.full_field_morphemizer import FullFieldMorphemizer
 
 available_morphemizers: list[Morphemizer] | None = None
 morphemizers_by_description: dict[str, Morphemizer] = {}
@@ -24,6 +28,16 @@ def get_all_morphemizers() -> list[Morphemizer]:
         if _mecab.init_successful():
             available_morphemizers.append(_mecab)
 
+        if sudachi_wrapper.is_sudachipy_available():
+            variants = sudachi_wrapper.get_available_variants()
+            variants_with_default = [""] + variants if variants else [""]
+
+            for variant in variants_with_default:
+                for split_mode in sudachi_wrapper.get_supported_split_modes():
+                    _sudachi = SudachiMorphemizer(variant, split_mode)
+                    if _sudachi.init_successful():
+                        available_morphemizers.append(_sudachi)
+
         _jieba = JiebaMorphemizer()
         if _jieba.init_successful():
             available_morphemizers.append(_jieba)
@@ -40,5 +54,7 @@ def get_all_morphemizers() -> list[Morphemizer]:
 
 
 def get_morphemizer_by_description(description: str) -> Morphemizer | None:
+    if description == ankimorphs_globals.NONE_OPTION:
+        return FullFieldMorphemizer()
     get_all_morphemizers()
     return morphemizers_by_description.get(description, None)

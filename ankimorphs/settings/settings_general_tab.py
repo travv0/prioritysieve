@@ -59,7 +59,6 @@ class GeneralTab(SettingsTab):
     def setup_buttons(self) -> None:
         self.ui.restoreGeneralPushButton.setAutoDefault(False)
         self.ui.restoreGeneralPushButton.clicked.connect(self.restore_defaults)
-
         self.ui.priorityLemmaRadioButton.toggled.connect(
             self.on_priority_radio_button_toggled
         )

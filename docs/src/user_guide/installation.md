@@ -10,7 +10,10 @@ morphemizers. Below are the currently supported morphemizers:
 <details>
   <summary>Japanese morphemizers</summary>
 
-> Japanese has two available morphemizers:
+> Japanese has three available morphemizers:
+>
+>- [SudachiPy](installation/installing-sudachi.md) morphemizer  
+  Installable directly from Anki via the `Sudachi Manager`. Works well for modern Japanese and lets you choose different dictionary sizes; each installed dictionary appears as its own entry in the morphemizer dropdown so you can select it per note type.
 >
 >- [MeCab](https://en.wikipedia.org/wiki/MeCab) morphemizer (recommended)  
    This can be added by installing the [ankimorphs-japanese-mecab](https://ankiweb.net/shared/info/1974309724) companion

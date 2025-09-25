@@ -17,7 +17,7 @@ from .. import (
 from ..ankimorphs_config import AnkiMorphsConfig
 from ..extra_settings import extra_settings_keys
 from ..extra_settings.ankimorphs_extra_settings import AnkiMorphsExtraSettings
-from ..morphemizers import morphemizer_utils
+from ..morphemizers import morphemizer_utils, sudachi_wrapper
 from ..ui.settings_dialog_ui import Ui_SettingsDialog
 from .settings_algorithm_tab import AlgorithmTab
 from .settings_card_handling_tab import CardHandlingTab
@@ -201,6 +201,9 @@ class SettingsDialog(QDialog):  # pylint:disable=too-many-instance-attributes
             new_config.update(_tab.settings_to_dict())
 
         ankimorphs_config.update_configs(new_config)
+        sudachi_wrapper.invalidate_cache()
+        morphemizer_utils.available_morphemizers = None
+        morphemizer_utils.morphemizers_by_description = {}
         self._config.update()
 
         for _tab in self._all_tabs:

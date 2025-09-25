@@ -414,13 +414,6 @@ test_cases_with_immediate_exceptions = [
         DefaultSettingsException,
         id="default_morph_priority",
     ),
-    pytest.param(
-        FakeEnvironmentParams(
-            config=config_default_morphemizer,
-        ),
-        DefaultSettingsException,
-        id="default_morphemizer",
-    ),
 ]
 
 
@@ -440,6 +433,33 @@ def test_recalc_with_default_settings(  # pylint:disable=unused-argument
         read_enabled_config_filters, modify_enabled_config_filters
     )
     assert isinstance(settings_error, expected_exception)
+
+
+@pytest.mark.parametrize(
+    "fake_environment_fixture",
+    [
+        pytest.param(
+            FakeEnvironmentParams(
+                config=config_default_morphemizer,
+            ),
+            id="default_morphemizer_allowed",
+        )
+    ],
+    indirect=True,
+)
+def test_recalc_allows_none_morphemizer(
+    fake_environment_fixture: FakeEnvironment | None,
+) -> None:
+    assert fake_environment_fixture is not None
+
+    read_enabled_config_filters = ankimorphs_config.get_read_enabled_filters()
+    modify_enabled_config_filters = ankimorphs_config.get_modify_enabled_filters()
+
+    settings_error: Exception | None = recalc_main._check_selected_settings_for_errors(
+        read_enabled_config_filters, modify_enabled_config_filters
+    )
+
+    assert settings_error is None
 
 
 test_cases_with_delayed_exceptions = [

@@ -11,6 +11,13 @@ from test.fake_environment_module import (  # pylint:disable=unused-import
 import pytest
 
 from ankimorphs import debug_utils, morph_priority_utils
+from ankimorphs.morph_priority_utils import (
+    PriorityFile,
+    PriorityFileFormat,
+    PriorityFileType,
+    _populate_priorities_with_lemmas_and_inflections_from_full_priority_file,
+    _populate_priorities_with_lemmas_from_minimal_priority_file,
+)
 from ankimorphs.ankimorphs_config import AnkiMorphsConfig
 from ankimorphs.exceptions import PriorityFileMalformedException
 
@@ -192,3 +199,45 @@ def test_morph_priority_with_invalid_priority_file(  # pylint:disable=unused-arg
         pass
     else:
         assert False
+
+
+def test_duplicate_entries_keep_lowest_priority_inflection() -> None:
+    rows = [
+        ["人", "人", "55", "55"],
+        ["人", "人", "999", "22801"],
+    ]
+
+    priority_file = PriorityFile(
+        file_type=PriorityFileType.PriorityFile,
+        file_format=PriorityFileFormat.Full,
+        lemma_header_index=0,
+        inflection_header_index=1,
+        lemma_priority_header_index=2,
+        inflection_priority_header_index=3,
+    )
+
+    priorities: dict[tuple[str, str], int] = {}
+
+    _populate_priorities_with_lemmas_and_inflections_from_full_priority_file(
+        iter(rows), priority_file, priorities
+    )
+
+    assert priorities[("人", "人")] == 55
+
+
+def test_duplicate_entries_keep_lowest_priority_minimal() -> None:
+    rows = [["人"], ["人"], ["日"]]
+
+    priority_file = PriorityFile(
+        file_type=PriorityFileType.PriorityFile,
+        file_format=PriorityFileFormat.Minimal,
+        lemma_header_index=0,
+    )
+
+    priorities: dict[tuple[str, str], int] = {}
+
+    _populate_priorities_with_lemmas_from_minimal_priority_file(
+        iter(rows), priority_file, priorities
+    )
+
+    assert priorities[("人", "人")] == 0

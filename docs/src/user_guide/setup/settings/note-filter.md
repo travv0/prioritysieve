@@ -95,6 +95,10 @@ how to add morphemizers.
 ![morphemizer-selection.png](../../../img/morphemizer-selection.png)
 
 
+### “(none)” option
+Leaving the morphemizer as `(none)` skips external analysers and treats the entire (preprocessed) field as a single morph. This is useful when you already have hand-crafted segments or want the raw field contents tracked without additional tokenization.
+
+
 ### Simple Space Splitter
 As the name suggests, this morphemizer just splits words based on whitespace and does not perform any
 linguistic analysis, meaning they won't provide accurate [lemmas](../../glossary.md#lemma). You should only

@@ -104,14 +104,13 @@ def _check_selected_settings_for_errors(
     model_manager: ModelManager = mw.col.models
 
     for config_filter in config_filters:
-        options_possibly_containing_none: set[str] = {
-            config_filter.note_type,
-            config_filter.field,
-            config_filter.morphemizer_description,
-            config_filter.morph_priority_selection,
-        }
+        if config_filter.note_type == ankimorphs_globals.NONE_OPTION:
+            return DefaultSettingsException()
 
-        if ankimorphs_globals.NONE_OPTION in options_possibly_containing_none:
+        if config_filter.field == ankimorphs_globals.NONE_OPTION:
+            return DefaultSettingsException()
+
+        if config_filter.morph_priority_selection == ankimorphs_globals.NONE_OPTION:
             return DefaultSettingsException()
 
         note_type_dict: NotetypeDict | None = mw.col.models.by_name(
