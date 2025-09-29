@@ -5,6 +5,7 @@ from aqt.qt import (  # pylint:disable=no-name-in-module
     QComboBox,
     QDialog,
     QDoubleSpinBox,
+    QLineEdit,
     QRadioButton,
     QSpinBox,
     Qt,
@@ -41,6 +42,10 @@ class CardHandlingTab(SettingsTab):
         self._raw_config_key_to_combo_box: dict[str, QComboBox] = {
             RawConfigKeys.RECALC_SUSPEND_NEW_CARDS: self.ui.suspendNewCardsComboBox,
             RawConfigKeys.RECALC_MOVE_NEW_CARDS_TO_THE_END: self.ui.MoveNewCardsComboBox,
+        }
+
+        self._raw_config_key_to_line_edit: dict[str, QLineEdit] = {
+            RawConfigKeys.RECALC_OFFSET_PRIORITY_DECK: self.ui.priorityDeckLineEdit,
         }
 
         self._raw_config_key_to_radio_button: dict[str, QRadioButton] = {
@@ -87,9 +92,11 @@ class CardHandlingTab(SettingsTab):
         if self.ui.shiftNewCardsCheckBox.checkState() == Qt.CheckState.Unchecked:
             self.ui.dueOffsetSpinBox.setDisabled(True)
             self.ui.offsetFirstMorphsSpinBox.setDisabled(True)
+            self.ui.priorityDeckLineEdit.setDisabled(True)
         else:
             self.ui.dueOffsetSpinBox.setEnabled(True)
             self.ui.offsetFirstMorphsSpinBox.setEnabled(True)
+            self.ui.priorityDeckLineEdit.setEnabled(True)
 
     def _toggle_disable_skip_fresh_morphs_radio_buttons(self) -> None:
         if self.ui.skipNoUnKnownMorphsCheckBox.checkState() == Qt.CheckState.Unchecked:

@@ -65,6 +65,7 @@
   "recalc_due_offset": 500000,
   "recalc_move_new_cards_to_the_end": "Never",
   "recalc_number_of_morphs_to_offset": 100,
+  "recalc_offset_priority_deck": "",
   "recalc_offset_new_cards": false,
   "recalc_on_sync": false,
   "recalc_suspend_new_cards": "Never",

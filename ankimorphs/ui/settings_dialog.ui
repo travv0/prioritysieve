@@ -1029,10 +1029,41 @@
                 </property>
                </spacer>
               </item>
-             </layout>
-            </item>
-           </layout>
-          </widget>
+            </layout>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_priorityDeck">
+             <item>
+              <widget class="QLabel" name="label_priorityDeck">
+               <property name="text">
+                <string>Prefer deck for unshifted card:</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLineEdit" name="priorityDeckLineEdit">
+               <property name="placeholderText">
+                <string>Exact deck name (leave blank to disable)</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="horizontalSpacer_priorityDeck">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
          </item>
          <item>
           <spacer name="verticalSpacer_4">

@@ -95,6 +95,7 @@ class RawConfigKeys:
     RECALC_OFFSET_NEW_CARDS = "recalc_offset_new_cards"
     RECALC_DUE_OFFSET = "recalc_due_offset"
     RECALC_NUMBER_OF_MORPHS_TO_OFFSET = "recalc_number_of_morphs_to_offset"
+    RECALC_OFFSET_PRIORITY_DECK = "recalc_offset_priority_deck"
     RECALC_MOVE_NEW_CARDS_TO_THE_END = "recalc_move_new_cards_to_the_end"
     READ_KNOWN_MORPHS_FOLDER = "read_known_morphs_folder"
     TOOLBAR_STATS_USE_KNOWN = "toolbar_stats_use_known"
@@ -406,6 +407,11 @@ class AnkiMorphsConfig:  # pylint:disable=too-many-instance-attributes, too-many
             self.recalc_number_of_morphs_to_offset: int = self._get_config_item(
                 key=RawConfigKeys.RECALC_NUMBER_OF_MORPHS_TO_OFFSET,
                 expected_type=int,
+                use_default=is_default,
+            )
+            self.recalc_offset_priority_deck: str = self._get_config_item(
+                key=RawConfigKeys.RECALC_OFFSET_PRIORITY_DECK,
+                expected_type=str,
                 use_default=is_default,
             )
             self.recalc_move_new_cards_to_the_end: str = self._get_config_item(

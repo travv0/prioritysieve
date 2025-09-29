@@ -59,6 +59,9 @@ To overcome this problem and speed up the learning process, we can use the optio
   <br>There are two parameters you can adjust:
     * How much to shift/offset the due of the affected cards
     * How many unknown morphs to perform this shift/offset on
+  <br>You can also optionally provide a deck name. When set, cards belonging to that deck
+  will be kept as the "first" card for their morph (i.e. not shifted) if one exists, even if
+  another deck has an earlier due card.
 
   <br>Here is an example card order **without** this option activated:
   <div class='morph-variation'>

@@ -341,7 +341,21 @@ def _add_offsets_to_new_cards(
     assert mw is not None
 
     earliest_due_card_for_unknown_morph: dict[str, Card] = {}
+    lowest_due_for_unknown_morph: dict[str, int] = {}
+    earliest_card_is_priority: dict[str, bool] = {}
     cards_with_morph: dict[str, set[CardId]] = {}  # a set has faster lookup than a list
+    priority_deck_name: str = am_config.recalc_offset_priority_deck.strip()
+
+    def _is_priority_card(card: Card) -> bool:
+        if not priority_deck_name:
+            return False
+
+        deck_dict = mw.col.decks.get(card.did, None)
+        if deck_dict is None:
+            return False
+
+        deck_name = deck_dict.get("name")
+        return isinstance(deck_name, str) and deck_name == priority_deck_name
 
     card_amount = len(handled_cards)
     for counter, card_id in enumerate(handled_cards):
@@ -366,11 +380,30 @@ def _add_offsets_to_new_cards(
         if len(card_unknown_morphs) == 1:
             unknown_morph = card_unknown_morphs.pop()
             card = mw.col.get_card(card_id)
+            card_due = card.due
+
+            lowest_due = lowest_due_for_unknown_morph.get(unknown_morph)
+            if lowest_due is None or card_due < lowest_due:
+                lowest_due_for_unknown_morph[unknown_morph] = card_due
+
+            is_priority_card = _is_priority_card(card)
 
             if unknown_morph not in earliest_due_card_for_unknown_morph:
                 earliest_due_card_for_unknown_morph[unknown_morph] = card
-            elif earliest_due_card_for_unknown_morph[unknown_morph].due > card.due:
-                earliest_due_card_for_unknown_morph[unknown_morph] = card
+                earliest_card_is_priority[unknown_morph] = is_priority_card
+            else:
+                current_card = earliest_due_card_for_unknown_morph[unknown_morph]
+                current_is_priority = earliest_card_is_priority.get(unknown_morph, False)
+
+                if is_priority_card and not current_is_priority:
+                    earliest_due_card_for_unknown_morph[unknown_morph] = card
+                    earliest_card_is_priority[unknown_morph] = True
+                elif (
+                    is_priority_card == current_is_priority
+                    and current_card.due > card_due
+                ):
+                    earliest_due_card_for_unknown_morph[unknown_morph] = card
+                    earliest_card_is_priority[unknown_morph] = current_is_priority
 
             if unknown_morph not in cards_with_morph:
                 cards_with_morph[unknown_morph] = {card_id}
@@ -380,11 +413,13 @@ def _add_offsets_to_new_cards(
     progress_utils.background_update_progress(label="Applying offsets")
 
     # sort so we can limit to the top x unknown morphs
-    earliest_due_card_for_unknown_morph = dict(
-        sorted(
-            earliest_due_card_for_unknown_morph.items(), key=lambda item: item[1].due
-        )
+    sorted_unknown_morphs = sorted(
+        earliest_due_card_for_unknown_morph.keys(),
+        key=lambda morph: lowest_due_for_unknown_morph.get(morph, _MAX_SCORE),
     )
+    earliest_due_card_for_unknown_morph = {
+        morph: earliest_due_card_for_unknown_morph[morph] for morph in sorted_unknown_morphs
+    }
     modified_offset_cards: dict[CardId, Card] = _apply_offsets(
         am_config=am_config,
         already_modified_cards=already_modified_cards,
