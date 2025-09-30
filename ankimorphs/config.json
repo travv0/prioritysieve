@@ -61,6 +61,7 @@
   "preprocess_ignore_names_textfile": false,
   "preprocess_ignore_numbers": false,
   "preprocess_ignore_round_bracket_contents": false,
+  "preprocess_ignore_angle_bracket_contents": false,
   "preprocess_ignore_slim_round_bracket_contents": false,
   "preprocess_ignore_suspended_cards_content": false,
   "read_known_morphs_folder": false,

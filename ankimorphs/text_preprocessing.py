@@ -10,6 +10,7 @@ from .morpheme import Morpheme
 square_brackets_regex = re.compile(r"\[[^]]*]")
 round_brackets_regex = re.compile(r"（[^）]*）")
 slim_round_brackets_regexp = re.compile(r"\([^)]*\)")
+angle_brackets_regex = re.compile(r"＜[^＞]*＞")
 
 global_translation_table: dict[int, Any] = {}
 
@@ -41,6 +42,9 @@ def get_processed_text(
 
     if am_config.preprocess_ignore_slim_round_bracket_contents:
         text = slim_round_brackets_regexp.sub("", text)
+
+    if am_config.preprocess_ignore_angle_bracket_contents:
+        text = angle_brackets_regex.sub("", text)
 
     if am_config.preprocess_ignore_numbers:
         text = re.sub(r"\d", "", text)

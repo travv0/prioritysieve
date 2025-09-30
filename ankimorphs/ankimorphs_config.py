@@ -85,6 +85,7 @@ class RawConfigKeys:
     PREPROCESS_IGNORE_BRACKET_CONTENTS = "preprocess_ignore_bracket_contents"
     PREPROCESS_IGNORE_ROUND_BRACKET_CONTENTS = "preprocess_ignore_round_bracket_contents"
     PREPROCESS_IGNORE_SLIM_ROUND_BRACKET_CONTENTS = "preprocess_ignore_slim_round_bracket_contents"
+    PREPROCESS_IGNORE_ANGLE_BRACKET_CONTENTS = "preprocess_ignore_angle_bracket_contents"
     PREPROCESS_IGNORE_NAMES_MORPHEMIZER = "preprocess_ignore_names_morphemizer"
     PREPROCESS_IGNORE_NAMES_TEXTFILE = "preprocess_ignore_names_textfile"
     PREPROCESS_IGNORE_NUMBERS = "preprocess_ignore_numbers"
@@ -326,6 +327,13 @@ class AnkiMorphsConfig:  # pylint:disable=too-many-instance-attributes, too-many
             self.preprocess_ignore_slim_round_bracket_contents: bool = (
                 self._get_config_item(
                     key=RawConfigKeys.PREPROCESS_IGNORE_SLIM_ROUND_BRACKET_CONTENTS,
+                    expected_type=bool,
+                    use_default=is_default,
+                )
+            )
+            self.preprocess_ignore_angle_bracket_contents: bool = (
+                self._get_config_item(
+                    key=RawConfigKeys.PREPROCESS_IGNORE_ANGLE_BRACKET_CONTENTS,
                     expected_type=bool,
                     use_default=is_default,
                 )

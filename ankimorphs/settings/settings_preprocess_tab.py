@@ -22,6 +22,7 @@ class PreprocessTab(SettingsTab):
             RawConfigKeys.PREPROCESS_IGNORE_BRACKET_CONTENTS: self.ui.preprocessIgnoreSquareCheckBox,
             RawConfigKeys.PREPROCESS_IGNORE_ROUND_BRACKET_CONTENTS: self.ui.preprocessIgnoreRoundCheckBox,
             RawConfigKeys.PREPROCESS_IGNORE_SLIM_ROUND_BRACKET_CONTENTS: self.ui.preprocessIgnoreSlimCheckBox,
+            RawConfigKeys.PREPROCESS_IGNORE_ANGLE_BRACKET_CONTENTS: self.ui.preprocessIgnoreAngleCheckBox,
             RawConfigKeys.PREPROCESS_IGNORE_NAMES_MORPHEMIZER: self.ui.preprocessIgnoreNamesMizerCheckBox,
             RawConfigKeys.PREPROCESS_IGNORE_NAMES_TEXTFILE: self.ui.preprocessIgnoreNamesFileCheckBox,
             RawConfigKeys.PREPROCESS_IGNORE_NUMBERS: self.ui.preprocessIgnoreNumbersCheckBox,
