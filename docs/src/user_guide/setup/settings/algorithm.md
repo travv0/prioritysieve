@@ -45,6 +45,6 @@ And the default $$\large D_{\text{target}}^{\text{learning}}$$ looks like this:
 
 If you only want to sort the cards based on the order of a priority file, disable all the
 weights except for $$W_{\text{total}}^{\text{unknown}}$$. This can be especially useful
-if you are using a [study plan](https://mortii.github.io/anki-morphs/user_guide/usage/generators.html#study-plan-generator).
+if you are using a [study plan](https://mortii.github.io/prioritysieve/user_guide/usage/generators.html#study-plan-generator).
 
 ![only_unknown_weight_active.png](../../../img/only_unknown_weight_active.png)

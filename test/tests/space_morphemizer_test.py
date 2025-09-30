@@ -3,10 +3,10 @@ from unittest import mock
 
 import pytest
 
-import ankimorphs.morphemizers.morphemizer
-from ankimorphs.morpheme import Morpheme
-from ankimorphs.morphemizers import spacy_wrapper
-from ankimorphs.morphemizers.morphemizer_utils import get_morphemizer_by_description
+import prioritysieve.morphemizers.morphemizer
+from prioritysieve.morpheme import Morpheme
+from prioritysieve.morphemizers import spacy_wrapper
+from prioritysieve.morphemizers.morphemizer_utils import get_morphemizer_by_description
 
 
 @pytest.fixture(scope="function")
@@ -18,14 +18,14 @@ def _fake_environment_fixture() -> Iterator[None]:
     yield
     patch_testing_variable.stop()
     # this resets the morphemizers for the future tests
-    ankimorphs.morphemizers.morphemizer_utils.available_morphemizers = None
+    prioritysieve.morphemizers.morphemizer_utils.available_morphemizers = None
 
 
 @pytest.mark.parametrize(
     "morphemizer_description, sentence, correct_morphs",
     [
         (
-            "AnkiMorphs: Simple Space Splitter",
+            "PrioritySieve: Simple Space Splitter",
             "Tu es quelqu'un de bien",  # french test
             {
                 Morpheme("tu", "tu"),
@@ -36,7 +36,7 @@ def _fake_environment_fixture() -> Iterator[None]:
             },
         ),
         (
-            "AnkiMorphs: Simple Space Splitter",
+            "PrioritySieve: Simple Space Splitter",
             "My mother-in-law is wonderful",  # english test
             {
                 Morpheme("my", "my"),
@@ -46,7 +46,7 @@ def _fake_environment_fixture() -> Iterator[None]:
             },
         ),
         (
-            "AnkiMorphs: Simple Space Splitter",
+            "PrioritySieve: Simple Space Splitter",
             "أنا بصدّقك وإحنا دايماً منقلكم",  # arabic test
             {
                 Morpheme("منقلكم", "منقلكم"),

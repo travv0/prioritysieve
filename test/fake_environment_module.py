@@ -28,18 +28,18 @@ from aqt import setupLangAndBackend
 from aqt.main import AnkiQt
 from aqt.reviewer import Reviewer
 
-from ankimorphs import (
-    ankimorphs_config,
-    ankimorphs_db,
-    ankimorphs_globals,
+from prioritysieve import (
+    prioritysieve_config,
+    prioritysieve_db,
+    prioritysieve_globals,
     known_morphs_exporter,
     morph_priority_utils,
     name_file_utils,
     progress_utils,
     reviewing_utils,
 )
-from ankimorphs.extra_settings import ankimorphs_extra_settings
-from ankimorphs.generators import (
+from prioritysieve.extra_settings import prioritysieve_extra_settings
+from prioritysieve.generators import (
     generators_output_dialog,
     generators_utils,
     generators_window,
@@ -47,9 +47,9 @@ from ankimorphs.generators import (
     readability_report_generator,
     study_plan_generator,
 )
-from ankimorphs.morphemizers import spacy_wrapper
-from ankimorphs.progression import progression_utils, progression_window
-from ankimorphs.recalc import anki_data_utils, caching, recalc_main
+from prioritysieve.morphemizers import spacy_wrapper
+from prioritysieve.progression import progression_utils, progression_window
+from prioritysieve.recalc import anki_data_utils, caching, recalc_main
 
 
 class FakeEnvironmentParams:
@@ -202,8 +202,8 @@ def create_mw_patches(mock_mw: AnkiQt) -> list[Any]:
         mock.patch.object(recalc_main, "mw", mock_mw),
         mock.patch.object(caching, "mw", mock_mw),
         mock.patch.object(progress_utils, "mw", mock_mw),
-        mock.patch.object(ankimorphs_db, "mw", mock_mw),
-        mock.patch.object(ankimorphs_config, "mw", mock_mw),
+        mock.patch.object(prioritysieve_db, "mw", mock_mw),
+        mock.patch.object(prioritysieve_config, "mw", mock_mw),
         mock.patch.object(name_file_utils, "mw", mock_mw),
         mock.patch.object(anki_data_utils, "mw", mock_mw),
         mock.patch.object(reviewing_utils, "mw", mock_mw),
@@ -215,21 +215,21 @@ def create_mw_patches(mock_mw: AnkiQt) -> list[Any]:
         mock.patch.object(study_plan_generator, "mw", mock_mw),
         mock.patch.object(morph_priority_utils, "mw", mock_mw),
         mock.patch.object(known_morphs_exporter, "mw", mock_mw),
-        mock.patch.object(ankimorphs_extra_settings, "mw", mock_mw),
+        mock.patch.object(prioritysieve_extra_settings, "mw", mock_mw),
         mock.patch.object(generators_output_dialog, "mw", mock_mw),
     ]
 
 
 def create_am_db_patches() -> list[Any]:
     return [
-        mock.patch.object(reviewing_utils, "AnkiMorphsDB", FakeDB),
-        mock.patch.object(recalc_main, "AnkiMorphsDB", FakeDB),
-        mock.patch.object(caching, "AnkiMorphsDB", FakeDB),
-        mock.patch.object(readability_report_generator, "AnkiMorphsDB", FakeDB),
-        mock.patch.object(study_plan_generator, "AnkiMorphsDB", FakeDB),
-        mock.patch.object(progression_window, "AnkiMorphsDB", FakeDB),
-        mock.patch.object(progression_utils, "AnkiMorphsDB", FakeDB),
-        mock.patch.object(known_morphs_exporter, "AnkiMorphsDB", FakeDB),
+        mock.patch.object(reviewing_utils, "PrioritySieveDB", FakeDB),
+        mock.patch.object(recalc_main, "PrioritySieveDB", FakeDB),
+        mock.patch.object(caching, "PrioritySieveDB", FakeDB),
+        mock.patch.object(readability_report_generator, "PrioritySieveDB", FakeDB),
+        mock.patch.object(study_plan_generator, "PrioritySieveDB", FakeDB),
+        mock.patch.object(progression_window, "PrioritySieveDB", FakeDB),
+        mock.patch.object(progression_utils, "PrioritySieveDB", FakeDB),
+        mock.patch.object(known_morphs_exporter, "PrioritySieveDB", FakeDB),
     ]
 
 
@@ -239,8 +239,8 @@ def create_misc_patches(_priority_files_dir: str, _known_morphs_dir: str) -> lis
         # tooltip tries to do gui stuff which breaks test
         mock.patch.object(reviewing_utils, "tooltip", mock.Mock(spec=aqt.utils.tooltip)),
         mock.patch.object(spacy_wrapper, "testing_environment", True),
-        mock.patch.object(ankimorphs_globals, "PRIORITY_FILES_DIR_NAME", _priority_files_dir),
-        mock.patch.object(ankimorphs_globals, "KNOWN_MORPHS_DIR_NAME", _known_morphs_dir),
+        mock.patch.object(prioritysieve_globals, "PRIORITY_FILES_DIR_NAME", _priority_files_dir),
+        mock.patch.object(prioritysieve_globals, "KNOWN_MORPHS_DIR_NAME", _known_morphs_dir),
     ]
     # fmt: on
 

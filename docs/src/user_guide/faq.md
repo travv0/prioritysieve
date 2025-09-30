@@ -6,13 +6,13 @@
 
 No, only use the sentence field.
 
-> Should I use the same tags in AnkiMorphs that I was using with Morphman?
+> Should I use the same tags in PrioritySieve that I was using with Morphman?
 
-I recommend using the default AnkiMorphs tags. Mixing tags can get confusing.
+I recommend using the default PrioritySieve tags. Mixing tags can get confusing.
 
 > Should I export all of studied and in progress words into a CSV spreadsheet?
 
-AnkiMorphs determines which morphs are known in the same way MorphMan does it: by how long the learning
+PrioritySieve determines which morphs are known in the same way MorphMan does it: by how long the learning
 intervals of the cards are. The [Known Morphs Exporter](usage/known-morphs-exporter.md) is more of a tool for trimming
 your card collection, it's not a requirement for transitioning from MorphMan.
 
@@ -27,12 +27,12 @@ cards with `am-known-manually`:
 5. Enter the tag `am-known-manually`
 
 That approach could be overkill though. I wouldn't worry too much about losing known morphs from the cards you tagged as
-known with MorphMan, you can usually get them back quickly by using `K` when you encounter them when using AnkiMorphs.
+known with MorphMan, you can usually get them back quickly by using `K` when you encounter them when using PrioritySieve.
 
 
-> Should I manually delete the words in the focus morph field of my cards so that AnkiMorphs can cleanly reparse
+> Should I manually delete the words in the focus morph field of my cards so that PrioritySieve can cleanly reparse
 > everything?
 
-AnkiMorphs does not reuse the MorphMan focus morph field, so it makes no difference.
+PrioritySieve does not reuse the MorphMan focus morph field, so it makes no difference.
 
 

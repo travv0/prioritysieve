@@ -1,6 +1,6 @@
 # Tests
 
-AnkiMorphs uses a combinations of unnittest and pytest.
+PrioritySieve uses a combinations of unnittest and pytest.
 
 https://docs.python.org/3/library/unittest.mock.html
 

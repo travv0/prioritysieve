@@ -6,11 +6,11 @@ from unittest import mock
 import aqt
 import pytest
 
-from ankimorphs import ankimorphs_config
-from ankimorphs.ankimorphs_config import AnkiMorphsConfig
-from ankimorphs.morpheme import Morpheme
-from ankimorphs.morphemizers import spacy_wrapper
-from ankimorphs.morphemizers.spacy_morphemizer import SpacyMorphemizer
+from prioritysieve import prioritysieve_config
+from prioritysieve.prioritysieve_config import PrioritySieveConfig
+from prioritysieve.morpheme import Morpheme
+from prioritysieve.morphemizers import spacy_wrapper
+from prioritysieve.morphemizers.spacy_morphemizer import SpacyMorphemizer
 
 
 class SpacyMorph:
@@ -27,14 +27,14 @@ def fake_environment_fixture() -> Iterator[None]:
     # print("fake environment initiated")
 
     _config_data = None
-    with open("ankimorphs/config.json", encoding="utf-8") as file:
+    with open("prioritysieve/config.json", encoding="utf-8") as file:
         _config_data = json.load(file)
 
     mock_mw = mock.Mock(spec=aqt.mw)  # can use any mw to spec
     mock_mw.pm.profileFolder.return_value = os.path.join("test", "data")
     mock_mw.addonManager.getConfig.return_value = _config_data
 
-    patch_config_mw = mock.patch.object(ankimorphs_config, "mw", mock_mw)
+    patch_config_mw = mock.patch.object(prioritysieve_config, "mw", mock_mw)
     patch_spacy_wrapper_mw = mock.patch.object(spacy_wrapper, "mw", mock_mw)
     patch_testing_variable = mock.patch.object(
         spacy_wrapper, "testing_environment", True
@@ -592,7 +592,7 @@ def test_spacy(  # pylint:disable=unused-argument
         assert morph.lemma == w.lemma_
         assert morph.part_of_speech == w.pos_
 
-    am_config = AnkiMorphsConfig()
+    am_config = PrioritySieveConfig()
     am_config.preprocess_ignore_names_morphemizer = True
     processed_morphs: list[Morpheme] = next(
         morphemizer.get_processed_morphs(am_config, [sentence.lower()])

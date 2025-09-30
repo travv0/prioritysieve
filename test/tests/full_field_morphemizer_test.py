@@ -1,9 +1,9 @@
-from ankimorphs import ankimorphs_globals
-from ankimorphs.morphemizers.morphemizer_utils import get_morphemizer_by_description
+from prioritysieve import prioritysieve_globals
+from prioritysieve.morphemizers.morphemizer_utils import get_morphemizer_by_description
 
 
 def test_none_morphemizer_returns_full_field() -> None:
-    morphemizer = get_morphemizer_by_description(ankimorphs_globals.NONE_OPTION)
+    morphemizer = get_morphemizer_by_description(prioritysieve_globals.NONE_OPTION)
     assert morphemizer is not None
 
     text = "こんにちは 世界"

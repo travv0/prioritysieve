@@ -31,7 +31,7 @@
 <details>
   <summary style="display:list-item">Freezing when reviewing</summary>
 
-> AnkiMorphs uses the Anki API to run in the background after you answer a card, which then
+> PrioritySieve uses the Anki API to run in the background after you answer a card, which then
 > displays a progress bar of how many cards have been skipped:
 >
 > <img src="../img/skipping-progress.png" alt="image" width="40%" height="auto">
@@ -56,16 +56,16 @@
 <details>
   <summary style="display:list-item">Readability report freezes indefinitely when input is too long</summary>
 
-> When using the `AnkiMorphs: Japanese` morphemizer, excessively long lines of text can cause the morphemizer's buffer
+> When using the `PrioritySieve: Japanese` morphemizer, excessively long lines of text can cause the morphemizer's buffer
 > to overflow, causing the progress bar to freeze indefinitely. To avoid this, try splitting the long lines into
 > shorter segments.
 </details>
 
 
 <details>
-  <summary style="display:list-item">Anki crashing when opening AnkiMorphs settings</summary>
+  <summary style="display:list-item">Anki crashing when opening PrioritySieve settings</summary>
 
-> The `AnkiMorphs: Japanese` morphemizer doesn't handle paths with diacritical marks very well, so paths like this:
+> The `PrioritySieve: Japanese` morphemizer doesn't handle paths with diacritical marks very well, so paths like this:
 > `C:\Users\héroïne` can cause crashes. If you can't change the path name that is causing the crash, try using spaCy
 > morphemizers instead.
 </details>

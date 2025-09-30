@@ -3,11 +3,11 @@ import json
 from pathlib import Path
 from typing import Any
 
-from ankimorphs import ankimorphs_globals as am_globals
-from ankimorphs.ankimorphs_config import RawConfigFilterKeys as FilterKeys
-from ankimorphs.ankimorphs_config import RawConfigKeys as ConfigKeys
+from prioritysieve import prioritysieve_globals as am_globals
+from prioritysieve.prioritysieve_config import RawConfigFilterKeys as FilterKeys
+from prioritysieve.prioritysieve_config import RawConfigKeys as ConfigKeys
 
-DEFAULT_CONFIG_PATH = Path("ankimorphs", "config.json")
+DEFAULT_CONFIG_PATH = Path("prioritysieve", "config.json")
 
 default_config_dict: dict[str, Any]
 
@@ -19,7 +19,7 @@ default_config_filter[FilterKeys.NOTE_TYPE] = "Basic"
 default_config_filter[FilterKeys.FIELD] = "Front"
 default_config_filter[FilterKeys.READING_FIELD] = am_globals.NONE_OPTION
 default_config_filter[FilterKeys.MORPHEMIZER_DESCRIPTION] = (
-    "AnkiMorphs: Simple Space Splitter"
+    "PrioritySieve: Simple Space Splitter"
 )
 default_config_filter[FilterKeys.EXTRA_ALL_MORPHS] = True
 default_config_filter[FilterKeys.EXTRA_ALL_MORPHS_COUNT] = True
@@ -171,7 +171,7 @@ config_big_japanese_collection[ConfigKeys.PREPROCESS_IGNORE_SLIM_ROUND_BRACKET_C
 config_big_japanese_collection_filter = config_big_japanese_collection[ConfigKeys.FILTERS][0]
 config_big_japanese_collection_filter[FilterKeys.NOTE_TYPE] = "japanese_sub2srs"
 config_big_japanese_collection_filter[FilterKeys.FIELD] = "Japanese"
-config_big_japanese_collection_filter[FilterKeys.MORPHEMIZER_DESCRIPTION] = "AnkiMorphs: Japanese"
+config_big_japanese_collection_filter[FilterKeys.MORPHEMIZER_DESCRIPTION] = "PrioritySieve: Japanese"
 # fmt: on
 
 

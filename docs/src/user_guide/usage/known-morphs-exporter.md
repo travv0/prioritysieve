@@ -2,12 +2,12 @@
 
 ![known-morphs-exporter.png](../../img/known-morphs-exporter.png)
 
-Exports all the morphs from `ankimorphs.db` that have the specified interval or above. Useful
+Exports all the morphs from `prioritysieve.db` that have the specified interval or above. Useful
 for [setting known morphs](../setup/setting-known-morphs.md), which allows you to trim down your card collection.
 
 ### Select Output
 
-Select the folder you would like AnkiMorphs to save the file to.
+Select the folder you would like PrioritySieve to save the file to.
 
 Defaults to the [[anki profile](../glossary.md#profile-folder)]`/known-morphs` folder.
 

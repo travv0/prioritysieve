@@ -10,16 +10,16 @@ from test.fake_environment_module import (  # pylint:disable=unused-import
 
 import pytest
 
-from ankimorphs import ankimorphs_globals as am_globals, debug_utils, morph_priority_utils
-from ankimorphs.morph_priority_utils import (
+from prioritysieve import prioritysieve_globals as am_globals, debug_utils, morph_priority_utils
+from prioritysieve.morph_priority_utils import (
     PriorityFile,
     PriorityFileFormat,
     PriorityFileType,
     _populate_priorities_with_lemmas_and_inflections_from_full_priority_file,
     _populate_priorities_with_lemmas_from_minimal_priority_file,
 )
-from ankimorphs.ankimorphs_config import AnkiMorphsConfig
-from ankimorphs.exceptions import PriorityFileMalformedException
+from prioritysieve.prioritysieve_config import PrioritySieveConfig
+from prioritysieve.exceptions import PriorityFileMalformedException
 
 # we don't need any special parameters for these tests
 default_fake_environment_params = FakeEnvironmentParams()
@@ -132,7 +132,7 @@ def test_morph_priority_with_collection_frequency(  # pylint:disable=unused-argu
     fake_environment_fixture: FakeEnvironment,
     json_file_name: str,
 ) -> None:
-    am_config = AnkiMorphsConfig()
+    am_config = PrioritySieveConfig()
 
     morph_priorities = morph_priority_utils.get_morph_priority(
         am_db=fake_environment_fixture.mock_db,

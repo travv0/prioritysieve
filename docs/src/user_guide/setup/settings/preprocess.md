@@ -13,7 +13,7 @@ Here are some options that can preprocess the text on your cards, potentially re
   Ignore content such as character names and readings in Japanese scripts
 * **Ignore content in suspended cards**:  
   Ignore text found on suspended cards **_except_** for suspended cards that have the [Set known and skip tag](tags.md).
-  This exception makes it so that you can safely suspend cards with known morphs without AnkiMorphs losing track of
+  This exception makes it so that you can safely suspend cards with known morphs without PrioritySieve losing track of
   which morphs you know.
   > **Note:** if you use [collection frequency](note-filter.md#morph-priority) in any note filters, then you should not
   use this option because it will affect the morph priorities.

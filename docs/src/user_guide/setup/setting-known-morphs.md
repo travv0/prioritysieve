@@ -1,6 +1,6 @@
 # Setting Known Morphs
 
-AnkiMorphs determines which morphs you know by analyzing the cards you specify. However, if you delete any of those
+PrioritySieve determines which morphs you know by analyzing the cards you specify. However, if you delete any of those
 cards then it can lead to loss of information. To address this issue, you can store known morphs in `.csv` files in the
 [[anki profile](../glossary.md#profile-folder)]`/known-morphs` folder.
 

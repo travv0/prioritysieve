@@ -1,6 +1,6 @@
 # Changes To Anki
 
-After installing AnkiMorphs you will find that some changes have been made to Anki.
+After installing PrioritySieve you will find that some changes have been made to Anki.
 
 ## Toolbar
 
@@ -239,11 +239,11 @@ The `L` and `I` numbers are updated after every [Recalc](../usage/recalc.md).
 
 ## Browse
 
-AnkiMorphs adds new options in the `Browse` window
+PrioritySieve adds new options in the `Browse` window
 
 ![browser-right-click.png](../../img/browser-right-click.png)
 
-These options can be accessed either from the context menu when right-clicking cards, or from the `AnkiMorphs` menu at
+These options can be accessed either from the context menu when right-clicking cards, or from the `PrioritySieve` menu at
 the top of the `Browse` window:
 
 ![browse-toolbar.png](../../img/browse-toolbar.png)
@@ -252,7 +252,7 @@ These features are explained [here](../usage/browser.md).
 
 ## Tools Menu
 
-An AnkiMorphs submenu is added to the Anki `Tools` menu:
+An PrioritySieve submenu is added to the Anki `Tools` menu:
 
 ![tools_menu.png](../../img/tools_menu.png)
 

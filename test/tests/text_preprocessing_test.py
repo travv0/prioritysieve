@@ -9,8 +9,8 @@ from test.fake_environment_module import (  # pylint:disable=unused-import
 
 import pytest
 
-from ankimorphs import text_preprocessing
-from ankimorphs.ankimorphs_config import AnkiMorphsConfig
+from prioritysieve import text_preprocessing
+from prioritysieve.prioritysieve_config import PrioritySieveConfig
 
 default_fake_environment = FakeEnvironmentParams()
 
@@ -70,7 +70,7 @@ def test_preprocessing_square_brackets(  # pylint:disable=unused-argument
     input_text: str,
     correct_output: str,
 ) -> None:
-    am_config = AnkiMorphsConfig()
+    am_config = PrioritySieveConfig()
     setattr(am_config, preprocess_option, option_enabled)
     processed_text: str = text_preprocessing.get_processed_text(am_config, input_text)
     assert processed_text == correct_output
@@ -110,7 +110,7 @@ def test_preprocess_custom_characters(  # pylint:disable=unused-argument
     input_text: str,
     correct_output: str,
 ) -> None:
-    am_config = AnkiMorphsConfig()
+    am_config = PrioritySieveConfig()
     text_preprocessing.update_translation_table()
     processed_text: str = text_preprocessing.get_processed_text(am_config, input_text)
     assert processed_text == correct_output

@@ -17,9 +17,9 @@ import pytest
 from anki.consts import CardQueue
 from aqt.reviewer import Reviewer
 
-from ankimorphs import reviewing_utils
-from ankimorphs.ankimorphs_config import AnkiMorphsConfig
-from ankimorphs.reviewing_utils import SkippedCards
+from prioritysieve import reviewing_utils
+from prioritysieve.prioritysieve_config import PrioritySieveConfig
+from prioritysieve.reviewing_utils import SkippedCards
 
 
 @pytest.fixture
@@ -30,7 +30,7 @@ def mocked_reviewer_and_db(
     mock_mw = fake_environment_fixture.mock_mw
     mock_db = fake_environment_fixture.mock_db
 
-    am_config = AnkiMorphsConfig()
+    am_config = PrioritySieveConfig()
     skipped_cards = SkippedCards()
 
     reviewing_utils.init_undo_targets()
@@ -98,7 +98,7 @@ def test_custom_review(  # pylint:disable=unused-argument
     mocked_reviewer_and_db: tuple[Mock, FakeDB],
 ) -> None:
     mock_mw, mock_db = mocked_reviewer_and_db
-    am_config = AnkiMorphsConfig()
+    am_config = PrioritySieveConfig()
 
     first_card = expected_results[0]
     second_card = expected_results[1]

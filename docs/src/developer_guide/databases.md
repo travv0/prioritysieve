@@ -1,6 +1,6 @@
 # Databases
 
-## ankimorphs.db
+## prioritysieve.db
 
 This is an sqlite database with three tables:
 

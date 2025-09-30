@@ -2,11 +2,11 @@
 
 ![settings-note-filter.png](../../../img/settings-note-filter.png)
 
-AnkiMorphs only analyzes and sorts cards that match at least one note filter; if you don't specify any note filters,
-then AnkiMorphs won't do anything, so this is a necessary step. This can seem overly complicated and overwhelming, but
+PrioritySieve only analyzes and sorts cards that match at least one note filter; if you don't specify any note filters,
+then PrioritySieve won't do anything, so this is a necessary step. This can seem overly complicated and overwhelming, but
 hopefully things will make sense after reading to the end of this page. This is really the heart of the add-on, and it
 has some powerful options (notably [tags](note-filter.md#tags)), so having a good understanding of note filters work
-might significantly improve how much you benefit from AnkiMorphs.
+might significantly improve how much you benefit from PrioritySieve.
 
 Each note filter contains:
 
@@ -26,7 +26,7 @@ To find a card's note type do the following:
 </video>
 
 1. Go to Browse
-2. Find a card you want AnkiMorphs to analyze and sort
+2. Find a card you want PrioritySieve to analyze and sort
 3. Right-click the card
 4. Click Info
 5. See `Note Type`
@@ -41,7 +41,7 @@ after.
 
 ## Tags
 
-You can further filter AnkiMorphs to only work on cards with a certain note type **and** with/without specific tag(s).
+You can further filter PrioritySieve to only work on cards with a certain note type **and** with/without specific tag(s).
 
 Let's use an example of having a note type: `anime_sub2srs`. The card break-down of the note type is the following:
 
@@ -74,7 +74,7 @@ If you want the 18K cards that don't have the `fight-scene` tag:
 
 ## Field
 
-This is the field on the card AnkiMorphs reads and analyzes, which is then used to sort the card.
+This is the field on the card PrioritySieve reads and analyzes, which is then used to sort the card.
 
 ![browser-note-fields.png](../../../img/browser-note-fields.png)
 
@@ -89,7 +89,7 @@ In my case the field I'm interested in is `Japanese`
 
 ## Morphemizer
 
-This is the tool AnkiMorphs uses to split text into morphs. See the [installation section](../../installation.md) for 
+This is the tool PrioritySieve uses to split text into morphs. See the [installation section](../../installation.md) for 
 how to add morphemizers. 
 
 ![morphemizer-selection.png](../../../img/morphemizer-selection.png)
@@ -115,7 +115,7 @@ the [priority](../prioritizing.md) you give the morphs. You can either set the p
 morphs occur in your card collection), or you could use a [custom priority file](../prioritizing.md#custom-priority-files) that specifies the priorities of
 the morphs.
 
-AnkiMorphs automatically finds `.csv` files placed
+PrioritySieve automatically finds `.csv` files placed
 in [[anki profile folder](../../glossary.md#profile-folder)]`/priority-files/`.
 
 > **Note:** using `Collection frequency` is not recommended because it can be volatile; if you make any changes to your
@@ -123,10 +123,10 @@ in [[anki profile folder](../../glossary.md#profile-folder)]`/priority-files/`.
 
 ## Read & Modify
 
-If, for whatever reason, you don't want AnkiMorphs to read one of the note filters you have set up, then you
+If, for whatever reason, you don't want PrioritySieve to read one of the note filters you have set up, then you
 can uncheck the `Read` option.
 
-If you uncheck `Modify`, AnkiMorphs will analyze the
+If you uncheck `Modify`, PrioritySieve will analyze the
 specified fields of cards (and update the database of known morphs based on them), but won’t reorder
 or change the cards in any way.
 

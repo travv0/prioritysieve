@@ -1,10 +1,10 @@
 # Prioritizing
 
 The more frequently a morph occurs in a language, the more useful it is to learn. This is the fundamental principle
-behind AnkiMorphs--learn a language in the order that will be the most useful.
+behind PrioritySieve--learn a language in the order that will be the most useful.
 
-AnkiMorphs is a general purpose language learning tool, therefore, it has to be told which morphs occur most often. You
-can do this in two ways, either have AnkiMorphs calculate the morph frequencies found in your
+PrioritySieve is a general purpose language learning tool, therefore, it has to be told which morphs occur most often. You
+can do this in two ways, either have PrioritySieve calculate the morph frequencies found in your
 cards (`Collection frequency`), or you can specify a custom `.csv` file that contains that information.
 
 Any `.csv` file located in the folder [[anki profile folder](../glossary.md#profile-folder)]`/priority-files/` is
@@ -32,7 +32,7 @@ of this page.
 
 > **Note**:
 > - The `Occurrences` column is optional
-> - Any lines after 1 million will be ignored by AnkiMorphs
+> - Any lines after 1 million will be ignored by PrioritySieve
 
 
 ### Custom Lemma Priority Files
@@ -77,7 +77,7 @@ Unless stated otherwise, these are `inflection` priority files, generated using 
 <details>
   <summary>Cantonese</summary>
 
-> **Note**: This is a lemma only priority file that was **not** generated using AnkiMorphs, so it might not work very well (or at all).
+> **Note**: This is a lemma only priority file that was **not** generated using PrioritySieve, so it might not work very well (or at all).
 > * <a download href="../../priority_files/cantonese/words-hk/zhh-freq.csv">zhh-freq.csv</a>
 >   - Source: `existingwordcount.csv` found on [words.hk - analysis](https://words.hk/faiman/analysis/)
 
@@ -98,7 +98,7 @@ Unless stated otherwise, these are `inflection` priority files, generated using 
 > **Note**: this is a lemma only priority file.
 > * <a download href="../../priority_files/chinese/wortschatz/zh-news-lemma-priority.csv">zh-news-lemma-priority.csv</a>
 >   - Source: `zho_news_2020_300K-sentences.txt` found on [wortschatz - chinese corpora](https://wortschatz.uni-leipzig.de/en/download/Chinese#zho-simp_news_2010)
->   - Morphemizer: `AnkiMorphs: Chinese`
+>   - Morphemizer: `PrioritySieve: Chinese`
 
 </details>
 
@@ -188,10 +188,10 @@ Unless stated otherwise, these are `inflection` priority files, generated using 
 
 > * <a download href="../../priority_files/japanese/wortschatz/ja-news-priority.csv">ja-news-priority.csv</a>
 >    - Source: `jpn_news_2011_300K-sentences.txt` found on [wortschatz - japanese corpora](https://wortschatz.uni-leipzig.de/en/download/Japanese)
->    - Morphemizer: `AnkiMorphs: Japanese`
+>    - Morphemizer: `PrioritySieve: Japanese`
 > * <a download href="../../priority_files/japanese/nanako/ja-anime-priority.csv">ja-anime-priority.csv</a>
 >    - Source: [NanakoRaws](https://github.com/kienkzz/NanakoRaws-Anime-Japanese-subtitles)
->    - Morphemizer: `AnkiMorphs: Japanese`
+>    - Morphemizer: `PrioritySieve: Japanese`
 >
 
 

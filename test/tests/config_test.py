@@ -2,7 +2,7 @@ import json
 from test.fake_configs import DEFAULT_CONFIG_PATH
 from typing import Any
 
-from ankimorphs.ankimorphs_config import RawConfigFilterKeys, RawConfigKeys
+from prioritysieve.prioritysieve_config import RawConfigFilterKeys, RawConfigKeys
 
 
 def test_am_config_contains_keys() -> None:

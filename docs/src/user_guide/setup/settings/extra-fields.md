@@ -3,8 +3,8 @@
 ![extra-fields.png](../../../img/extra-fields.png)
 
 
-The text found in the [note filter: field](../settings/note-filter.md#field) is extracted and analyzed by AnkiMorphs.
-AnkiMorphs can then place
+The text found in the [note filter: field](../settings/note-filter.md#field) is extracted and analyzed by PrioritySieve.
+PrioritySieve can then place
 information about that text into dedicated fields on your cards.
 
 > **Note**: The first time you select an extra field, you will need to perform a full sync upload to AnkiWeb. If you
@@ -27,7 +27,7 @@ The fields contain the following:
 - **am-highlighted**:  
   An HTML version of the text that highlights the morphs based on learning status.
 - **am-score**:  
-  The [score](../../usage/recalc.md#scoring-algorithm) AnkiMorphs determined the card to have
+  The [score](../../usage/recalc.md#scoring-algorithm) PrioritySieve determined the card to have
 - **am-score-terms**:  
   The individual [score](../../usage/recalc.md#scoring-algorithm) terms
 - **am-study-morphs**:  

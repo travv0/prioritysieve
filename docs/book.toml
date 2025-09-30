@@ -3,13 +3,13 @@ authors = ["mortii"]
 language = "en"
 multilingual = false
 src = "src"
-title = "AnkiMorphs"
+title = "PrioritySieve"
 
 [output.html]
-git-repository-url = "https://github.com/mortii/anki-morphs"
-edit-url-template = "https://github.com/mortii/anki-morphs/edit/main/docs/{path}"
+git-repository-url = "https://github.com/mortii/prioritysieve"
+edit-url-template = "https://github.com/mortii/prioritysieve/edit/main/docs/{path}"
 additional-css = ["src/custom.css"]
-site-url = "/anki-morphs/"
+site-url = "/prioritysieve/"
 
 [output.html.fold]
 enable = true

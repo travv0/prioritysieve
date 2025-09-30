@@ -1,4 +1,4 @@
-from ankimorphs.reading_utils import normalize_reading, parse_furigana_field
+from prioritysieve.reading_utils import normalize_reading, parse_furigana_field
 
 def test_parse_furigana_field_multiple_tokens() -> None:
     assert parse_furigana_field("繰[く]り 広[ひろ]げる") == ["くり", "ひろげる"]

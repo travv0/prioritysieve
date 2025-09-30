@@ -9,5 +9,5 @@ Redirecting the terminal output to a file can be very useful. Here is a linux ex
 anki > anki_output.txt
 ```
 
-There is also a dedicated test function in the AnkiMorphs code that allows for faster/easier testing, you can
-find it here: [\_\_init\_\_.py: test_function](https://github.com/mortii/anki-morphs/blob/aad52910c46c0abef84c58ac901efe470d9dcd48/ankimorphs/__init__.py#L537)
+There is also a dedicated test function in the PrioritySieve code that allows for faster/easier testing, you can
+find it here: [\_\_init\_\_.py: test_function](https://github.com/mortii/prioritysieve/blob/aad52910c46c0abef84c58ac901efe470d9dcd48/ankimorphs/__init__.py#L537)

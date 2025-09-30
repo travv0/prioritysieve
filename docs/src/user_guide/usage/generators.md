@@ -3,7 +3,7 @@
 
 ![generators-window.png](../../img/generators-window.png)
 
-AnkiMorphs provides the following three generators:
+PrioritySieve provides the following three generators:
 
 - [Readability Report Generator](#readability-report-generator)  
   Generates a report on how well you know the text in the specified files. The results are displayed in the table at the
@@ -83,7 +83,7 @@ buttons are now enabled. Next, you need to specify how the generators should [pr
 
 ![generator-morphemizer.png](../../img/generator-morphemizer.png)
 
-This is the tool AnkiMorphs uses to split text into morphs.
+This is the tool PrioritySieve uses to split text into morphs.
 
 ### Preprocess
 
@@ -170,7 +170,7 @@ The resulting file can be used in the [note filter: morph priority settings](../
 like any other priority file.
 
 > **Note**: that only the data from the `Morph-Lemma`, and `Morph-Lnflection` columns are read 
-by AnkiMorphs, so you can delete or modify the other columns if you want.
+by PrioritySieve, so you can delete or modify the other columns if you want.
 
 
 ### Changing The File Order

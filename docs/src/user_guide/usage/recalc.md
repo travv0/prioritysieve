@@ -2,15 +2,15 @@
 
 ![recalc_example.png](../../img/recalc_example.png)
 
-Recalc is short for “recalculate”, and is basically the command that tells AnkiMorphs to work all its
-magic. When you run Recalc, AnkiMorphs will go through
+Recalc is short for “recalculate”, and is basically the command that tells PrioritySieve to work all its
+magic. When you run Recalc, PrioritySieve will go through
 the [cards that match any 'Note Filter'](../setup/settings/note-filter.md) and do the following:
 
-* Update the `ankimorphs.db` with any new seen morphs, known morphs, etc.
+* Update the `prioritysieve.db` with any new seen morphs, known morphs, etc.
 * Calculate the [score of the cards](#scoring-algorithm), and then sort the cards based on that score.
 * Update any cards' [extra fields](../setup/settings/extra-fields.md) and [tags](../setup/settings/tags.md).
 
-Basically, when you run Recalc, AnkiMorphs will go through your collection, recalculate
+Basically, when you run Recalc, PrioritySieve will go through your collection, recalculate
 the difficulty of your cards based on your new knowledge, and reorder your new cards in a way that’s optimal for the new
 you: the you who knows more than you did yesterday.
 
@@ -80,7 +80,7 @@ $$$
 
 ### insignificance
 
-[Each morph has a priority value](../setup/prioritizing.md), which AnkiMorphs aggregates into the following
+[Each morph has a priority value](../setup/prioritizing.md), which PrioritySieve aggregates into the following
 metrics:
 $$$
 {\Large
@@ -209,7 +209,7 @@ This graph shows:
 - Penalty for insufficient morphs: linear in relation to the target difference
 - Ideal range (target): 4-6 morphs
 
-AnkiMorphs provides the following metrics, which you can influence by changing the coefficients:
+PrioritySieve provides the following metrics, which you can influence by changing the coefficients:
 
 <br>
 

@@ -2,7 +2,7 @@
 
 ### Starting Out
 
-When you first start using AnkiMorphs, you will probably come across many variations of Interjections (e.g. `Aaah!`,
+When you first start using PrioritySieve, you will probably come across many variations of Interjections (e.g. `Aaah!`,
 `umm...`, `Wow!`) and other uninteresting
 words. [Just tag them as known](reviewing-cards.md#encountering-morphs-you-already-know)
 and move on. When you reach a critical mass of known morphs, usually around 50–100, is when you will start encountering
@@ -11,7 +11,7 @@ useful sentences.
 Stuttered names or words might accidentally produce morphs that don't make any sense in the context, and you should
 probably suspend these cards or mark them as known if there are many of them.
 
-AnkiMorphs might seem error-prone at first, like mixing up two (seemingly) different morphs, but the more data it
+PrioritySieve might seem error-prone at first, like mixing up two (seemingly) different morphs, but the more data it
 accumulates, the more accurate it becomes, so try not to get discouraged! It becomes much more enjoyable to use after
 you know 100+ morphs.
 
@@ -26,9 +26,9 @@ recalc.
 
 ### Encountering Cards You Don't Understand
 
-There will also be times when AnkiMorphs says a card is [1T](../glossary.md#1t-sentence), but you aren’t able to
-understand it. There are two reasons this may occur. The first is that, due to incorrect parsing, AnkiMorphs thinks you
-know a word that you don’t. Unfortunately, there is no easy way to remove morphs from the AnkiMorphs' database. Luckily,
+There will also be times when PrioritySieve says a card is [1T](../glossary.md#1t-sentence), but you aren’t able to
+understand it. There are two reasons this may occur. The first is that, due to incorrect parsing, PrioritySieve thinks you
+know a word that you don’t. Unfortunately, there is no easy way to remove morphs from the PrioritySieve' database. Luckily,
 this shouldn’t happen very often. When it does, your only real option is to suspend or delete the card.
 
 The other scenario is that you aren’t able to understand a sentence deemed 1T despite it indeed
@@ -40,7 +40,7 @@ definition,
 any sentence that’s truly 1T shouldn’t be difficult to understand.
 
 Whenever this happens, it's best to either [find a better card](reviewing-cards.md#finding-a-better-card) or
-suspend/delete theccard and move on. The whole point of AnkiMorphs is to help you make fast progress by collecting
+suspend/delete theccard and move on. The whole point of PrioritySieve is to help you make fast progress by collecting
 low-hanging fruit. If you spend time mulling over things that are above your level, you’re defeating the purpose of the
 add-on.
 
@@ -56,7 +56,7 @@ If you want to learn a different card instead of the one you are presented, then
 unknown morph. If you want to see all 1T _and_ [MT](../glossary.md#mt-sentence) cards you can use `Shift+L`.
 
 From here you can right-click your preferred card and select `Learn Card Now`. You can also find the same options in
-the `AnkiMorphs` menu at the top of the browse window.
+the `PrioritySieve` menu at the top of the browse window.
 
 The card will then go to the top of the `new cards`-queue. If you have other due cards, then they might show up first.
 
@@ -71,7 +71,7 @@ refer to the [Anki studying guide](https://docs.ankiweb.net/studying.html#learni
 
 ### Skipping Cards
 
-There are three scenarios where AnkiMorphs will automatically skip a card:
+There are three scenarios where PrioritySieve will automatically skip a card:
 
 1. **You have selected the `Skip cards with no unknown morphs`-option the in the [card-handling settings](../setup/settings/card_handling.md)**:   
    If the card does not have any unknown morphs, it will be skipped.
@@ -88,7 +88,7 @@ There are three scenarios where AnkiMorphs will automatically skip a card:
 
 ### Pre-skipping Cards
 
-The skipping features mentioned in the section above only take effect when using Anki on desktop where the AnkiMorphs
+The skipping features mentioned in the section above only take effect when using Anki on desktop where the PrioritySieve
 addon is activated. This can make it tricky to study new cards on mobile since there might be many cards right after
 each other that have the same unknown morph.
 
@@ -103,7 +103,7 @@ For more info read:
 
 ![context-menu.png](../../img/context-menu.png)
 
-AnkiMorphs adds some additional options to the Anki context menu (right-click):
+PrioritySieve adds some additional options to the Anki context menu (right-click):
 
 * **Mark as Name**:  
   The highlighted text will be added to the [names.txt](../setup/names.md) file, and the card will be skipped.

@@ -1,10 +1,10 @@
 # Installation
 
-You can download the latest version of AnkiMorphs from [ankiweb](https://ankiweb.net/shared/info/472573498). You can
+You can download the latest version of PrioritySieve from [ankiweb](https://ankiweb.net/shared/info/472573498). You can
 find
-previous versions [on github releases](https://github.com/mortii/anki-morphs/releases).
+previous versions [on github releases](https://github.com/mortii/prioritysieve/releases).
 
-AnkiMorphs parses text into morphs by using external morphemizers, and different languages will require different
+PrioritySieve parses text into morphs by using external morphemizers, and different languages will require different
 morphemizers. Below are the currently supported morphemizers:
 
 <details>
@@ -18,7 +18,7 @@ morphemizers. Below are the currently supported morphemizers:
 >- [MeCab](https://en.wikipedia.org/wiki/MeCab) morphemizer (recommended)  
    This can be added by installing the [ankimorphs-japanese-mecab](https://ankiweb.net/shared/info/1974309724) companion
    add-on (installation code: `1974309724`). Once this add-on has been installed and Anki has been restarted, the
-   morphemizer will show up as the option `AnkiMorphs: Japanese`
+   morphemizer will show up as the option `PrioritySieve: Japanese`
 >
 >- [install spaCy](installation/installing-spacy.md) with Japanese models
 
@@ -32,7 +32,7 @@ morphemizers. Below are the currently supported morphemizers:
 >- [Jieba](https://github.com/fxsjy/jieba?tab=readme-ov-file#jieba-1) morphemizer (recommended)  
    This can be added by installing the [ankimorphs-chinese-jieba](https://ankiweb.net/shared/info/1857311956) companion
    add-on (installation code: `1857311956`). Once this add-on has been installed and Anki has been restarted, the
-   morphemizer will show up as the option `AnkiMorphs: Chinese`
+   morphemizer will show up as the option `PrioritySieve: Chinese`
 >
 >- [install spaCy](installation/installing-spacy.md) with Chinese models
 
@@ -48,7 +48,7 @@ morphemizers. Below are the currently supported morphemizers:
 > Ukrainian.
 </details>
 
-After the installation is complete, some [setup](setup.md) is required to get AnkiMorphs to work. After that you can
+After the installation is complete, some [setup](setup.md) is required to get PrioritySieve to work. After that you can
 run [Recalc](usage/recalc.md) and you will be good to go!
 
-[Here is an overview](installation/changes-to-anki.md) of the changes that are made to Anki after installing AnkiMorphs.
+[Here is an overview](installation/changes-to-anki.md) of the changes that are made to Anki after installing PrioritySieve.

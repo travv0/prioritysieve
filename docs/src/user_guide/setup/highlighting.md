@@ -4,7 +4,7 @@
     <source src="../../img/highlighting.mp4" type="video/mp4">
 </video>
 
-AnkiMorphs can automatically color-code morphs based on their learning status, i.e., how well you know them.
+PrioritySieve can automatically color-code morphs based on their learning status, i.e., how well you know them.
 
 I recommend only putting the highlighted-field on the back of cards. The reason for this is that, in order to get the
 best

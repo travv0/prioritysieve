@@ -19,7 +19,7 @@ from typing import Any
 
 import pytest
 
-from ankimorphs.known_morphs_exporter import KnownMorphsExporterDialog
+from prioritysieve.known_morphs_exporter import KnownMorphsExporterDialog
 
 test_cases = [
     ################################################################
@@ -29,7 +29,7 @@ test_cases = [
     # lemma + inflection, so we test both.
     # The KnownMorphsExporterDialog automatically checks which of
     # those options should be used depending on whether the
-    # 'evaluate_morph_lemma' option is enabled in AnkiMorphsConfig.
+    # 'evaluate_morph_lemma' option is enabled in PrioritySieveConfig.
     ################################################################
     pytest.param(
         FakeEnvironmentParams(

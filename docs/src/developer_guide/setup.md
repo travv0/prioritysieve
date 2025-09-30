@@ -37,13 +37,13 @@
 
    Remember to activate the virtual environment any time before you start working on the project, some IDEs do this
    automatically.
-2. **Set the project python interpreter** to be `anki-morphs/venv/bin/python` to get your IDE to recognize the packages
+2. **Set the project python interpreter** to be `prioritysieve/venv/bin/python` to get your IDE to recognize the packages
    installed above.
 
 3. **Create a soft symbolic link** from the cloned repo to the anki add-ons folder so anki starts using the cloned
-   AnkiMorphs:
+   PrioritySieve:
    ``` bash
-   ln -s ~/path/to/cloned/repo/anki-morphs/ankimorphs  ~/.local/share/Anki2/addons21/ankimorphs
+   ln -s ~/path/to/cloned/repo/prioritysieve/prioritysieve  ~/.local/share/Anki2/addons21/ankimorphs
    ```
 4. **Using pre-commit**:
 
@@ -101,7 +101,7 @@
 
     <br>
 
-   **Optional:** if you use gitkraken you have to adjust the pre-commit script (`anki-morphs/.git/hooks/pre-commit`) to
+   **Optional:** if you use gitkraken you have to adjust the pre-commit script (`prioritysieve/.git/hooks/pre-commit`) to
    activate the virtual environment first:
 
    ```bash
@@ -110,8 +110,8 @@
    # ID: 138fd403232d2ddd5efb44317e38bf03
    
    # start templated
-   ANKIMORPH_DIR=/home/mortii/git/anki-morphs/  # <--- ADD THIS LINE!
-   INSTALL_PYTHON=/home/mortii/git/anki-morphs/venv/bin/python3
+   ANKIMORPH_DIR=/home/mortii/git/prioritysieve/  # <--- ADD THIS LINE!
+   INSTALL_PYTHON=/home/mortii/git/prioritysieve/venv/bin/python3
    ARGS=(hook-impl --config=.pre-commit-config.yaml --hook-type=pre-commit)
    # end templated
    

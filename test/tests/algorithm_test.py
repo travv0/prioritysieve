@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from ankimorphs.recalc import card_score
+from prioritysieve.recalc import card_score
 
 
 @pytest.mark.parametrize(

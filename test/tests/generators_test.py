@@ -19,17 +19,17 @@ from typing import Any
 import pytest
 from aqt.qt import QTableWidgetItem  # pylint:disable=no-name-in-module
 
-from ankimorphs.generators import (
+from prioritysieve.generators import (
     priority_file_generator,
     readability_report_generator,
     study_plan_generator,
 )
-from ankimorphs.generators.generators_output_dialog import (
+from prioritysieve.generators.generators_output_dialog import (
     GeneratorOutputDialog,
     OutputOptions,
 )
-from ankimorphs.generators.generators_utils import Column
-from ankimorphs.generators.generators_window import GeneratorWindow
+from prioritysieve.generators.generators_utils import Column
+from prioritysieve.generators.generators_window import GeneratorWindow
 
 
 @pytest.mark.parametrize(
@@ -70,7 +70,7 @@ from ankimorphs.generators.generators_window import GeneratorWindow
         (
             default_fake_environment_params,
             "ja_subs",
-            "AnkiMorphs: Japanese",
+            "PrioritySieve: Japanese",
             True,
             True,
             "mecab_freq_lemma_comprehension.csv",
@@ -78,7 +78,7 @@ from ankimorphs.generators.generators_window import GeneratorWindow
         (
             default_fake_environment_params,
             "ja_subs",
-            "AnkiMorphs: Japanese",
+            "PrioritySieve: Japanese",
             True,
             False,
             "mecab_freq_lemma_min_occurrence.csv",
@@ -86,7 +86,7 @@ from ankimorphs.generators.generators_window import GeneratorWindow
         (
             default_fake_environment_params,
             "ja_subs",
-            "AnkiMorphs: Japanese",
+            "PrioritySieve: Japanese",
             False,
             True,
             "mecab_freq_inflection_comprehension.csv",
@@ -94,7 +94,7 @@ from ankimorphs.generators.generators_window import GeneratorWindow
         (
             default_fake_environment_params,
             "ja_subs",
-            "AnkiMorphs: Japanese",
+            "PrioritySieve: Japanese",
             False,
             False,
             "mecab_freq_inflection_min_occurrence.csv",
@@ -127,7 +127,7 @@ from ankimorphs.generators.generators_window import GeneratorWindow
         (
             default_fake_environment_params,
             "ass_files",
-            "AnkiMorphs: Japanese",
+            "PrioritySieve: Japanese",
             False,
             False,
             "ass_inflection_min_occurrence.csv",
@@ -259,7 +259,7 @@ def test_readability_report(  # pylint:disable=too-many-arguments, unused-argume
     gw._background_gather_files_and_populate_files_column()
 
     _set_morphemizer(
-        generator_window=gw, morphemizer_description="AnkiMorphs: Japanese"
+        generator_window=gw, morphemizer_description="PrioritySieve: Japanese"
     )
 
     readability_report_generator.background_generate_report(
@@ -347,7 +347,7 @@ def test_study_plan_generator(  # pylint:disable=unused-argument, too-many-local
     gw._background_gather_files_and_populate_files_column()
 
     _set_morphemizer(
-        generator_window=gw, morphemizer_description="AnkiMorphs: Japanese"
+        generator_window=gw, morphemizer_description="PrioritySieve: Japanese"
     )
 
     _default_output_file = Path(test_output_file)

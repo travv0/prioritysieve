@@ -103,8 +103,8 @@ A morph is classified as **fresh** if it only appears on review cards with a lea
 
 ## Profile folder
 
-For AnkiMorphs to work, it needs to use some dedicated files and folders, namely:
-- `ankimorphs.db`
+For PrioritySieve to work, it needs to use some dedicated files and folders, namely:
+- `prioritysieve.db`
 - `names.txt`
 - `priority-files/`
 - `known-morphs/`

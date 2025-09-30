@@ -1,6 +1,6 @@
 # Installing spaCy
 
-From the Anki `Tools` menu, navigate to `AnkiMorphs` -> `spaCy Manager`
+From the Anki `Tools` menu, navigate to `PrioritySieve` -> `spaCy Manager`
 
 ![spacy_manager_menu.png](../../img/spacy_manager_menu.png)
 

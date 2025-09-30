@@ -46,7 +46,7 @@ pytest --randomly-seed=last
 
 ### Test coverage
 
-Run: `pytest --cov=ankimorphs --cov-report html` and click on `index.html` in `htmlcov/`
+Run: `pytest --cov=prioritysieve --cov-report html` and click on `index.html` in `htmlcov/`
 
 
 ## Card collections
@@ -76,14 +76,14 @@ Current card collections (test/data/card_collections):
   - morphemizer: 'Ankimorphs Japanese'
 - `ignore_names_txt_collection.anki2`
   - Contains one card that has two names, one of which is found in names.txt
-  - morphemizer: 'AnkiMorphs: Language w/ Spaces'
+  - morphemizer: 'PrioritySieve: Language w/ Spaces'
 - `known-morphs-collection.anki2`
   - contains one card with 7 morphs, 6 of which are found in the 'known-morphs-valid' directory
-  - morphemizer: 'AnkiMorphs: Language w/ Spaces'
+  - morphemizer: 'PrioritySieve: Language w/ Spaces'
 - `offset_new_cards_inflection_collection.anki2`
   - Contains two cards, both with "hello".
   - `recalc_offset_new_cards` config option enabled
-  - morphemizer: 'AnkiMorphs: Language w/ Spaces'
+  - morphemizer: 'PrioritySieve: Language w/ Spaces'
 - `offset_new_cards_lemma_collection.anki2`
   - duplicate of `lemma_evaluation_lemma_extra_fields_collection.anki2`, but has uses the `recalc_offset_new_cards`
   config option enabled
@@ -129,7 +129,7 @@ Current card collections (test/data/card_collections):
 2. create a new deck
 3. create a new note type
 4. add cards with the note type to the new deck
-5. change the ankimorphs settings to fit the use case and recalc
+5. change the prioritysieve settings to fit the use case and recalc
 6. exit anki/close the profile
 7. extract the `collection.anki2` file from the profile directory and rename it
 8. place the renamed collection file in `test/data/card_collections`

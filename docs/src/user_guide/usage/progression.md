@@ -22,7 +22,7 @@ information. Any `.csv` file located in the folder [anki profile folder](../glos
 
 ### Options
 
-To gauge progression, AnkiMorphs essentially calculates a histogram. Morphs with assigned priorities are first binned
+To gauge progression, PrioritySieve essentially calculates a histogram. Morphs with assigned priorities are first binned
 into priority ranges (e.g., priorities `1-500`, `501-1000`, etc.). 
 
 The user can designate the bin size:

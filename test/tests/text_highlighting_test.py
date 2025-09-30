@@ -15,23 +15,23 @@ from unittest import mock
 import anki
 import pytest
 
-from ankimorphs import ankimorphs_config
-from ankimorphs.ankimorphs_config import AnkiMorphsConfig, AnkiMorphsConfigFilter
-from ankimorphs.highlighting import highlight_just_in_time
-from ankimorphs.highlighting.highlight_just_in_time import highlight_morphs_jit
-from ankimorphs.highlighting.ruby_classes import (
+from prioritysieve import prioritysieve_config
+from prioritysieve.prioritysieve_config import PrioritySieveConfig, PrioritySieveConfigFilter
+from prioritysieve.highlighting import highlight_just_in_time
+from prioritysieve.highlighting.highlight_just_in_time import highlight_morphs_jit
+from prioritysieve.highlighting.ruby_classes import (
     FuriganaRuby,
     KanaRuby,
     KanjiRuby,
     Ruby,
     TextRuby,
 )
-from ankimorphs.highlighting.text_highlighter import TextHighlighter
-from ankimorphs.morpheme import Morpheme
-from ankimorphs.morphemizers import (
+from prioritysieve.highlighting.text_highlighter import TextHighlighter
+from prioritysieve.morpheme import Morpheme
+from prioritysieve.morphemizers import (
     morphemizer_utils,
 )
-from ankimorphs.morphemizers.morphemizer import Morphemizer
+from prioritysieve.morphemizers.morphemizer import Morphemizer
 
 ##############################################################################################
 #                                    CASE: JAPANESE ONE
@@ -878,7 +878,7 @@ def test_highlighting(  # pylint:disable=unused-argument
     # manually created and therefore inconsistent across tests
     Morpheme.get_learning_status.cache_clear()
 
-    am_config = AnkiMorphsConfig()
+    am_config = PrioritySieveConfig()
 
     # for text without rubies it's preferable to cycle through all the
     # ruby types for extra confirmation, since they should all produce
@@ -907,10 +907,10 @@ def _get_dynamic_highlighted_text(
             lambda x, y, z: card_morphs,
         ),
         mock.patch.object(
-            ankimorphs_config,
+            prioritysieve_config,
             "get_matching_filter",
             lambda _: mock.Mock(
-                spec=AnkiMorphsConfigFilter, morphemizer_description=""
+                spec=PrioritySieveConfigFilter, morphemizer_description=""
             ),
         ),
         mock.patch.object(
@@ -940,9 +940,9 @@ def _get_filter_name(ruby_type: type[Ruby]) -> str:
     """Get local styles for this run, based on the filter name."""
 
     if ruby_type == FuriganaRuby:
-        return "am-highlight-furigana"
+        return "ps-highlight-furigana"
     if ruby_type == KanjiRuby:
-        return "am-highlight-kanji"
+        return "ps-highlight-kanji"
     if ruby_type == KanaRuby:
-        return "am-highlight-kana"
-    return "am-highlight"
+        return "ps-highlight-kana"
+    return "ps-highlight"

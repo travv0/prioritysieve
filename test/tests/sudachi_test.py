@@ -11,23 +11,23 @@ import pytest
 
 
 def _bootstrap_minimal_environment() -> None:
-    if "ankimorphs" not in sys.modules:
-        package_root = Path(__file__).resolve().parents[2] / "ankimorphs"
-        package_module = ModuleType("ankimorphs")
+    if "prioritysieve" not in sys.modules:
+        package_root = Path(__file__).resolve().parents[2] / "prioritysieve"
+        package_module = ModuleType("prioritysieve")
         package_module.__path__ = [str(package_root)]  # type: ignore[attr-defined]
-        sys.modules["ankimorphs"] = package_module
+        sys.modules["prioritysieve"] = package_module
 
-    if "ankimorphs.ankimorphs_config" not in sys.modules:
-        config_module = ModuleType("ankimorphs.ankimorphs_config")
+    if "prioritysieve.prioritysieve_config" not in sys.modules:
+        config_module = ModuleType("prioritysieve.prioritysieve_config")
 
         class _StubConfig:  # pylint:disable=too-few-public-methods
             def __init__(self, *_, **__) -> None:  # noqa: D401
                 pass
 
-        config_module.AnkiMorphsConfig = _StubConfig  # type: ignore[attr-defined]
+        config_module.PrioritySieveConfig = _StubConfig  # type: ignore[attr-defined]
         config_module.RawConfigKeys = SimpleNamespace()  # type: ignore[attr-defined]
         config_module.update_configs = lambda _cfg: None  # type: ignore[attr-defined]
-        sys.modules["ankimorphs.ankimorphs_config"] = config_module
+        sys.modules["prioritysieve.prioritysieve_config"] = config_module
 
     if "aqt" not in sys.modules:
         aqt_module = ModuleType("aqt")
@@ -149,7 +149,7 @@ def sudachi_stub_environment(
     sys.modules["sudachipy.dictionary"] = dictionary_module
     sys.modules["sudachipy.tokenizer"] = tokenizer_module
 
-    from ankimorphs.morphemizers import morphemizer_utils, spacy_wrapper, sudachi_wrapper
+    from prioritysieve.morphemizers import morphemizer_utils, spacy_wrapper, sudachi_wrapper
 
     importlib.reload(sudachi_wrapper)
     monkeypatch.setattr(morphemizer_utils, "sudachi_wrapper", sudachi_wrapper, raising=False)
@@ -176,9 +176,9 @@ def sudachi_stub_environment(
     sys.modules.pop("sudachipy.tokenizer", None)
 
 
-from ankimorphs.morpheme import Morpheme
-from ankimorphs.morphemizers import morphemizer_utils, sudachi_wrapper
-from ankimorphs.morphemizers.sudachi_morphemizer import SudachiMorphemizer
+from prioritysieve.morpheme import Morpheme
+from prioritysieve.morphemizers import morphemizer_utils, sudachi_wrapper
+from prioritysieve.morphemizers.sudachi_morphemizer import SudachiMorphemizer
 
 
 def _get_surfaces(morphs: list[Morpheme]) -> list[str]:

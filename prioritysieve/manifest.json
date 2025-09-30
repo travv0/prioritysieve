@@ -1,0 +1,7 @@
+{
+  "conflicts": [
+    "MorphMan"
+  ],
+  "name": "PrioritySieve",
+  "package": "prioritysieve"
+}

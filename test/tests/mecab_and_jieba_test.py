@@ -6,9 +6,9 @@ from unittest import mock
 
 import pytest
 
-from ankimorphs.morpheme import Morpheme
-from ankimorphs.morphemizers import spacy_wrapper
-from ankimorphs.morphemizers.morphemizer_utils import get_morphemizer_by_description
+from prioritysieve.morpheme import Morpheme
+from prioritysieve.morphemizers import spacy_wrapper
+from prioritysieve.morphemizers.morphemizer_utils import get_morphemizer_by_description
 
 
 @pytest.fixture(
@@ -31,7 +31,7 @@ def _fake_environment_fixture() -> Iterator[None]:
 def test_mecab_morpheme_generation(  # pylint:disable=unused-argument
     _fake_environment_fixture: None,
 ) -> None:
-    morphemizer = get_morphemizer_by_description("AnkiMorphs: Japanese")
+    morphemizer = get_morphemizer_by_description("PrioritySieve: Japanese")
     assert morphemizer is not None
 
     sentence = "本当に重要な任務の時しか 動かない"
@@ -58,7 +58,7 @@ def test_mecab_morpheme_generation(  # pylint:disable=unused-argument
 def test_jieba_morpheme_generation(  # pylint:disable=unused-argument
     _fake_environment_fixture: None,
 ) -> None:
-    morphemizer = get_morphemizer_by_description("AnkiMorphs: Chinese")
+    morphemizer = get_morphemizer_by_description("PrioritySieve: Chinese")
     assert morphemizer is not None
 
     sentence = "请您说得慢些好吗？"

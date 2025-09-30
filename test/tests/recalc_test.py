@@ -32,11 +32,11 @@ from test.fake_environment_module import (  # pylint:disable=unused-import
 
 import pytest
 
-from ankimorphs import ankimorphs_config
-from ankimorphs import ankimorphs_globals as am_globals
-from ankimorphs import text_preprocessing
-from ankimorphs.ankimorphs_config import RawConfigFilterKeys
-from ankimorphs.exceptions import (
+from prioritysieve import prioritysieve_config
+from prioritysieve import prioritysieve_globals as am_globals
+from prioritysieve import text_preprocessing
+from prioritysieve.prioritysieve_config import RawConfigFilterKeys
+from prioritysieve.exceptions import (
     AnkiFieldNotFound,
     AnkiNoteTypeNotFound,
     DefaultSettingsException,
@@ -44,7 +44,7 @@ from ankimorphs.exceptions import (
     MorphemizerNotFoundException,
     PriorityFileNotFoundException,
 )
-from ankimorphs.recalc import recalc_main
+from prioritysieve.recalc import recalc_main
 
 # these have to be placed here to avoid cyclical imports
 from anki.cards import Card, CardId  # isort:skip  pylint:disable=wrong-import-order
@@ -78,8 +78,8 @@ test_cases_with_success = [
     # Same as case 1, but at least one card of each lemma has been
     # studied. This checks the following:
     # 1. all inflections are set to "known"
-    # 2. the 'am-fresh-morphs' tag are set
-    # 3. the 'am-study-morph' field has a value
+    # 2. the 'ps-fresh-morphs' tag are set
+    # 3. the 'ps-study-morph' field has a value
     # Database choice is arbitrary.
     ################################################################
     pytest.param(
@@ -278,8 +278,8 @@ def test_recalc(  # pylint:disable=too-many-locals
         key: field_name_dict[value][0] for key, value in field_indices.items()
     }
 
-    read_enabled_config_filters = ankimorphs_config.get_read_enabled_filters()
-    modify_enabled_config_filters = ankimorphs_config.get_modify_enabled_filters()
+    read_enabled_config_filters = prioritysieve_config.get_read_enabled_filters()
+    modify_enabled_config_filters = prioritysieve_config.get_modify_enabled_filters()
 
     recalc_main._recalc_background_op(
         read_enabled_config_filters=read_enabled_config_filters,
@@ -428,8 +428,8 @@ test_cases_with_immediate_exceptions = [
 def test_recalc_with_default_settings(  # pylint:disable=unused-argument
     fake_environment_fixture: FakeEnvironment, expected_exception: type[Exception]
 ) -> None:
-    read_enabled_config_filters = ankimorphs_config.get_read_enabled_filters()
-    modify_enabled_config_filters = ankimorphs_config.get_modify_enabled_filters()
+    read_enabled_config_filters = prioritysieve_config.get_read_enabled_filters()
+    modify_enabled_config_filters = prioritysieve_config.get_modify_enabled_filters()
 
     settings_error: Exception | None = recalc_main._check_selected_settings_for_errors(
         read_enabled_config_filters, modify_enabled_config_filters
@@ -454,8 +454,8 @@ def test_recalc_allows_none_morphemizer(
 ) -> None:
     assert fake_environment_fixture is not None
 
-    read_enabled_config_filters = ankimorphs_config.get_read_enabled_filters()
-    modify_enabled_config_filters = ankimorphs_config.get_modify_enabled_filters()
+    read_enabled_config_filters = prioritysieve_config.get_read_enabled_filters()
+    modify_enabled_config_filters = prioritysieve_config.get_modify_enabled_filters()
 
     settings_error: Exception | None = recalc_main._check_selected_settings_for_errors(
         read_enabled_config_filters, modify_enabled_config_filters
@@ -493,8 +493,8 @@ test_cases_with_delayed_exceptions = [
 def test_recalc_with_invalid_known_morphs_file(  # pylint:disable=unused-argument
     fake_environment_fixture: FakeEnvironment, expected_exception: type[Exception]
 ) -> None:
-    read_enabled_config_filters = ankimorphs_config.get_read_enabled_filters()
-    modify_enabled_config_filters = ankimorphs_config.get_modify_enabled_filters()
+    read_enabled_config_filters = prioritysieve_config.get_read_enabled_filters()
+    modify_enabled_config_filters = prioritysieve_config.get_modify_enabled_filters()
 
     with pytest.raises(expected_exception):
         recalc_main._recalc_background_op(

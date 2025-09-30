@@ -7,10 +7,10 @@ up compared to a general one. However, ou should only really do this after you h
 most frequent 2k morphs. If you start to specialize too early you can fall into the trap of "over-fitting"
 your vocabulary and understanding of the language.
 
-### Reverting AnkiMorphs changes
+### Reverting PrioritySieve changes
 
-There are a couple of ways to revert the changes AnkiMorphs has made to your card collection:
+There are a couple of ways to revert the changes PrioritySieve has made to your card collection:
 
 - Restore from a previous backup you made.
-- If you only want to revert how AnkiMorphs sorted the cards, then you can do the following:    
+- If you only want to revert how PrioritySieve sorted the cards, then you can do the following:    
   `Browse -> Card State -> New cards -> Select all (Ctrl + A) -> Forget -> Restore original position where possible`

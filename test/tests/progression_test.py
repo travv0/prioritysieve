@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 from aqt.qt import QTableWidgetItem  # pylint:disable=no-name-in-module
 
-from ankimorphs.progression.progression_window import ProgressionWindow
+from prioritysieve.progression.progression_window import ProgressionWindow
 
 ################################################################
 # Checks if progression is properly reported with a specified

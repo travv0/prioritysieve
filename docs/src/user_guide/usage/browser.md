@@ -1,6 +1,6 @@
 # Browser
 
-AnkiMorphs adds new options in the Browse window that can be accessed either from the `AnkiMorphs` menu at the top or
+PrioritySieve adds new options in the Browse window that can be accessed either from the `PrioritySieve` menu at the top or
 when right-clicking cards:
 
 * **View Morphemes**:  

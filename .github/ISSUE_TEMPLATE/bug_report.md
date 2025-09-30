@@ -27,23 +27,23 @@ assignees: mortii
 
 [//]: # (If applicable, add screenshots to help explain your problem, otherwise you can delete this section.)
 
-### My AnkiMorphs settings
+### My PrioritySieve settings
 
 [//]: # (Copy and paste the json configs displayed when you go to:)
-[//]: # (Tools -> Add-ons -> select "AnkiMorphs" -> click on the "Config" button on the lower right sidebar.)
+[//]: # (Tools -> Add-ons -> select "PrioritySieve" -> click on the "Config" button on the lower right sidebar.)
 
 ### My system
 
-[//]: # (Note: the AnkiMorphs version is found on the bottom of the AnkiMorphs settings window)
+[//]: # (Note: the PrioritySieve version is found on the bottom of the PrioritySieve settings window)
 
 [//]: # (Example:)
 [//]: # (- Operating System: Windows 11)
 [//]: # (- Anki Version: 23.12.1)
-[//]: # (- AnkiMorphs Version: v2.0.0)
+[//]: # (- PrioritySieve Version: v2.0.0)
 
  - Operating System:
  - Anki Version:
- - AnkiMorphs Version:
+ - PrioritySieve Version:
 
 ### Additional context
 
