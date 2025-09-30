@@ -4,7 +4,6 @@ from typing import Any, Callable
 
 import aqt
 from aqt import mw
-from aqt.operations import QueryOp
 from aqt.qt import QDialog, QSizePolicy, QWidget  # pylint:disable=no-name-in-module
 from aqt.utils import tooltip
 
@@ -17,7 +16,6 @@ from .. import (
 from ..ankimorphs_config import AnkiMorphsConfig
 from ..extra_settings import extra_settings_keys
 from ..extra_settings.ankimorphs_extra_settings import AnkiMorphsExtraSettings
-from ..morphemizers import morphemizer_utils, sudachi_wrapper
 from ..ui.settings_dialog_ui import Ui_SettingsDialog
 from .settings_algorithm_tab import AlgorithmTab
 from .settings_card_handling_tab import CardHandlingTab
@@ -35,32 +33,7 @@ class SettingsDialog(QDialog):  # pylint:disable=too-many-instance-attributes
         super().__init__(parent=None)  # no parent makes the dialog modeless
 
         tooltip(msg="Preparing settings window, this might take a while...", parent=mw)
-        mw.progress.start(label="Gathering available morphemizers...")
-
-        def _background_gather_resources() -> None:
-            # this can be really slow, especially on windows and macOS,
-            # so we do this on a background thread to prevent anki from
-            # freezing.
-            morphemizer_utils.get_all_morphemizers()
-
-        def _on_failure(_error: Exception) -> None:
-            # This function runs on the main thread.
-            assert mw is not None
-            assert mw.progress is not None
-            mw.progress.finish()
-            message_box_utils.show_error_box(
-                title="AnkiMorphs Error",
-                body="Something went horribly wrong when gathering morphemizers",
-                parent=mw,
-            )
-
-        operation = QueryOp(
-            parent=mw,
-            op=lambda _: _background_gather_resources(),
-            success=lambda _: self._init_ui(),
-        )
-        operation.failure(_on_failure)
-        operation.with_progress().run_in_background()
+        self._init_ui()
 
     def _init_ui(self) -> None:
         # The UI comes from ankimorphs/ui/settings_dialog.ui which is used in Qt Designer,
@@ -71,8 +44,6 @@ class SettingsDialog(QDialog):  # pylint:disable=too-many-instance-attributes
         # Qt Designer, like setting up tables and widget-connections.
 
         assert mw is not None
-        assert mw.progress is not None
-        mw.progress.finish()
 
         self.ui = Ui_SettingsDialog()  # pylint:disable=invalid-name
         self.ui.setupUi(self)  # type: ignore[no-untyped-call]
@@ -201,9 +172,6 @@ class SettingsDialog(QDialog):  # pylint:disable=too-many-instance-attributes
             new_config.update(_tab.settings_to_dict())
 
         ankimorphs_config.update_configs(new_config)
-        sudachi_wrapper.invalidate_cache()
-        morphemizer_utils.available_morphemizers = None
-        morphemizer_utils.morphemizers_by_description = {}
         self._config.update()
 
         for _tab in self._all_tabs:

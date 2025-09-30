@@ -62,8 +62,6 @@ from .progression.progression_window import ProgressionWindow
 from .recalc import recalc_main
 from .settings import settings_dialog
 from .settings.settings_dialog import SettingsDialog
-from .spacy_manager import SpacyManagerDialog
-from .sudachi_manager import SudachiManagerDialog
 from .tag_selection_dialog import TagSelectionDialog
 from .toolbar_stats import MorphToolbarStats
 
@@ -227,14 +225,6 @@ def register_addon_dialogs() -> None:
         name=am_globals.KNOWN_MORPHS_EXPORTER_DIALOG_NAME,
         creator=KnownMorphsExporterDialog,
     )
-    aqt.dialogs.register_dialog(
-        name=am_globals.SPACY_MANAGER_DIALOG_NAME,
-        creator=SpacyManagerDialog,
-    )
-    aqt.dialogs.register_dialog(
-        name=am_globals.SUDACHI_MANAGER_DIALOG_NAME,
-        creator=SudachiManagerDialog,
-    )
 
 
 def redraw_toolbar() -> None:
@@ -258,8 +248,6 @@ def init_tool_menu_and_actions() -> None:
     generators_action = create_generators_dialog_action(am_config)
     progression_action = create_progression_dialog_action(am_config)
     known_morphs_exporter_action = create_known_morphs_exporter_action(am_config)
-    spacy_manager_action = create_spacy_manager_dialog_action()
-    sudachi_manager_action = create_sudachi_manager_dialog_action()
     reset_tags_action = create_tag_reset_action()
     guide_action = create_guide_action()
     changelog_action = create_changelog_action()
@@ -270,8 +258,6 @@ def init_tool_menu_and_actions() -> None:
     am_tool_menu.addAction(generators_action)
     am_tool_menu.addAction(progression_action)
     am_tool_menu.addAction(known_morphs_exporter_action)
-    am_tool_menu.addAction(spacy_manager_action)
-    am_tool_menu.addAction(sudachi_manager_action)
     am_tool_menu.addAction(reset_tags_action)
     am_tool_menu.addAction(guide_action)
     am_tool_menu.addAction(changelog_action)
@@ -667,28 +653,6 @@ def create_known_morphs_exporter_action(am_config: AnkiMorphsConfig) -> QAction:
         partial(
             aqt.dialogs.open,
             name=am_globals.KNOWN_MORPHS_EXPORTER_DIALOG_NAME,
-        )
-    )
-    return action
-
-
-def create_spacy_manager_dialog_action() -> QAction:
-    action = QAction("&spaCy Manager", mw)
-    action.triggered.connect(
-        partial(
-            aqt.dialogs.open,
-            name=am_globals.SPACY_MANAGER_DIALOG_NAME,
-        )
-    )
-    return action
-
-
-def create_sudachi_manager_dialog_action() -> QAction:
-    action = QAction("&Sudachi Manager", mw)
-    action.triggered.connect(
-        partial(
-            aqt.dialogs.open,
-            name=am_globals.SUDACHI_MANAGER_DIALOG_NAME,
         )
     )
     return action

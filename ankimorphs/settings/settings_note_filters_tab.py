@@ -37,7 +37,6 @@ from ..ankimorphs_config import (
     RawConfigFilterKeys,
     RawConfigKeys,
 )
-from ..morphemizers.morphemizer_utils import get_all_morphemizers
 from ..tag_selection_dialog import TagSelectionDialog
 from ..ui.settings_dialog_ui import Ui_SettingsDialog
 from .data_provider import DataProvider
@@ -170,10 +169,9 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
         self._note_filter_field_column: int = 2
         self._note_filter_furigana_field_column: int = 3
         self._note_filter_reading_field_column: int = 4
-        self._note_filter_morphemizer_column: int = 5
-        self._note_filter_morph_priority_column: int = 6
-        self._note_filter_read_column: int = 7
-        self._note_filter_modify_column: int = 8
+        self._note_filter_morph_priority_column: int = 5
+        self._note_filter_read_column: int = 6
+        self._note_filter_modify_column: int = 7
 
         headers = [
             "Note Type",
@@ -181,7 +179,6 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
             "Field",
             "Furigana Field",
             "Reading Field",
-            "Morphemizer",
             "Priority",
             "Read",
             "Modify",
@@ -189,7 +186,6 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
         self.ui.note_filters_table.setColumnCount(len(headers))
         self.ui.note_filters_table.setHorizontalHeaderLabels(headers)
 
-        self._morphemizers = get_all_morphemizers()
         self._note_type_models: Sequence[NotetypeNameId] = (
             mw.col.models.all_names_and_ids()
         )
@@ -215,7 +211,6 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
         self.reset_tags_warning_shown = {
             "field": False,
             "note type": False,
-            "morphemizer": False,
         }
 
         # Dynamically added widgets in the rows can be randomly garbage collected
@@ -263,9 +258,6 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
         )
         self.ui.note_filters_table.setColumnWidth(
             self._note_filter_reading_field_column, 150
-        )
-        self.ui.note_filters_table.setColumnWidth(
-            self._note_filter_morphemizer_column, 150
         )
         self.ui.note_filters_table.setColumnWidth(
             self._note_filter_morph_priority_column, 150
@@ -364,11 +356,6 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
                     row, self._note_filter_reading_field_column
                 )
             )
-            morphemizer_widget: QComboBox = table_utils.get_combobox_widget(
-                self.ui.note_filters_table.cellWidget(
-                    row, self._note_filter_morphemizer_column
-                )
-            )
             priority_item: QTableWidgetItem | None = self.ui.note_filters_table.item(
                 row, self._note_filter_morph_priority_column
             )
@@ -410,9 +397,7 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
                 RawConfigFilterKeys.READING_FIELD: reading_field_cbox.itemText(
                     reading_field_cbox.currentIndex()
                 ),
-                RawConfigFilterKeys.MORPHEMIZER_DESCRIPTION: morphemizer_widget.itemText(
-                    morphemizer_widget.currentIndex()
-                ),
+                RawConfigFilterKeys.MORPHEMIZER_DESCRIPTION: ankimorphs_globals.NONE_OPTION,
                 RawConfigFilterKeys.MORPH_PRIORITY_SELECTION: morph_priority_selections,
                 RawConfigFilterKeys.READ: read_widget.isChecked(),
                 RawConfigFilterKeys.MODIFY: modify_widget.isChecked(),
@@ -515,16 +500,6 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
         )
         note_type_cbox.currentIndexChanged.connect(self.notify_subscribers)
 
-        morphemizer_cbox = self._setup_morphemizer_cbox(config_filter)
-        morphemizer_cbox.setProperty("previousIndex", morphemizer_cbox.currentIndex())
-        morphemizer_cbox.currentIndexChanged.connect(
-            lambda index: self._potentially_reset_tags(
-                new_index=index,
-                combo_box=morphemizer_cbox,
-                reason_for_reset="morphemizer",
-            )
-        )
-
         self._set_priority_item(row, config_filter.morph_priority_selections)
 
         read_checkbox = QCheckBox()
@@ -553,9 +528,6 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
             row, self._note_filter_reading_field_column, reading_field_cbox
         )
         self.ui.note_filters_table.setCellWidget(
-            row, self._note_filter_morphemizer_column, morphemizer_cbox
-        )
-        self.ui.note_filters_table.setCellWidget(
             row, self._note_filter_read_column, read_checkbox
         )
         self.ui.note_filters_table.setCellWidget(
@@ -570,7 +542,6 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
                 field_cbox,
                 furigana_field_cbox,
                 reading_field_cbox,
-                morphemizer_cbox,
                 None,
                 read_checkbox,
                 modify_checkbox,
@@ -694,21 +665,6 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
         if field_cbox_index is not None:
             field_cbox.setCurrentIndex(field_cbox_index)
         return field_cbox
-
-    def _setup_morphemizer_cbox(
-        self, config_filter: AnkiMorphsConfigFilter
-    ) -> QComboBox:
-        morphemizer_cbox = QComboBox(self.ui.note_filters_table)
-        morphemizers: list[str] = [ankimorphs_globals.NONE_OPTION] + [
-            mizer.get_description() for mizer in self._morphemizers
-        ]
-        morphemizer_cbox.addItems(morphemizers)
-        morphemizer_cbox_index = table_utils.get_combobox_index(
-            morphemizers, config_filter.morphemizer_description
-        )
-        if morphemizer_cbox_index is not None:
-            morphemizer_cbox.setCurrentIndex(morphemizer_cbox_index)
-        return morphemizer_cbox
 
     def _update_fields_cbox(
         self, field_cbox: QComboBox, note_type_cbox: QComboBox
