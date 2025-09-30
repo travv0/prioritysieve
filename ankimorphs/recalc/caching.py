@@ -84,6 +84,7 @@ def cache_anki_data(  # pylint:disable=too-many-locals, too-many-branches, too-m
             )
             key = all_keys[index]
             morphs_with_readings = _assign_readings_to_morphs(
+                am_config=am_config,
                 card_data=cards_data_dict[key],
                 processed_morphs=processed_morphs,
             )
@@ -154,7 +155,9 @@ def cache_anki_data(  # pylint:disable=too-many-locals, too-many-branches, too-m
 
 
 def _assign_readings_to_morphs(
-    card_data: AnkiCardData, processed_morphs: list[Morpheme]
+    am_config: AnkiMorphsConfig,
+    card_data: AnkiCardData,
+    processed_morphs: list[Morpheme],
 ) -> list[Morpheme]:
     if not processed_morphs:
         return processed_morphs
@@ -164,6 +167,10 @@ def _assign_readings_to_morphs(
         if card_data.furigana
         else []
     )
+    furigana_tokens = [
+        get_processed_text(am_config, token.lower()) for token in furigana_tokens
+    ]
+    furigana_tokens = [token for token in furigana_tokens if token]
 
     raw_reading_tokens: list[str] = []
     if card_data.reading:
@@ -172,7 +179,11 @@ def _assign_readings_to_morphs(
             parts = stripped.split()
             if not parts:
                 parts = [stripped]
-            raw_reading_tokens = [normalize_reading(part) for part in parts]
+            raw_reading_tokens = [
+                get_processed_text(am_config, part.lower()) for part in parts
+            ]
+            raw_reading_tokens = [normalize_reading(token) for token in raw_reading_tokens]
+            raw_reading_tokens = [token for token in raw_reading_tokens if token]
 
     tokens = furigana_tokens if furigana_tokens else raw_reading_tokens
 
