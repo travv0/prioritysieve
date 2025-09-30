@@ -20,6 +20,7 @@ import aqt
 from anki import hooks
 from anki.cards import Card
 from anki.collection import OpChangesAfterUndo
+from anki.utils import ids2str
 from aqt import gui_hooks, mw
 from aqt.browser.browser import Browser
 from aqt.overview import Overview
@@ -43,6 +44,7 @@ from . import (
     browser_utils,
     debug_utils,
     message_box_utils,
+    morph_priority_utils,
     name_file_utils,
     reviewing_utils,
     tags_and_queue_utils,
@@ -248,6 +250,7 @@ def init_tool_menu_and_actions() -> None:
     known_morphs_exporter_action = create_known_morphs_exporter_action(am_config)
     reset_tags_action = create_tag_reset_action()
     duplicate_entries_action = create_duplicate_entries_action()
+    missing_priority_entries_action = create_missing_priority_entries_action()
     guide_action = create_guide_action()
     changelog_action = create_changelog_action()
 
@@ -259,6 +262,7 @@ def init_tool_menu_and_actions() -> None:
     am_tool_menu.addAction(known_morphs_exporter_action)
     am_tool_menu.addAction(reset_tags_action)
     am_tool_menu.addAction(duplicate_entries_action)
+    am_tool_menu.addAction(missing_priority_entries_action)
     am_tool_menu.addAction(guide_action)
     am_tool_menu.addAction(changelog_action)
 
@@ -551,6 +555,107 @@ def find_duplicate_non_new_entry_cards() -> None:
 
 
 
+
+def find_entries_missing_priority_lists() -> None:
+    assert mw is not None
+    assert mw.col is not None
+    assert mw.col.db is not None
+
+    am_config = PrioritySieveConfig()
+    selections: set[str] = set()
+    for config_filter in am_config.filters:
+        selections.update(config_filter.morph_priority_selections)
+
+    normalized_selections = [
+        selection
+        for selection in selections
+        if selection and selection != ps_globals.NONE_OPTION
+    ]
+
+    try:
+        with PrioritySieveDB() as am_db:
+            entry_map = am_db.get_non_new_card_ids_grouped_by_entry()
+            priority_map = (
+                morph_priority_utils.get_morph_priority(am_db, normalized_selections)
+                if normalized_selections
+                else {}
+            )
+    except sqlite3.OperationalError:
+        tooltip("Run Recalc before searching for missing priorities.")
+        return
+
+    if not entry_map:
+        tooltip("No cached entries found. Run Recalc first.")
+        return
+
+    all_card_ids: set[int] = set()
+    for card_ids in entry_map.values():
+        all_card_ids.update(card_ids)
+
+    if not all_card_ids:
+        tooltip("No cached entries found. Run Recalc first.")
+        return
+
+    cards_query = ids2str(sorted(all_card_ids))
+    card_rows = mw.col.db.all(
+        f"SELECT id, queue, type FROM cards WHERE id IN {cards_query}"
+    )
+    card_status_map = {card_id: (queue, card_type) for card_id, queue, card_type in card_rows}
+
+    missing_entries: dict[tuple[str, str], list[int]] = {}
+
+    priority_keys = set(priority_map.keys())
+
+    for entry_key, card_ids in entry_map.items():
+        active_cards: list[int] = []
+        for card_id in card_ids:
+            status = card_status_map.get(card_id)
+            if status is None:
+                continue
+            queue, card_type = status
+            if queue == -1 or card_type == 0:
+                continue
+            active_cards.append(card_id)
+
+        if not active_cards:
+            continue
+
+        lemma, reading = entry_key
+        normalized_reading = reading or ""
+        key_exact = (lemma, lemma, normalized_reading)
+        key_fallback = (lemma, lemma, "")
+
+        if key_exact in priority_keys or key_fallback in priority_keys:
+            continue
+
+        missing_entries[entry_key] = active_cards
+
+    if not missing_entries:
+        tooltip("All active entries are present in your configured priority lists.")
+        return
+
+    card_ids_to_browse: set[int] = set()
+    for ids in missing_entries.values():
+        card_ids_to_browse.update(ids)
+
+    query = "cid:" + ",".join(str(cid) for cid in sorted(card_ids_to_browse))
+
+    browser_instance = aqt.dialogs.open("Browser", mw)
+    assert browser_instance is not None
+
+    browser_utils.browser = browser_instance
+    search_edit = browser_instance.form.searchEdit.lineEdit()
+    assert search_edit is not None
+
+    search_edit.setText(query)
+    browser_instance.onSearchActivated()
+
+    tooltip(
+        f"Found {len(missing_entries)} entry group(s) missing priorities; opened Browser with {len(card_ids_to_browse)} card(s)."
+    )
+
+
+
 def create_am_tool_menu() -> QMenu:
     assert mw is not None
     am_tool_menu = QMenu("PrioritySieve", mw)
@@ -581,6 +686,13 @@ def create_duplicate_entries_action() -> QAction:
     action.triggered.connect(find_duplicate_non_new_entry_cards)
     return action
 
+
+
+
+def create_missing_priority_entries_action() -> QAction:
+    action = QAction("&Find Entries Missing Priorities", mw)
+    action.triggered.connect(find_entries_missing_priority_lists)
+    return action
 
 
 def create_tag_reset_action() -> QAction:
