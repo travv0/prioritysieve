@@ -188,6 +188,14 @@ def _assign_readings_to_morphs(
     tokens = furigana_tokens if furigana_tokens else raw_reading_tokens
 
     if not tokens:
+        if len(processed_morphs) == 1 and card_data.expression:
+            fallback = get_processed_text(
+                am_config, card_data.expression.lower()
+            ).strip()
+            if fallback:
+                tokens = [fallback]
+
+    if not tokens:
         return processed_morphs
 
     if len(tokens) == len(processed_morphs):
