@@ -659,7 +659,7 @@ class PrioritySieveDB:  # pylint:disable=too-many-public-methods
         # with no feedback, we run this on a background thread.
         assert mw is not None
 
-        mw.progress.start(label="Updating seen morphs...")
+        mw.progress.start(label="Updating seen entries...")
         operation = QueryOp(
             parent=mw,
             op=lambda _: PrioritySieveDB.rebuild_seen_morphs_today_background(),

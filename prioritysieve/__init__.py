@@ -112,8 +112,8 @@ def init_toolbar_items(links: list[str], toolbar: Toolbar) -> None:
     morph_toolbar_stats = MorphToolbarStats()
     am_config = PrioritySieveConfig()
 
-    known_morphs_tooltip_message = (
-        "L = Known Morph Lemmas<br>I = Known Morph Inflections"
+    known_entries_tooltip_message = (
+        "L = Known entry base forms<br>I = Known entry variants"
     )
 
     if am_config.hide_recalc_toolbar is False:
@@ -132,8 +132,8 @@ def init_toolbar_items(links: list[str], toolbar: Toolbar) -> None:
             toolbar.create_link(
                 cmd="known_lemmas",
                 label=morph_toolbar_stats.lemmas,
-                func=lambda: tooltip(known_morphs_tooltip_message),
-                tip="L = Known Morph Lemmas",
+                func=lambda: tooltip(known_entries_tooltip_message),
+                tip="L = Known entry base forms",
                 id="known_lemmas",
             )
         )
@@ -143,8 +143,8 @@ def init_toolbar_items(links: list[str], toolbar: Toolbar) -> None:
             toolbar.create_link(
                 cmd="known_inflections",
                 label=morph_toolbar_stats.inflections,
-                func=lambda: tooltip(known_morphs_tooltip_message),
-                tip="I = Known Morph Inflections",
+                func=lambda: tooltip(known_entries_tooltip_message),
+                tip="I = Known entry variants",
                 id="known_inflections",
             )
         )
@@ -552,13 +552,13 @@ def create_learn_now_action(am_config: PrioritySieveConfig) -> QAction:
 
 
 def create_browse_same_morph_action() -> QAction:
-    action = QAction("&Browse Same Morphs", mw)
+    action = QAction("&Browse Same Entries", mw)
     action.triggered.connect(browser_utils.run_browse_morph)
     return action
 
 
 def create_browse_same_morph_unknowns_action(am_config: PrioritySieveConfig) -> QAction:
-    action = QAction("&Browse Same Unknown Morphs", mw)
+    action = QAction("&Browse Same Unknown Entries", mw)
     action.setShortcut(am_config.shortcut_browse_ready_same_unknown)
     action.triggered.connect(
         partial(browser_utils.run_browse_morph, search_unknowns=True)
@@ -569,7 +569,7 @@ def create_browse_same_morph_unknowns_action(am_config: PrioritySieveConfig) -> 
 def create_browse_same_morph_unknowns_lemma_action(
     am_config: PrioritySieveConfig,
 ) -> QAction:
-    action = QAction("&Browse Same Unknown Morphs (Lemma)", mw)
+    action = QAction("&Browse Same Unknown Entries (broad match)", mw)
     action.setShortcut(am_config.shortcut_browse_ready_same_unknown_lemma)
     action.triggered.connect(
         partial(
@@ -627,7 +627,7 @@ def create_progression_dialog_action(am_config: PrioritySieveConfig) -> QAction:
 
 
 def create_known_morphs_exporter_action(am_config: PrioritySieveConfig) -> QAction:
-    action = QAction("&Known Morphs Exporter", mw)
+    action = QAction("&Known Entries Exporter", mw)
     action.setShortcut(am_config.shortcut_known_morphs_exporter)
     action.triggered.connect(
         partial(
@@ -649,7 +649,7 @@ def create_test_action() -> QAction:
 def test_function() -> None:
     # To activate this dev function in Anki:
     # 1. In prioritysieve_globals.py set 'DEV_MODE = True'
-    # 2. Use Ctrl+T, or go to: Tools -> Ankimorphs -> Test
+    # 2. Use Ctrl+T, or go to: Tools -> PrioritySieve -> Test
 
     assert mw is not None
     assert mw.col.db is not None

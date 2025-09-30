@@ -13,12 +13,10 @@ from test.fake_configs import (
     config_known_morphs_enabled,
     config_lemma_evaluation_lemma_extra_fields,
     config_max_morph_priority,
-    config_move_to_end_morphs_known,
-    config_move_to_end_morphs_known_or_fresh,
     config_offset_inflection_enabled,
     config_offset_lemma_enabled,
-    config_suspend_morphs_known,
-    config_suspend_morphs_known_or_fresh,
+    config_known_entry_new_card_action_suspend,
+    config_known_entry_new_card_action_move,
     config_wrong_field_name,
     config_wrong_morph_priority,
     config_wrong_morphemizer_description,
@@ -78,7 +76,7 @@ test_cases_with_success = [
     # Same as case 1, but at least one card of each lemma has been
     # studied. This checks the following:
     # 1. all inflections are set to "known"
-    # 2. the 'ps-fresh-morphs' tag are set
+    # 2. the 'ps-fresh-entries' tag are set
     # 3. the 'ps-study-morph' field has a value
     # Database choice is arbitrary.
     ################################################################
@@ -177,61 +175,32 @@ test_cases_with_success = [
         id="max_morph_priority",
     ),
     ################################################################
-    #               CASE: SUSPEND ALL MORPHS KNOWN
+    #        CASE: SUSPEND NEW CARDS WITH ONLY KNOWN ENTRIES
     ################################################################
-    # Checks if cards are correctly suspended if all their morphs
-    # are known, except if they also have fresh morphs
-    ################################################################
-    pytest.param(
-        FakeEnvironmentParams(
-            actual_col="card_handling_collection",
-            expected_col="suspend_all_morphs_known",
-            config=config_suspend_morphs_known,
-        ),
-        id="suspend_all_morphs_known",
-    ),
-    ################################################################
-    #              CASE: SUSPEND ALL MORPHS KNOWN OR FRESH
-    ################################################################
-    # Checks if cards are correctly suspended if all their morphs
-    # are known or fresh
+    # Checks if cards are correctly suspended whenever all of their
+    # entries are already known
     ################################################################
     pytest.param(
         FakeEnvironmentParams(
             actual_col="card_handling_collection",
             expected_col="suspend_morphs_known_or_fresh",
-            config=config_suspend_morphs_known_or_fresh,
+            config=config_known_entry_new_card_action_suspend,
         ),
-        id="suspend_all_morphs_known_or_fresh",
+        id="suspend_known_entries",
     ),
     ################################################################
-    #                CASE: MOVE TO END MORPHS KNOWN
+    #          CASE: MOVE KNOWN ENTRIES TO END OF NEW QUEUE
     ################################################################
-    # Checks if cards are correctly moved to the end of the due
-    # queue if all their morphs are known, except if they have fresh
-    # morphs
-    ################################################################
-    pytest.param(
-        FakeEnvironmentParams(
-            actual_col="card_handling_collection",
-            expected_col="move_to_end_morphs_known",
-            config=config_move_to_end_morphs_known,
-        ),
-        id="move_to_end_morphs_known",
-    ),
-    ################################################################
-    #          CASE: MOVE TO END MORPHS KNOWN OR FRESH
-    ################################################################
-    # Checks if cards are correctly moved to the end of the due
-    # queue if all their morphs are known and/or fresh
+    # Checks if cards are correctly moved to the end of the new queue
+    # whenever all of their entries are already known
     ################################################################
     pytest.param(
         FakeEnvironmentParams(
             actual_col="card_handling_collection",
             expected_col="move_to_end_morphs_known_or_fresh",
-            config=config_move_to_end_morphs_known_or_fresh,
+            config=config_known_entry_new_card_action_move,
         ),
-        id="move_to_end_morphs_known_or_fresh",
+        id="move_known_entries_to_end",
     ),
 ]
 

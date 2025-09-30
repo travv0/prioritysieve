@@ -45,7 +45,9 @@ def update_tags_and_queue_of_new_card(
         am_config.tag_known_automatically,
     ]
 
-    if has_learning_morphs:
+    has_learning_for_tag = has_learning_morphs and unknowns > 0
+
+    if has_learning_for_tag:
         if am_config.tag_fresh not in note.tags:
             note.tags.append(am_config.tag_fresh)
     else:
@@ -53,21 +55,17 @@ def update_tags_and_queue_of_new_card(
             note.tags.remove(am_config.tag_fresh)
 
     if unknowns == 0:
-        if _should_suspend_card(am_config, card, has_learning_morphs):
+        if am_config.known_entry_new_card_action == 'suspend':
             card.queue = suspended
             note.tags.append(am_config.tag_suspended_automatically)
-        elif _should_move_new_card_to_end(am_config, unknowns, has_learning_morphs):
+        else:
             _move_new_card_to_end(card)
 
         if am_config.tag_known_manually in note.tags:
             _remove_exclusive_tags(note, mutually_exclusive_tags)
         elif am_config.tag_known_automatically not in note.tags:
             _remove_exclusive_tags(note, mutually_exclusive_tags)
-            # if a card has any learning morphs, then we don't want to
-            # give it a 'known' tag because that would automatically
-            # give the morphs a 'known'-status instead of 'learning'
-            if not has_learning_morphs:
-                note.tags.append(am_config.tag_known_automatically)
+            note.tags.append(am_config.tag_known_automatically)
     elif unknowns == 1:
         if am_config.tag_ready not in note.tags:
             _remove_exclusive_tags(note, mutually_exclusive_tags)
@@ -77,22 +75,6 @@ def update_tags_and_queue_of_new_card(
             _remove_exclusive_tags(note, mutually_exclusive_tags)
             note.tags.append(am_config.tag_not_ready)
 
-
-def _should_move_new_card_to_end(
-    am_config: PrioritySieveConfig, unknowns: int, has_learning_morphs: bool
-) -> bool:
-    option = am_config.recalc_move_new_cards_to_the_end
-
-    if option == am_globals.NEVER_OPTION:
-        return False
-
-    if unknowns > 0:
-        return False
-
-    if option == am_globals.ONLY_KNOWN_OPTION and has_learning_morphs:
-        return False
-
-    return True
 
 
 def _move_new_card_to_end(card: Card) -> None:
@@ -105,21 +87,6 @@ def _move_new_card_to_end(card: Card) -> None:
         due_value = QUEUE_END_LIMIT
 
     card.due = due_value
-
-
-def _should_suspend_card(
-    am_config: PrioritySieveConfig, card: Card, has_learning_morphs: bool
-) -> bool:
-    if am_config.recalc_suspend_new_cards == am_globals.NEVER_OPTION:
-        return False
-
-    if am_config.recalc_suspend_new_cards == am_globals.ONLY_KNOWN_OPTION:
-        if not has_learning_morphs and card.queue != suspended:
-            return True
-    elif am_config.recalc_suspend_new_cards == am_globals.ONLY_KNOWN_OR_FRESH_OPTION:
-        if card.queue != suspended:
-            return True
-    return False
 
 
 def _remove_exclusive_tags(note: Note, mutually_exclusive_tags: list[str]) -> None:

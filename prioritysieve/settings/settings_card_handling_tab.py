@@ -2,16 +2,13 @@ from __future__ import annotations
 
 from aqt.qt import (  # pylint:disable=no-name-in-module
     QCheckBox,
-    QComboBox,
     QDialog,
     QDoubleSpinBox,
     QLineEdit,
-    QRadioButton,
     QSpinBox,
     Qt,
 )
 
-from .. import prioritysieve_globals as am_globals
 from ..prioritysieve_config import PrioritySieveConfig, RawConfigKeys
 from ..ui.settings_dialog_ui import Ui_SettingsDialog
 from .settings_tab import SettingsTab
@@ -39,29 +36,25 @@ class CardHandlingTab(SettingsTab):
             RawConfigKeys.RECALC_NUMBER_OF_MORPHS_TO_OFFSET: self.ui.offsetFirstMorphsSpinBox,
         }
 
-        self._raw_config_key_to_combo_box: dict[str, QComboBox] = {
-            RawConfigKeys.RECALC_SUSPEND_NEW_CARDS: self.ui.suspendNewCardsComboBox,
-            RawConfigKeys.RECALC_MOVE_NEW_CARDS_TO_THE_END: self.ui.MoveNewCardsComboBox,
-        }
-
         self._raw_config_key_to_line_edit: dict[str, QLineEdit] = {
             RawConfigKeys.RECALC_OFFSET_PRIORITY_DECK: self.ui.priorityDeckLineEdit,
         }
 
-        self._raw_config_key_to_radio_button: dict[str, QRadioButton] = {
-            RawConfigKeys.SKIP_DONT_WHEN_CONTAINS_FRESH_MORPHS: self.ui.skipDontWhenFreshMorphsRadioButton,
-            RawConfigKeys.SKIP_WHEN_CONTAINS_FRESH_MORPHS: self.ui.skipEvenWithFreshMorphsRadioButton,
-        }
+        self._new_card_action_buttons = {"move": self.ui.knownEntryMoveRadioButton, "suspend": self.ui.knownEntrySuspendRadioButton}
 
         self.populate()
         self.setup_buttons()
         self.update_previous_state()
 
     def populate(self, use_default_config: bool = False) -> None:
-        self._populate_combo_boxes()  # add items before running super populate
         super().populate(use_default_config)
+
+        source = self._default_config if use_default_config else self._config
+        action = getattr(source, "known_entry_new_card_action", "move")
+        for key, button in self._new_card_action_buttons.items():
+            button.setChecked(key == action)
+
         self._toggle_disable_shift_cards_settings()
-        self._toggle_disable_skip_fresh_morphs_radio_buttons()
 
     def setup_buttons(self) -> None:
         self.ui.restoreCardHandlingPushButton.setAutoDefault(False)
@@ -70,23 +63,6 @@ class CardHandlingTab(SettingsTab):
         self.ui.shiftNewCardsCheckBox.stateChanged.connect(
             self._toggle_disable_shift_cards_settings
         )
-        self.ui.skipNoUnKnownMorphsCheckBox.stateChanged.connect(
-            self._toggle_disable_skip_fresh_morphs_radio_buttons
-        )
-
-    def _populate_combo_boxes(self) -> None:
-        items: list[str] = [
-            am_globals.NEVER_OPTION,
-            am_globals.ONLY_KNOWN_OPTION,
-            am_globals.ONLY_KNOWN_OR_FRESH_OPTION,
-        ]
-
-        # populate can be called multiple times, so we have to clear
-        self.ui.suspendNewCardsComboBox.clear()
-        self.ui.MoveNewCardsComboBox.clear()
-
-        self.ui.suspendNewCardsComboBox.addItems(items)
-        self.ui.MoveNewCardsComboBox.addItems(items)
 
     def _toggle_disable_shift_cards_settings(self) -> None:
         if self.ui.shiftNewCardsCheckBox.checkState() == Qt.CheckState.Unchecked:
@@ -98,13 +74,17 @@ class CardHandlingTab(SettingsTab):
             self.ui.offsetFirstMorphsSpinBox.setEnabled(True)
             self.ui.priorityDeckLineEdit.setEnabled(True)
 
-    def _toggle_disable_skip_fresh_morphs_radio_buttons(self) -> None:
-        if self.ui.skipNoUnKnownMorphsCheckBox.checkState() == Qt.CheckState.Unchecked:
-            self.ui.skipDontWhenFreshMorphsRadioButton.setDisabled(True)
-            self.ui.skipEvenWithFreshMorphsRadioButton.setDisabled(True)
+
+
+    def settings_to_dict(self) -> dict[str, str | int | float | bool | object]:
+        settings = super().settings_to_dict()
+        for action, button in self._new_card_action_buttons.items():
+            if button.isChecked():
+                settings[RawConfigKeys.KNOWN_ENTRY_NEW_CARD_ACTION] = action
+                break
         else:
-            self.ui.skipDontWhenFreshMorphsRadioButton.setEnabled(True)
-            self.ui.skipEvenWithFreshMorphsRadioButton.setEnabled(True)
+            settings[RawConfigKeys.KNOWN_ENTRY_NEW_CARD_ACTION] = "move"
+        return settings
 
     def get_confirmation_text(self) -> str:
         return "Are you sure you want to restore default skip settings?"

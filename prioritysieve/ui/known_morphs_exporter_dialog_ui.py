@@ -91,15 +91,15 @@ class Ui_KnownMorphsExporterDialog(object):
 
     def retranslateUi(self, KnownMorphsExporterDialog):
         _translate = QtCore.QCoreApplication.translate
-        KnownMorphsExporterDialog.setWindowTitle(_translate("KnownMorphsExporterDialog", "Known Morphs Exporter"))
+        KnownMorphsExporterDialog.setWindowTitle(_translate("KnownMorphsExporterDialog", "Known Entries Exporter"))
         self.groupBox_4.setTitle(_translate("KnownMorphsExporterDialog", "File Destination"))
         self.selectOutputPushButton.setText(_translate("KnownMorphsExporterDialog", "Select Output Directory"))
-        self.groupBox.setTitle(_translate("KnownMorphsExporterDialog", "Morph Form"))
+        self.groupBox.setTitle(_translate("KnownMorphsExporterDialog", "Entry Format"))
         self.storeOnlyMorphLemmaRadioButton.setText(_translate("KnownMorphsExporterDialog", "Lemmas"))
         self.storeMorphLemmaAndInflectionRadioButton.setText(_translate("KnownMorphsExporterDialog", "Inflections"))
-        self.groupBox_2.setTitle(_translate("KnownMorphsExporterDialog", "Morph Learning Interval"))
-        self.label_2.setText(_translate("KnownMorphsExporterDialog", "Morphs with interval "))
+        self.groupBox_2.setTitle(_translate("KnownMorphsExporterDialog", "Entry Learning Interval"))
+        self.label_2.setText(_translate("KnownMorphsExporterDialog", "Entries with interval "))
         self.label.setText(_translate("KnownMorphsExporterDialog", "days or higher"))
         self.groupBox_3.setTitle(_translate("KnownMorphsExporterDialog", "Extra"))
         self.addOccurrencesColumnCheckBox.setText(_translate("KnownMorphsExporterDialog", "Add occurrences column"))
-        self.exportKnownMorphsPushButton.setText(_translate("KnownMorphsExporterDialog", "Export Known Morphs"))
+        self.exportKnownMorphsPushButton.setText(_translate("KnownMorphsExporterDialog", "Export Known Entries"))

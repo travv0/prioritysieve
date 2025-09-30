@@ -74,8 +74,6 @@ class RawConfigKeys:
     SHORTCUT_PROGRESSION = "shortcut_progression"
     SHORTCUT_KNOWN_MORPHS_EXPORTER = "shortcut_known_morphs_exporter"
     SKIP_NO_UNKNOWN_MORPHS = "skip_no_unknown_morphs"
-    SKIP_DONT_WHEN_CONTAINS_FRESH_MORPHS = "skip_dont_when_contains_fresh_morphs"
-    SKIP_WHEN_CONTAINS_FRESH_MORPHS = "skip_when_contains_fresh_morphs"
     SKIP_UNKNOWN_MORPH_SEEN_TODAY_CARDS = "skip_unknown_morph_seen_today_cards"
     SKIP_SHOW_NUM_OF_SKIPPED_CARDS = "skip_show_num_of_skipped_cards"
     PREPROCESS_IGNORE_BRACKET_CONTENTS = "preprocess_ignore_bracket_contents"
@@ -90,12 +88,11 @@ class RawConfigKeys:
     PREPROCESS_CUSTOM_CHARACTERS_TO_IGNORE = "preprocess_custom_characters_to_ignore"
     INTERVAL_FOR_KNOWN_MORPHS = "interval_for_known_morphs"
     RECALC_ON_SYNC = "recalc_on_sync"
-    RECALC_SUSPEND_NEW_CARDS = "recalc_suspend_new_cards"
     RECALC_OFFSET_NEW_CARDS = "recalc_offset_new_cards"
     RECALC_DUE_OFFSET = "recalc_due_offset"
     RECALC_NUMBER_OF_MORPHS_TO_OFFSET = "recalc_number_of_morphs_to_offset"
     RECALC_OFFSET_PRIORITY_DECK = "recalc_offset_priority_deck"
-    RECALC_MOVE_NEW_CARDS_TO_THE_END = "recalc_move_new_cards_to_the_end"
+    KNOWN_ENTRY_NEW_CARD_ACTION = "known_entry_new_card_action"
     READ_KNOWN_MORPHS_FOLDER = "read_known_morphs_folder"
     TOOLBAR_STATS_USE_KNOWN = "toolbar_stats_use_known"
     TOOLBAR_STATS_USE_SEEN = "toolbar_stats_use_seen"
@@ -192,26 +189,6 @@ class PrioritySieveConfigFilter:  # pylint:disable=too-many-instance-attributes
                 show_critical_config_error()
                 prioritysieve_globals.config_broken = True
 
-    def _get_extra_reading_field(self) -> bool:
-        if RawConfigFilterKeys.EXTRA_READING_FIELD in self._filter:
-            value = self._filter[RawConfigFilterKeys.EXTRA_READING_FIELD]
-        elif 'extra_morph_readings' in self._filter:
-            value = self._filter['extra_morph_readings']
-            if isinstance(value, bool):
-                self._filter[RawConfigFilterKeys.EXTRA_READING_FIELD] = value
-                prioritysieve_globals.new_config_found = True
-            else:
-                value = self._default_config_dict[RawConfigKeys.FILTERS][0][RawConfigFilterKeys.EXTRA_READING_FIELD]
-                self._filter[RawConfigFilterKeys.EXTRA_READING_FIELD] = value
-                prioritysieve_globals.new_config_found = True
-        else:
-            value = self._default_config_dict[RawConfigKeys.FILTERS][0][RawConfigFilterKeys.EXTRA_READING_FIELD]
-            self._filter[RawConfigFilterKeys.EXTRA_READING_FIELD] = value
-            prioritysieve_globals.new_config_found = True
-
-        assert isinstance(value, bool)
-        return value
-
     def _get_morph_priority_selections(self) -> list[str]:
         try:
             raw_value = self._filter[RawConfigFilterKeys.MORPH_PRIORITY_SELECTION]
@@ -222,7 +199,6 @@ class PrioritySieveConfigFilter:  # pylint:disable=too-many-instance-attributes
             prioritysieve_globals.new_config_found = True
 
         selections = self._normalize_priority_selections(raw_value)
-        # ensure canonical form stored back for subsequent saves
         self._filter[RawConfigFilterKeys.MORPH_PRIORITY_SELECTION] = selections
         return selections
 
@@ -247,6 +223,28 @@ class PrioritySieveConfigFilter:  # pylint:disable=too-many-instance-attributes
                 normalized.append(entry)
 
         return normalized
+
+    def _get_extra_reading_field(self) -> bool:
+        if RawConfigFilterKeys.EXTRA_READING_FIELD in self._filter:
+            value = self._filter[RawConfigFilterKeys.EXTRA_READING_FIELD]
+        elif 'extra_morph_readings' in self._filter:
+            value = self._filter['extra_morph_readings']
+            if isinstance(value, bool):
+                self._filter[RawConfigFilterKeys.EXTRA_READING_FIELD] = value
+                prioritysieve_globals.new_config_found = True
+            else:
+                value = self._default_config_dict[RawConfigKeys.FILTERS][0][RawConfigFilterKeys.EXTRA_READING_FIELD]
+                self._filter[RawConfigFilterKeys.EXTRA_READING_FIELD] = value
+                prioritysieve_globals.new_config_found = True
+        else:
+            value = self._default_config_dict[RawConfigKeys.FILTERS][0][RawConfigFilterKeys.EXTRA_READING_FIELD]
+            self._filter[RawConfigFilterKeys.EXTRA_READING_FIELD] = value
+            prioritysieve_globals.new_config_found = True
+
+        assert isinstance(value, bool)
+        return value
+
+
 
     def _get_filter_item(self, key: str, expected_type: type) -> Any:
         try:
@@ -334,16 +332,6 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-m
                 expected_type=bool,
                 use_default=is_default,
             )
-            self.skip_dont_when_contains_fresh_morphs: bool = self._get_config_item(
-                key=RawConfigKeys.SKIP_DONT_WHEN_CONTAINS_FRESH_MORPHS,
-                expected_type=bool,
-                use_default=is_default,
-            )
-            self.skip_when_contains_fresh_morphs: bool = self._get_config_item(
-                key=RawConfigKeys.SKIP_WHEN_CONTAINS_FRESH_MORPHS,
-                expected_type=bool,
-                use_default=is_default,
-            )
             self.skip_unknown_morph_seen_today_cards: bool = self._get_config_item(
                 key=RawConfigKeys.SKIP_UNKNOWN_MORPH_SEEN_TODAY_CARDS,
                 expected_type=bool,
@@ -420,11 +408,7 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-m
                 expected_type=bool,
                 use_default=is_default,
             )
-            self.recalc_suspend_new_cards: str = self._get_config_item(
-                key=RawConfigKeys.RECALC_SUSPEND_NEW_CARDS,
-                expected_type=str,
-                use_default=is_default,
-            )
+            self.known_entry_new_card_action: str = self._get_known_entry_new_card_action(is_default)
             self.read_known_morphs_folder: bool = self._get_config_item(
                 key=RawConfigKeys.READ_KNOWN_MORPHS_FOLDER,
                 expected_type=bool,
@@ -462,14 +446,12 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-m
                 expected_type=str,
                 use_default=is_default,
             )
-            self.recalc_move_new_cards_to_the_end: str = self._get_config_item(
-                key=RawConfigKeys.RECALC_MOVE_NEW_CARDS_TO_THE_END,
-                expected_type=str,
-                use_default=is_default,
-            )
             self.tag_fresh: str = self._get_config_item(
                 key=RawConfigKeys.TAG_FRESH, expected_type=str, use_default=is_default
             )
+            if not is_default and self.tag_fresh == 'ps-fresh-morphs':
+                self.tag_fresh = 'ps-fresh-entries'
+                update_configs({RawConfigKeys.TAG_FRESH: self.tag_fresh})
             self.tag_ready: str = self._get_config_item(
                 key=RawConfigKeys.TAG_READY, expected_type=str, use_default=is_default
             )
@@ -721,6 +703,54 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-m
             if not am_filter.has_error:
                 filters.append(am_filter)
         return filters
+
+    def _get_known_entry_new_card_action(self, is_default: bool) -> str:
+        source = self._default_config_dict if is_default else self._config_dict
+        key = RawConfigKeys.KNOWN_ENTRY_NEW_CARD_ACTION
+
+        if key in source:
+            value = source[key]
+        else:
+            value = self._migrate_known_entry_action(source, is_default)
+
+        if value not in ("move", "suspend"):
+            value = "move"
+            if not is_default:
+                config = get_config_dict()
+                config[key] = value
+                mw.addonManager.writeConfig(__name__, config)
+                save_config_to_am_file(config)
+
+        source[key] = value
+        return value
+
+    def _migrate_known_entry_action(self, source: dict[str, object], is_default: bool) -> str:
+        if is_default:
+            return "move"
+
+        suspend_key = "recalc_suspend_new_cards"
+        move_key = "recalc_move_new_cards_to_the_end"
+
+        suspend_value = source.get(suspend_key)
+        move_value = source.get(move_key)
+
+        if isinstance(suspend_value, str) and suspend_value != am_globals.NEVER_OPTION:
+            action = "suspend"
+        elif isinstance(move_value, str) and move_value != am_globals.NEVER_OPTION:
+            action = "move"
+        else:
+            action = "move"
+
+        config = get_config_dict()
+        config[RawConfigKeys.KNOWN_ENTRY_NEW_CARD_ACTION] = action
+        config.pop(suspend_key, None)
+        config.pop(move_key, None)
+        mw.addonManager.writeConfig(__name__, config)
+        save_config_to_am_file(config)
+
+        source.pop(suspend_key, None)
+        source.pop(move_key, None)
+        return action
 
     def _get_config_item(
         self,

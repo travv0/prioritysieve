@@ -29,8 +29,8 @@ COLLECTION_FREQUENCY_OPTION = "Collection frequency"
 
 # Combobox options for 'on recalc' in card-handling settings
 NEVER_OPTION = "Never"
-ONLY_KNOWN_OPTION = "If all morphs are known"
-ONLY_KNOWN_OR_FRESH_OPTION = "If all morphs are known or fresh"
+ONLY_KNOWN_OPTION = "If all entries are known"
+ONLY_KNOWN_OR_FRESH_OPTION = "If all entries are known or fresh"
 
 # Priority file/study plan headers
 LEMMA_HEADER = "Morph-Lemma"

@@ -33,8 +33,8 @@ class Ui_ViewMorphsDialog(object):
 
     def retranslateUi(self, ViewMorphsDialog):
         _translate = QtCore.QCoreApplication.translate
-        ViewMorphsDialog.setWindowTitle(_translate("ViewMorphsDialog", "View Morphemes"))
+        ViewMorphsDialog.setWindowTitle(_translate("ViewMorphsDialog", "View Entries"))
         item = self.tableWidget.horizontalHeaderItem(0)
-        item.setText(_translate("ViewMorphsDialog", "Inflection"))
+        item.setText(_translate("ViewMorphsDialog", "Text"))
         item = self.tableWidget.horizontalHeaderItem(1)
-        item.setText(_translate("ViewMorphsDialog", "Lemma"))
+        item.setText(_translate("ViewMorphsDialog", "Base form"))

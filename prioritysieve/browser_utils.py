@@ -101,17 +101,17 @@ def browse_same_morphs(  # pylint:disable=too-many-arguments
             search_unknowns=True,
             search_lemma_only=True,
         )
-        error_text = "No unknown morphs"
+        error_text = "No unknown entries"
     elif search_unknowns:
         # only matches morph inflections
         card_ids = am_db.get_ids_of_cards_with_same_morphs(
             card_id, search_unknowns=True
         )
-        error_text = "No unknown morphs"
+        error_text = "No unknown entries"
     else:
         # only matches morph inflections
         card_ids = am_db.get_ids_of_cards_with_same_morphs(card_id)
-        error_text = "No morphs"
+        error_text = "No entries"
 
     if card_ids is None:
         tooltip(error_text)
@@ -222,7 +222,7 @@ def run_view_morphs() -> None:  # pylint:disable=too-many-locals
         morphs: list[tuple[str, str, str]] = am_db.get_readable_card_morphs(cid)
 
         if len(morphs) == 0:
-            tooltip("No morphs found")
+            tooltip("No entries found")
         else:
             dialog = QDialog(parent=None)
             ui = Ui_ViewMorphsDialog()

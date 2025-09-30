@@ -373,15 +373,15 @@ class SkippedCards:
         if known_tag:
             # this is the simplest case; the 'known' tag is only applied
             # if every single morph is known, so don't need to
-            # consider fresh morphs here
+            # all entries are already known here
             if am_config.skip_no_unknown_morphs:
                 self._will_skip_no_unknowns()
                 return True
             return False
 
         if am_config.skip_unknown_morph_seen_today_cards:
-            # this is the ultimate 'I don't care about fresh morphs'
-            # setting, so we don't check for those in this case
+            # this setting ignores entries that have already been seen today,
+            # regardless of whether they were recently learned
             morphs_already_seen_morphs_today: set[tuple[str, str, str]] = (
                 am_db.get_all_morphs_seen_today(
                     only_lemma=am_config.evaluate_morph_lemma
@@ -401,11 +401,8 @@ class SkippedCards:
                 return False
 
         if fresh_tag:
-            # note: the fresh tag is mutually exclusive with the known tag
-            if (
-                am_config.skip_no_unknown_morphs
-                and am_config.skip_when_contains_fresh_morphs
-            ):
+            # treat fresh entries the same as known entries for skipping purposes
+            if am_config.skip_no_unknown_morphs:
                 card_unknown_morphs_raw = am_db.get_card_morphs(
                     card_id=card_id,
                     search_unknowns=True,
@@ -435,10 +432,10 @@ class SkippedCards:
         skipped_string = ""
 
         if self.skipped_cards_with_no_unknowns > 0:
-            skipped_string += f"Skipped <b>{self.skipped_cards_with_no_unknowns}</b> cards with no unknown morphs"
+            skipped_string += f"Skipped <b>{self.skipped_cards_with_no_unknowns}</b> cards with no unknown entries"
         if self.skipped_cards_with_already_seen_morphs > 0:
             if skipped_string != "":
                 skipped_string += "<br>"
-            skipped_string += f"Skipped <b>{self.skipped_cards_with_already_seen_morphs}</b> cards with morphs already seen today"
+            skipped_string += f"Skipped <b>{self.skipped_cards_with_already_seen_morphs}</b> cards with entries already seen today"
 
         tooltip(skipped_string, parent=mw)

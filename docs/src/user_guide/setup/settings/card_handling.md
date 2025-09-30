@@ -4,27 +4,20 @@
 
 This is where you can make PrioritySieve really efficient. PrioritySieve sorts
 your cards based on how well you know its content; the more you know, the sooner the card will be shown. The downside is
-this is that it might take a long time before you see a cards with any unknown morphs, i.e., you don't learn anything
+this is that it might take a long time before you see a cards with any unknown entries, i.e., you don't learn anything
 new.
 
 To overcome this problem and speed up the learning process, we can use the options found here.
 
 **When Encountering Cards (skip = bury)**:
 
-* **Skip cards that have no unknown morphs**:  
-  If AnkiMorph has determined that there are no unknown morphs on the card, then it will be buried and skipped.
+* **Skip cards that have no unknown entries**:  
+  If AnkiMorph has determined that there are no unknown entries on the card, then it will be buried and skipped.
   
-    * **Don't skip if they contain fresh morphs**:  
-      Choose this if you want to study more [fresh/recently learned morphs](../../glossary.md#fresh-morphs).
 
-    * **Skip even if they contain fresh morphs**:  
-      Choose this if you want maximum efficiency and you don't feel the need to reinforce 
-      [fresh/recently learned morphs](../../glossary.md#fresh-morphs).
-      
-
-* **Skip cards that have unknown morphs already seen today**:  
-  If you have already studied a card earlier today with the same unknown morph, then any subsequent cards with that
-  unknown morph will be buried and skipped, which reduces the need to [Recalc](../../usage/recalc.md).
+* **Skip cards that have unknown entries already seen today**:  
+  If you have already studied a card earlier today with the same unknown entry, then any subsequent cards with that
+  unknown entry will be buried and skipped, which reduces the need to [Recalc](../../usage/recalc.md).
 * **Show notification "Skipped x cards"**:  
   After cards are skipped, a notification in the lower left corner displays how many cards were skipped and for what
   reason. If you don't want to see this notification, you can uncheck this option.
@@ -33,32 +26,15 @@ To overcome this problem and speed up the learning process, we can use the optio
 
 
 **On Recalc**:
-* **Suspend new cards:**:  
-  This option suspends certain new cards, which can prevent having to skip the same
-  cards at the start of every session. These cards are are given the [suspended automatically tag](tags.md).
+* **When a new card has no unknown entries:**  
+  You can choose how PrioritySieve handles these cards: either move them to the end of the new queue (default) or suspend them outright. This ensures you always focus on unseen material first.
 
-    * **If all morphs are known**:  
-      Suspends new cards that have no **unknown** morphs, except if they include[ **fresh** morphs](../../glossary.md#fresh-morphs).
-
-    * **If all morphs are known or fresh**:  
-      Suspends new cards that have no **unknown** morphs, even if they include **fresh** morphs.
-
-* **Move new cards to the end of the due queue**:  
-  This option pushes certain new cards to the very end of the study queue, which can prevent having to skip the same
-  cards at the start of every session. These cards are assigned a `due` value of `2047483647`.
-
-    * **If all morphs are known**:  
-      Moves new cards that have no **unknown** morphs, except if they include [**fresh** morphs](../../glossary.md#fresh-morphs).
-  
-    * **If all morphs are known or fresh**:  
-      Moves new cards that have no **unknown** morphs, even if they include **fresh** morphs.
-
-* **Shift new cards that are not the first to have the unknown morph**:  
+* **Shift new cards that are not the first to have the unknown entry**:  
   This option is an alternative to the [skip options](skip.md) that are only available on desktop, potentially making it
   easier to study new cards on mobile.  
   <br>There are two parameters you can adjust:
     * How much to shift/offset the due of the affected cards
-    * How many unknown morphs to perform this shift/offset on
+    * How many unknown entries to perform this shift/offset on
   <br>You can also optionally provide a deck name. When set, cards belonging to that deck
   will be kept as the "first" card for their morph (i.e. not shifted) if one exists, even if
   another deck has an earlier due card.
@@ -68,7 +44,7 @@ To overcome this problem and speed up the learning process, we can use the optio
   <table>
   <tr>
       <th style="text-align: center">Card ID</th>
-      <th style="text-align: center">Unknown Morph</th>
+      <th style="text-align: center">Unknown Entry</th>
       <th style="text-align: center">Due</th>
   </tr>
   <tr>
@@ -99,7 +75,7 @@ To overcome this problem and speed up the learning process, we can use the optio
   <table>
   <tr>
       <th style="text-align: center">Card ID</th>
-      <th style="text-align: center">Unknown Morph</th>
+      <th style="text-align: center">Unknown Entry</th>
       <th style="text-align: center">Due</th>
   </tr>
   <tr>

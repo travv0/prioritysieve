@@ -115,17 +115,6 @@ config_offset_lemma_enabled[ConfigKeys.RECALC_OFFSET_NEW_CARDS] = True
 
 
 ################################################################
-#               config_dont_skip_fresh_morphs
-################################################################
-# Used with: `card_handling_collection.anki2`.
-################################################################
-# fmt: off
-config_dont_skip_fresh_morphs = copy.deepcopy(config_lemma_evaluation_lemma_extra_fields)
-config_dont_skip_fresh_morphs[ConfigKeys.SKIP_DONT_WHEN_CONTAINS_FRESH_MORPHS] = True
-config_dont_skip_fresh_morphs[ConfigKeys.SKIP_WHEN_CONTAINS_FRESH_MORPHS] = False
-# fmt: on
-
-################################################################
 #             config_disabled_skip_no_unknown_morphs
 ################################################################
 # Used with: `card_handling_collection.anki2`.
@@ -190,45 +179,20 @@ config_max_morph_priority_filter[FilterKeys.MORPH_PRIORITY_SELECTION] = [
 # fmt: on
 
 ################################################################
-#               config_suspend_morphs_known
+#          config_known_entry_new_card_action_suspend
 ################################################################
-# Matches `suspend_all_morphs_known.anki2`
+# Matches `suspend_all_morphs_known.anki2` and related fixtures
 ################################################################
-# fmt: off
-config_suspend_morphs_known = copy.deepcopy(default_config_dict)
-config_suspend_morphs_known[ConfigKeys.RECALC_SUSPEND_NEW_CARDS] = am_globals.ONLY_KNOWN_OPTION
-# fmt: on
+config_known_entry_new_card_action_suspend = copy.deepcopy(default_config_dict)
+config_known_entry_new_card_action_suspend[ConfigKeys.KNOWN_ENTRY_NEW_CARD_ACTION] = "suspend"
 
 ################################################################
-#            config_suspend_morphs_known_or_fresh
-################################################################
-# Matches `suspend_morphs_known_or_fresh.anki2`
-################################################################
-# fmt: off
-config_suspend_morphs_known_or_fresh = copy.deepcopy(default_config_dict)
-config_suspend_morphs_known_or_fresh[ConfigKeys.RECALC_SUSPEND_NEW_CARDS] = am_globals.ONLY_KNOWN_OR_FRESH_OPTION
-# fmt: on
-
-
-################################################################
-#              config_move_to_end_morphs_known
-################################################################
-# Matches `move_to_end_morphs_known.anki2`
-################################################################
-# fmt: off
-config_move_to_end_morphs_known = copy.deepcopy(default_config_dict)
-config_move_to_end_morphs_known[ConfigKeys.RECALC_MOVE_NEW_CARDS_TO_THE_END] = am_globals.ONLY_KNOWN_OPTION
-# fmt: on
-
-################################################################
-#            config_move_to_end_morphs_known_or_fresh
+#          config_known_entry_new_card_action_move
 ################################################################
 # Matches `move_to_end_morphs_known_or_fresh.anki2`
 ################################################################
-# fmt: off
-config_move_to_end_morphs_known_or_fresh = copy.deepcopy(default_config_dict)
-config_move_to_end_morphs_known_or_fresh[ConfigKeys.RECALC_MOVE_NEW_CARDS_TO_THE_END] = am_globals.ONLY_KNOWN_OR_FRESH_OPTION
-# fmt: on
+config_known_entry_new_card_action_move = copy.deepcopy(default_config_dict)
+config_known_entry_new_card_action_move[ConfigKeys.KNOWN_ENTRY_NEW_CARD_ACTION] = "move"
 
 
 ################################################################

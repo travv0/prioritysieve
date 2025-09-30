@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>SettingsDialog</class>
  <widget class="QDialog" name="SettingsDialog">
@@ -44,8 +43,7 @@
          <item>
           <widget class="QGroupBox" name="groupBox_4">
            <property name="title">
-            <string>Morph Evaluation</string>
-           </property>
+            <string>Entry evaluation</string></property>
            <layout class="QHBoxLayout" name="horizontalLayout_31">
             <item>
              <widget class="QLabel" name="label_35">
@@ -55,8 +53,7 @@
                </font>
               </property>
               <property name="text">
-               <string>Evaluate morphs based on their:</string>
-              </property>
+               <string>Evaluate entries based on their:</string></property>
              </widget>
             </item>
             <item>
@@ -102,8 +99,7 @@
          <item>
           <widget class="QGroupBox" name="groupBox_3">
            <property name="title">
-            <string>Known Morphs</string>
-           </property>
+            <string>Known entries</string></property>
            <layout class="QVBoxLayout" name="verticalLayout_17">
             <item>
              <layout class="QHBoxLayout" name="horizontalLayout_6">
@@ -119,8 +115,7 @@
               <item>
                <widget class="QLabel" name="label_16">
                 <property name="text">
-                 <string>Morphs are considered known when they have a learning interval of</string>
-                </property>
+                 <string>Entries are considered known when they have a learning interval of</string></property>
                </widget>
               </item>
               <item>
@@ -155,8 +150,7 @@
             <item>
              <widget class="QCheckBox" name="recalcReadKnownMorphsFolderCheckBox">
               <property name="text">
-               <string>Read files in 'known-morphs' folder and register morphs as known</string>
-              </property>
+               <string>Read files in the known entries folder to register them as known</string></property>
              </widget>
             </item>
            </layout>
@@ -251,15 +245,13 @@
               <item>
                <widget class="QRadioButton" name="toolbarStatsUseSeenRadioButton">
                 <property name="text">
-                 <string>Seen morphs (reviewed at least once)</string>
-                </property>
+                 <string>Seen entries (reviewed at least once)</string></property>
                </widget>
               </item>
               <item>
                <widget class="QRadioButton" name="toolbarStatsUseKnownRadioButton">
                 <property name="text">
-                 <string>Known morphs</string>
-                </property>
+                 <string>Known entries</string></property>
                </widget>
               </item>
               <item>
@@ -352,13 +344,11 @@
            </column>
            <column>
             <property name="text">
-             <string>Morphemizer</string>
-            </property>
+             <string>Parser</string></property>
            </column>
            <column>
             <property name="text">
-             <string>Morph Priority</string>
-            </property>
+             <string>Priority file</string></property>
            </column>
            <column>
             <property name="text">
@@ -449,7 +439,7 @@
             <string notr="true">margin-bottom: 10px;</string>
            </property>
            <property name="text">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;PrioritySieve can automatically add special fields to your cards and populate them. Read the &lt;a href=&quot;https://mortii.github.io/prioritysieve/user_guide/setup/settings/extra-fields.html&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#8783ff;&quot;&gt;guide&lt;/span&gt;&lt;/a&gt; for more info.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;PrioritySieve can automatically add special fields to your cards and populate them. Read the &lt;a href="https://mortii.github.io/prioritysieve/user_guide/setup/settings/extra-fields.html"&gt;&lt;span style=" text-decoration: underline; color:#8783ff;"&gt;guide&lt;/span&gt;&lt;/a&gt; for more info.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
            </property>
            <property name="textFormat">
             <enum>Qt::MarkdownText</enum>
@@ -462,16 +452,14 @@
          <item>
           <widget class="QGroupBox" name="groupBox_5">
            <property name="title">
-            <string>Morph Form</string>
-           </property>
+            <string>Entry format</string></property>
            <layout class="QVBoxLayout" name="verticalLayout_5">
             <item>
              <layout class="QHBoxLayout" name="horizontalLayout_3">
               <item>
                <widget class="QLabel" name="label_39">
                 <property name="text">
-                 <string>Extra fields display morphs in this form:</string>
-                </property>
+                 <string>Extra field displays the entry as:</string></property>
                </widget>
               </item>
               <item>
@@ -568,22 +556,19 @@
                 <item>
                  <widget class="QLabel" name="label_2">
                   <property name="text">
-                   <string>One unknown morph</string>
-                  </property>
+                   <string>One unknown entry</string></property>
                  </widget>
                 </item>
                 <item>
                  <widget class="QLabel" name="label_3">
                   <property name="text">
-                   <string>Multiple unknown morphs</string>
-                  </property>
+                   <string>Multiple unknown entries</string></property>
                  </widget>
                 </item>
                 <item>
                  <widget class="QLabel" name="label_46">
                   <property name="text">
-                   <string>Fresh morphs</string>
-                  </property>
+                   <string>Fresh entries</string></property>
                  </widget>
                 </item>
                 <item>
@@ -603,8 +588,7 @@
                 <item>
                  <widget class="QLabel" name="label_4">
                   <property name="text">
-                   <string>All morphs known</string>
-                  </property>
+                   <string>All entries known</string></property>
                  </widget>
                 </item>
                 <item>
@@ -619,25 +603,25 @@
               <item>
                <layout class="QVBoxLayout" name="verticalLayout_7">
                 <item>
-                 <widget class="QLineEdit" name="tagReadyLineEdit"/>
+                 <widget class="QLineEdit" name="tagReadyLineEdit" />
                 </item>
                 <item>
-                 <widget class="QLineEdit" name="tagNotReadyLineEdit"/>
+                 <widget class="QLineEdit" name="tagNotReadyLineEdit" />
                 </item>
                 <item>
-                 <widget class="QLineEdit" name="tagfreshLineEdit"/>
+                 <widget class="QLineEdit" name="tagfreshLineEdit" />
                 </item>
                 <item>
-                 <widget class="QLineEdit" name="tagLearnCardNowLineEdit"/>
+                 <widget class="QLineEdit" name="tagLearnCardNowLineEdit" />
                 </item>
                 <item>
-                 <widget class="QLineEdit" name="tagKnownManuallyLineEdit"/>
+                 <widget class="QLineEdit" name="tagKnownManuallyLineEdit" />
                 </item>
                 <item>
-                 <widget class="QLineEdit" name="tagKnownAutomaticallyLineEdit"/>
+                 <widget class="QLineEdit" name="tagKnownAutomaticallyLineEdit" />
                 </item>
                 <item>
-                 <widget class="QLineEdit" name="tagSuspendedAutomaticallyLineEdit"/>
+                 <widget class="QLineEdit" name="tagSuspendedAutomaticallyLineEdit" />
                 </item>
                </layout>
               </item>
@@ -749,8 +733,7 @@
             <item>
              <widget class="QCheckBox" name="preprocessIgnoreNamesMizerCheckBox">
               <property name="text">
-               <string>Ignore names found by the morphemizer</string>
-              </property>
+               <string>Ignore names found by the parser</string></property>
              </widget>
             </item>
             <item>
@@ -777,7 +760,7 @@
                </widget>
               </item>
               <item>
-               <widget class="QLineEdit" name="preprocessCustomCharactersLineEdit"/>
+               <widget class="QLineEdit" name="preprocessCustomCharactersLineEdit" />
               </item>
               <item>
                <spacer name="horizontalSpacer_25">
@@ -863,54 +846,21 @@
                 <item>
                  <widget class="QCheckBox" name="skipNoUnKnownMorphsCheckBox">
                   <property name="text">
-                   <string>Skip cards that have no unknown morphs</string>
-                  </property>
+                   <string>Skip cards that have no unknown entries</string></property>
                  </widget>
-                </item>
-                <item>
-                 <layout class="QHBoxLayout" name="horizontalLayout_22">
-                  <property name="leftMargin">
-                   <number>20</number>
-                  </property>
-                  <item>
-                   <layout class="QVBoxLayout" name="verticalLayout_37">
-                    <item>
-                     <widget class="QRadioButton" name="skipDontWhenFreshMorphsRadioButton">
-                      <property name="text">
-                       <string>Don't skip if they contain fresh morphs</string>
-                      </property>
-                      <attribute name="buttonGroup">
-                       <string notr="true">buttonGroup_2</string>
-                      </attribute>
-                     </widget>
-                    </item>
-                    <item>
-                     <widget class="QRadioButton" name="skipEvenWithFreshMorphsRadioButton">
-                      <property name="text">
-                       <string>Skip even if they contain fresh morphs</string>
-                      </property>
-                      <attribute name="buttonGroup">
-                       <string notr="true">buttonGroup_2</string>
-                      </attribute>
-                     </widget>
-                    </item>
-                   </layout>
-                  </item>
-                 </layout>
                 </item>
                </layout>
               </item>
               <item>
                <widget class="QCheckBox" name="skipAlreadySeenCheckBox">
                 <property name="text">
-                 <string>Skip cards that have unknown morphs already seen today</string>
-                </property>
+                 <string>Skip cards whose unknown entries were already seen today</string></property>
                </widget>
               </item>
               <item>
                <widget class="QCheckBox" name="skipNotificationsCheckBox">
                 <property name="text">
-                 <string>Show notification: &quot;Skipped X cards&quot;</string>
+                 <string>Show notification: "Skipped X cards"</string>
                 </property>
                </widget>
               </item>
@@ -926,56 +876,27 @@
            </property>
            <layout class="QVBoxLayout" name="verticalLayout_20">
             <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_30">
+             <layout class="QVBoxLayout" name="verticalLayout_knownEntryHandling">
               <item>
-               <widget class="QLabel" name="label_50">
+               <widget class="QLabel" name="label_knownEntryHandling">
                 <property name="text">
-                 <string>Suspend new cards:</string>
+                 <string>When a new card has no unknown entries:</string>
                 </property>
                </widget>
               </item>
               <item>
-               <widget class="QComboBox" name="suspendNewCardsComboBox"/>
-              </item>
-              <item>
-               <spacer name="horizontalSpacer_26">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>40</width>
-                  <height>20</height>
-                 </size>
-                </property>
-               </spacer>
-              </item>
-             </layout>
-            </item>
-            <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_29">
-              <item>
-               <widget class="QLabel" name="label_51">
+               <widget class="QRadioButton" name="knownEntryMoveRadioButton">
                 <property name="text">
-                 <string>Move new cards to the end of the due queue:</string>
+                 <string>Move it to the end of the new queue</string>
                 </property>
                </widget>
               </item>
               <item>
-               <widget class="QComboBox" name="MoveNewCardsComboBox"/>
-              </item>
-              <item>
-               <spacer name="horizontalSpacer_27">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
+               <widget class="QRadioButton" name="knownEntrySuspendRadioButton">
+                <property name="text">
+                 <string>Suspend it</string>
                 </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>40</width>
-                  <height>20</height>
-                 </size>
-                </property>
-               </spacer>
+               </widget>
               </item>
              </layout>
             </item>
@@ -984,8 +905,7 @@
               <item>
                <widget class="QCheckBox" name="shiftNewCardsCheckBox">
                 <property name="text">
-                 <string>Shift new cards that are not the first to have the unknown morph, by</string>
-                </property>
+                 <string>Shift new cards that are not the first with the unknown entry by</string></property>
                </widget>
               </item>
               <item>
@@ -1012,8 +932,7 @@
               <item>
                <widget class="QLabel" name="label_21">
                 <property name="text">
-                 <string>morphs</string>
-                </property>
+                 <string>entries</string></property>
                </widget>
               </item>
               <item>
@@ -1129,29 +1048,25 @@
               <item>
                <widget class="QLabel" name="label_28">
                 <property name="text">
-                 <string>Total priority of all morphs</string>
-                </property>
+                 <string>Total priority of all entries</string></property>
                </widget>
               </item>
               <item>
                <widget class="QLabel" name="label_27">
                 <property name="text">
-                 <string>Total priority of unknown morphs</string>
-                </property>
+                 <string>Total priority of unknown entries</string></property>
                </widget>
               </item>
               <item>
                <widget class="QLabel" name="label_47">
                 <property name="text">
-                 <string>Total priority of learning morphs</string>
-                </property>
+                 <string>Total priority of learning entries</string></property>
                </widget>
               </item>
               <item>
                <widget class="QLabel" name="label_29">
                 <property name="text">
-                 <string>Target difference of all morphs</string>
-                </property>
+                 <string>Target difference of all entries</string></property>
                </widget>
               </item>
              </layout>
@@ -1196,29 +1111,26 @@
               <item>
                <widget class="QLabel" name="label_38">
                 <property name="text">
-                 <string>Average priority of all morphs</string>
-                </property>
+                 <string>Average priority of all entries</string></property>
                </widget>
               </item>
               <item>
                <widget class="QLabel" name="label_49">
                 <property name="text">
-                 <string/>
+                 <string />
                 </property>
                </widget>
               </item>
               <item>
                <widget class="QLabel" name="label_48">
                 <property name="text">
-                 <string>Average priority of learning morphs</string>
-                </property>
+                 <string>Average priority of learning entries</string></property>
                </widget>
               </item>
               <item>
                <widget class="QLabel" name="label_41">
                 <property name="text">
-                 <string>Target difference of learning morphs</string>
-                </property>
+                 <string>Target difference of learning entries</string></property>
                </widget>
               </item>
              </layout>
@@ -1235,7 +1147,7 @@
               <item>
                <widget class="QLabel" name="label_26">
                 <property name="text">
-                 <string/>
+                 <string />
                 </property>
                </widget>
               </item>
@@ -1274,8 +1186,7 @@
          <item>
           <widget class="QGroupBox" name="groupBox_9">
            <property name="title">
-            <string>Morph Targets</string>
-           </property>
+            <string>Entry targets</string></property>
            <layout class="QVBoxLayout" name="verticalLayout_45">
             <item>
              <layout class="QHBoxLayout" name="horizontalLayout_14">
@@ -1284,15 +1195,13 @@
                 <item>
                  <widget class="QLabel" name="label_24">
                   <property name="text">
-                   <string>Upper target number of all morphs</string>
-                  </property>
+                   <string>Upper target number of all entries</string></property>
                  </widget>
                 </item>
                 <item>
                  <widget class="QLabel" name="label_22">
                   <property name="text">
-                   <string>Lower target number of all morphs</string>
-                  </property>
+                   <string>Lower target number of all entries</string></property>
                  </widget>
                 </item>
                </layout>
@@ -1300,10 +1209,10 @@
               <item>
                <layout class="QVBoxLayout" name="verticalLayout_27">
                 <item>
-                 <widget class="QSpinBox" name="upperTargetAllMorphsSpinBox"/>
+                 <widget class="QSpinBox" name="upperTargetAllMorphsSpinBox" />
                 </item>
                 <item>
-                 <widget class="QSpinBox" name="lowerTargetAllMorphsSpinBox"/>
+                 <widget class="QSpinBox" name="lowerTargetAllMorphsSpinBox" />
                 </item>
                </layout>
               </item>
@@ -1440,15 +1349,13 @@
                 <item>
                  <widget class="QLabel" name="label_30">
                   <property name="text">
-                   <string>Upper target number of learning morphs</string>
-                  </property>
+                   <string>Upper target number of learning entries</string></property>
                  </widget>
                 </item>
                 <item>
                  <widget class="QLabel" name="label_32">
                   <property name="text">
-                   <string>Lower target number of learning morphs</string>
-                  </property>
+                   <string>Lower target number of learning entries</string></property>
                  </widget>
                 </item>
                </layout>
@@ -1456,10 +1363,10 @@
               <item>
                <layout class="QVBoxLayout" name="verticalLayout_41">
                 <item>
-                 <widget class="QSpinBox" name="upperTargetLearningMorphsSpinBox"/>
+                 <widget class="QSpinBox" name="upperTargetLearningMorphsSpinBox" />
                 </item>
                 <item>
-                 <widget class="QSpinBox" name="lowerTargetLearningMorphsSpinBox"/>
+                 <widget class="QSpinBox" name="lowerTargetLearningMorphsSpinBox" />
                 </item>
                </layout>
               </item>
@@ -1683,8 +1590,7 @@
                 <item>
                  <widget class="QLabel" name="label_18">
                   <property name="text">
-                   <string>Known Morphs Exporter</string>
-                  </property>
+                   <string>Known Entries Exporter</string></property>
                  </widget>
                 </item>
                </layout>
@@ -1692,19 +1598,19 @@
               <item>
                <layout class="QVBoxLayout" name="verticalLayout_15">
                 <item>
-                 <widget class="QKeySequenceEdit" name="shortcutRecalcKeySequenceEdit"/>
+                 <widget class="QKeySequenceEdit" name="shortcutRecalcKeySequenceEdit" />
                 </item>
                 <item>
-                 <widget class="QKeySequenceEdit" name="shortcutSettingsKeySequenceEdit"/>
+                 <widget class="QKeySequenceEdit" name="shortcutSettingsKeySequenceEdit" />
                 </item>
                 <item>
-                 <widget class="QKeySequenceEdit" name="shortcutGeneratorsKeySequenceEdit"/>
+                 <widget class="QKeySequenceEdit" name="shortcutGeneratorsKeySequenceEdit" />
                 </item>
                 <item>
-                 <widget class="QKeySequenceEdit" name="shortcutProgressionKeySequenceEdit"/>
+                 <widget class="QKeySequenceEdit" name="shortcutProgressionKeySequenceEdit" />
                 </item>
                 <item>
-                 <widget class="QKeySequenceEdit" name="shortcutKnownMorphsExporterKeySequenceEdit"/>
+                 <widget class="QKeySequenceEdit" name="shortcutKnownMorphsExporterKeySequenceEdit" />
                 </item>
                </layout>
               </item>
@@ -1792,8 +1698,7 @@
                 <item>
                  <widget class="QLabel" name="label_12">
                   <property name="text">
-                   <string>View card morphemes</string>
-                  </property>
+                   <string>View card entries</string></property>
                  </widget>
                 </item>
                </layout>
@@ -1801,13 +1706,13 @@
               <item>
                <layout class="QVBoxLayout" name="verticalLayout_25">
                 <item>
-                 <widget class="QKeySequenceEdit" name="shortcutKnownAndSkipKeySequenceEdit"/>
+                 <widget class="QKeySequenceEdit" name="shortcutKnownAndSkipKeySequenceEdit" />
                 </item>
                 <item>
-                 <widget class="QKeySequenceEdit" name="shortcutLearnNowKeySequenceEdit"/>
+                 <widget class="QKeySequenceEdit" name="shortcutLearnNowKeySequenceEdit" />
                 </item>
                 <item>
-                 <widget class="QKeySequenceEdit" name="shortcutViewMorphsKeySequenceEdit"/>
+                 <widget class="QKeySequenceEdit" name="shortcutViewMorphsKeySequenceEdit" />
                 </item>
                </layout>
               </item>
@@ -1858,22 +1763,19 @@
                 <item>
                  <widget class="QLabel" name="label_8">
                   <property name="text">
-                   <string>Browse ready cards with same unknown morph (inflection)</string>
-                  </property>
+                   <string>Browse ready cards with same unknown entry</string></property>
                  </widget>
                 </item>
                 <item>
                  <widget class="QLabel" name="label_9">
                   <property name="text">
-                   <string>Browse all cards with same unknown morph (inflection)</string>
-                  </property>
+                   <string>Browse all cards with same unknown entry</string></property>
                  </widget>
                 </item>
                 <item>
                  <widget class="QLabel" name="label_19">
                   <property name="text">
-                   <string>Browse ready cards with the same unknown morph (lemma)</string>
-                  </property>
+                   <string>Browse ready cards with same entry (broad match)</string></property>
                  </widget>
                 </item>
                </layout>
@@ -1881,13 +1783,13 @@
               <item>
                <layout class="QVBoxLayout" name="verticalLayout_23">
                 <item>
-                 <widget class="QKeySequenceEdit" name="shortcutBrowseReadyKeySequenceEdit"/>
+                 <widget class="QKeySequenceEdit" name="shortcutBrowseReadyKeySequenceEdit" />
                 </item>
                 <item>
-                 <widget class="QKeySequenceEdit" name="shortcutBrowseAllKeySequenceEdit"/>
+                 <widget class="QKeySequenceEdit" name="shortcutBrowseAllKeySequenceEdit" />
                 </item>
                 <item>
-                 <widget class="QKeySequenceEdit" name="shortcutBrowseReadyLemmaKeySequenceEdit"/>
+                 <widget class="QKeySequenceEdit" name="shortcutBrowseReadyLemmaKeySequenceEdit" />
                 </item>
                </layout>
               </item>
@@ -2071,10 +1973,10 @@
    </item>
   </layout>
  </widget>
- <resources/>
- <connections/>
+ <resources />
+ <connections />
  <buttongroups>
-  <buttongroup name="buttonGroup"/>
-  <buttongroup name="buttonGroup_2"/>
+  <buttongroup name="buttonGroup" />
+  <buttongroup name="buttonGroup_2" />
  </buttongroups>
 </ui>

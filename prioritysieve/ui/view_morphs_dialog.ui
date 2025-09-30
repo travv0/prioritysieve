@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>View Morphemes</string>
+   <string>View Entries</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout_2">
    <item>
@@ -20,12 +20,12 @@
       <widget class="QTableWidget" name="tableWidget">
        <column>
         <property name="text">
-         <string>Inflection</string>
+         <string>Text</string>
         </property>
        </column>
        <column>
         <property name="text">
-         <string>Lemma</string>
+         <string>Base form</string>
         </property>
        </column>
       </widget>

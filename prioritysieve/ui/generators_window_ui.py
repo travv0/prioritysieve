@@ -212,9 +212,9 @@ class Ui_GeneratorsWindow(object):
     def retranslateUi(self, GeneratorsWindow):
         _translate = QtCore.QCoreApplication.translate
         GeneratorsWindow.setWindowTitle(_translate("GeneratorsWindow", "Generators"))
-        self.groupBox.setTitle(_translate("GeneratorsWindow", "Input Files and Morphemizer"))
+        self.groupBox.setTitle(_translate("GeneratorsWindow", "Input files and parser"))
         self.selectFolderPushButton.setText(_translate("GeneratorsWindow", "Select Folder"))
-        self.label.setText(_translate("GeneratorsWindow", "Morphemizer:"))
+        self.label.setText(_translate("GeneratorsWindow", "Parser:"))
         self.label_2.setText(_translate("GeneratorsWindow", "File formats:"))
         self.assFilesCheckBox.setText(_translate("GeneratorsWindow", ".ass"))
         self.epubFilesCheckBox.setText(_translate("GeneratorsWindow", ".epub"))
@@ -225,7 +225,7 @@ class Ui_GeneratorsWindow(object):
         self.vttFilesCheckBox.setText(_translate("GeneratorsWindow", ".vtt"))
         self.groupBox_2.setTitle(_translate("GeneratorsWindow", "Preprocess"))
         self.squareBracketsCheckBox.setText(_translate("GeneratorsWindow", "Ignore content in square brackets []"))
-        self.namesMorphemizerCheckBox.setText(_translate("GeneratorsWindow", "Ignore names found by morphemizer"))
+        self.namesMorphemizerCheckBox.setText(_translate("GeneratorsWindow", "Ignore names found by parser"))
         self.roundBracketsCheckBox.setText(_translate("GeneratorsWindow", "ignore content in round brackets（）"))
         self.namesFileCheckBox.setText(_translate("GeneratorsWindow", "Ignore names found in names.txt"))
         self.slimRoundBracketsCheckBox.setText(_translate("GeneratorsWindow", "ignore content in slim round brackets ()"))
@@ -239,7 +239,7 @@ class Ui_GeneratorsWindow(object):
         item.setText(_translate("GeneratorsWindow", "File"))
         item = self.numericalTableWidget.horizontalHeaderItem(1)
         item.setText(_translate("GeneratorsWindow", "Unique\n"
-"Morphs"))
+"Entries"))
         item = self.numericalTableWidget.horizontalHeaderItem(2)
         item.setText(_translate("GeneratorsWindow", "Unique \n"
 "Known"))
@@ -251,7 +251,7 @@ class Ui_GeneratorsWindow(object):
 "Unknown"))
         item = self.numericalTableWidget.horizontalHeaderItem(5)
         item.setText(_translate("GeneratorsWindow", "Total\n"
-"Morphs"))
+"Entries"))
         item = self.numericalTableWidget.horizontalHeaderItem(6)
         item.setText(_translate("GeneratorsWindow", "Total\n"
 "Known"))
@@ -266,7 +266,7 @@ class Ui_GeneratorsWindow(object):
         item.setText(_translate("GeneratorsWindow", "File"))
         item = self.percentTableWidget.horizontalHeaderItem(1)
         item.setText(_translate("GeneratorsWindow", "Unique\n"
-"Morphs"))
+"Entries"))
         item = self.percentTableWidget.horizontalHeaderItem(2)
         item.setText(_translate("GeneratorsWindow", "Unique \n"
 "Known"))
@@ -278,7 +278,7 @@ class Ui_GeneratorsWindow(object):
 "Unknown"))
         item = self.percentTableWidget.horizontalHeaderItem(5)
         item.setText(_translate("GeneratorsWindow", "Total\n"
-"Morphs"))
+"Entries"))
         item = self.percentTableWidget.horizontalHeaderItem(6)
         item.setText(_translate("GeneratorsWindow", "Total\n"
 "Known"))

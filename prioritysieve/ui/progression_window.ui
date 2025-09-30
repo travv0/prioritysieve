@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>ProgressionWindow</class>
  <widget class="QMainWindow" name="ProgressionWindow">
@@ -18,8 +17,7 @@
     <item>
      <widget class="QGroupBox" name="groupBox">
       <property name="title">
-       <string>Morphs</string>
-      </property>
+       <string>Entries</string></property>
       <layout class="QVBoxLayout" name="verticalLayout">
        <item>
         <layout class="QHBoxLayout" name="horizontalLayout_7">
@@ -32,8 +30,7 @@
             </sizepolicy>
            </property>
            <property name="text">
-            <string>Morph Priority File:</string>
-           </property>
+            <string>Priority file:</string></property>
           </widget>
          </item>
          <item>
@@ -51,7 +48,7 @@
             <enum>QComboBox::AdjustToContents</enum>
            </property>
            <property name="placeholderText">
-            <string/>
+            <string />
            </property>
           </widget>
          </item>
@@ -79,8 +76,7 @@
             <string>Changeable in settings</string>
            </property>
            <property name="text">
-            <string>Morph Evaluation Mode:</string>
-           </property>
+            <string>Entry matching mode:</string></property>
           </widget>
          </item>
          <item>
@@ -135,8 +131,7 @@
          <item>
           <widget class="QLabel" name="label_2">
            <property name="text">
-            <string>Morph Priority Range:</string>
-           </property>
+            <string>Priority range:</string></property>
           </widget>
          </item>
          <item>
@@ -366,8 +361,7 @@
           </column>
           <column>
            <property name="text">
-            <string>Unique Morphs</string>
-           </property>
+            <string>Unique entries</string></property>
           </column>
           <column>
            <property name="text">
@@ -410,8 +404,7 @@
           </column>
           <column>
            <property name="text">
-            <string>Unique Morphs</string>
-           </property>
+            <string>Unique entries</string></property>
           </column>
           <column>
            <property name="text">
@@ -439,8 +432,7 @@
       </widget>
       <widget class="QWidget" name="tab_3">
        <attribute name="title">
-        <string>Morph List</string>
-       </attribute>
+        <string>Entry list</string></attribute>
        <layout class="QVBoxLayout" name="verticalLayout_2">
         <item>
          <widget class="QTableWidget" name="morphTableWidget">
@@ -494,10 +486,10 @@
    </layout>
   </widget>
  </widget>
- <resources/>
- <connections/>
+ <resources />
+ <connections />
  <buttongroups>
-  <buttongroup name="buttonGroup"/>
-  <buttongroup name="buttonGroup_2"/>
+  <buttongroup name="buttonGroup" />
+  <buttongroup name="buttonGroup_2" />
  </buttongroups>
 </ui>

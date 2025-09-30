@@ -5,7 +5,7 @@ from ..exceptions import InvalidBinsException
 
 
 class Bins:
-    """Bins, used for morph priority."""
+    """Bins, used for entry priority."""
 
     def __init__(
         self, min_index: int, max_index: int, bin_size: int, is_cumulative: bool
@@ -37,7 +37,7 @@ class Bins:
 
 
 class ProgressReport:
-    """Stores lists of know, learning, unknown, and missing morphs."""
+    """Stores lists of known, learning, unknown, and missing entries."""
 
     def __init__(self, min_priority: int, max_priority: int) -> None:
 
@@ -71,13 +71,17 @@ class ProgressReport:
             + self.get_total_missing()
         )
 
+    def get_total_entries(self) -> int:
+        """Return the total count of tracked entries (alias for get_total_morphs)."""
+        return self.get_total_morphs()
+
 
 def _update_progress_report(
     progress_report: ProgressReport,
     morph: tuple[str, str, str],
     morph_status: str,
 ) -> None:
-    """Adds morph and status information to a progress report."""
+    """Adds entry and status information to a progress report."""
     assert morph_status in ["known", "learning", "unknown", "missing"]
     if morph_status == "known":
         progress_report.unique_known.add(morph)
@@ -146,7 +150,7 @@ def _get_morph_priorities_subset(
     min_priority: int,
     max_priority: int,
 ) -> dict[tuple[str, str, str], int]:
-    """Returns morph priorities within a priority range."""
+    """Returns entry priorities within a priority range."""
 
     def is_in_range(item: tuple[tuple[str, str], int]) -> bool:
         _, priority = item

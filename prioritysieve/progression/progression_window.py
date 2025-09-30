@@ -55,7 +55,7 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
         # For all tables
         self._columns["morph_priorities"] = 0
         # For numerical and percentage tables
-        self._columns["total_morphs"] = 1
+        self._columns["total_entries"] = 1
         self._columns["known"] = 2
         self._columns["learning"] = 3
         self._columns["unknowns"] = 4
@@ -85,7 +85,7 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
         table.setColumnCount(self.num_numerical_percent_columns)
 
         table.setColumnWidth(self._columns["morph_priorities"], 130)
-        table.setColumnWidth(self._columns["total_morphs"], 120)
+        table.setColumnWidth(self._columns["total_entries"], 120)
         table.setColumnWidth(self._columns["known"], 110)
         table.setColumnWidth(self._columns["learning"], 110)
         table.setColumnWidth(self._columns["unknowns"], 120)
@@ -232,7 +232,7 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
         mw.taskman.run_on_main(
             partial(
                 mw.progress.update,
-                label="Processing morph statuses",
+                label="Processing entry statuses",
             )
         )
         morph_statuses = get_priority_ordered_morph_statuses(
@@ -271,7 +271,7 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
         error_indexes: tuple[int, int] | None = None
 
         for row, report in enumerate(reports):
-            if report.get_total_morphs() == 0:
+            if report.get_total_entries() == 0:
                 self.ui.numericalTableWidget.setRowCount(row)
                 self.ui.percentTableWidget.setRowCount(row)
                 error_indexes = (report.min_priority, report.max_priority)
@@ -285,7 +285,7 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
         if error_indexes is not None:
             mw.taskman.run_on_main(
                 lambda: tooltip(
-                    f"No morphs in priority range {error_indexes[0]}-{error_indexes[1]}",
+                    f"No entries in priority range {error_indexes[0]}-{error_indexes[1]}",
                     parent=self,
                 )
             )
@@ -294,14 +294,14 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
         morph_priorities_item = QTableWidgetItem(
             f"{report.min_priority}-{report.max_priority}"
         )
-        total_morphs_item = QTableWidgetIntegerItem(report.get_total_morphs())
+        total_entries_item = QTableWidgetIntegerItem(report.get_total_entries())
         known_item = QTableWidgetIntegerItem(report.get_total_known())
         learning_item = QTableWidgetIntegerItem(report.get_total_learning())
         unknowns_item = QTableWidgetIntegerItem(report.get_total_unknowns())
         missing_item = QTableWidgetIntegerItem(report.get_total_missing())
 
         morph_priorities_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        total_morphs_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        total_entries_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         known_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         learning_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         unknowns_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -311,7 +311,7 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
             row, self._columns["morph_priorities"], morph_priorities_item
         )
         self.ui.numericalTableWidget.setItem(
-            row, self._columns["total_morphs"], total_morphs_item
+            row, self._columns["total_entries"], total_entries_item
         )
         self.ui.numericalTableWidget.setItem(row, self._columns["known"], known_item)
         self.ui.numericalTableWidget.setItem(
@@ -326,13 +326,13 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
 
     def _populate_percent_table(self, report: ProgressReport, row: int) -> None:
         known_percent = round(
-            report.get_total_known() / report.get_total_morphs() * 100, 1
+            report.get_total_known() / report.get_total_entries() * 100, 1
         )
         learning_percent = round(
-            report.get_total_learning() / report.get_total_morphs() * 100, 1
+            report.get_total_learning() / report.get_total_entries() * 100, 1
         )
         unknowns_percent = round(
-            report.get_total_unknowns() / report.get_total_morphs() * 100, 1
+            report.get_total_unknowns() / report.get_total_entries() * 100, 1
         )
 
         # Eliminates any possibility of strange rounding
@@ -343,14 +343,14 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
         morph_priorities_item = QTableWidgetItem(
             f"{report.min_priority}-{report.max_priority}"
         )
-        total_morphs_item = QTableWidgetIntegerItem(report.get_total_morphs())
+        total_entries_item = QTableWidgetIntegerItem(report.get_total_entries())
         known_item = QTableWidgetPercentItem(known_percent)
         learning_item = QTableWidgetPercentItem(learning_percent)
         unknowns_item = QTableWidgetPercentItem(unknowns_percent)
         missing_item = QTableWidgetPercentItem(missing_percent)
 
         morph_priorities_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        total_morphs_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        total_entries_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         known_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         learning_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         unknowns_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -360,7 +360,7 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
             row, self._columns["morph_priorities"], morph_priorities_item
         )
         self.ui.percentTableWidget.setItem(
-            row, self._columns["total_morphs"], total_morphs_item
+            row, self._columns["total_entries"], total_entries_item
         )
         self.ui.percentTableWidget.setItem(row, self._columns["known"], known_item)
         self.ui.percentTableWidget.setItem(

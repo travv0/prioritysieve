@@ -482,22 +482,22 @@ def _on_failure(  # pylint:disable=too-many-branches
     elif isinstance(error, MorphemizerNotFoundException):
         if error.morphemizer_name == "MecabMorphemizer":
             text = (
-                'Morphemizer "PrioritySieve: Japanese" was not found.<br><br>'
-                "The Japanese morphemizer can be added by installing a separate companion add-on:<br><br>"
+                'Parser "PrioritySieve: Japanese" was not found.<br><br>'
+                "The Japanese parser can be added by installing a separate companion add-on:<br><br>"
                 "Link: <a href='https://ankiweb.net/shared/info/1974309724'>https://ankiweb.net/shared/info/1974309724</a><br>"
                 "Installation code: 1974309724 <br><br>"
-                "The morphemizer should be automatically found after the add-on is installed and Anki has restarted."
+                "The parser should be automatically found after the add-on is installed and Anki has restarted."
             )
         elif error.morphemizer_name == "JiebaMorphemizer":
             text = (
-                'Morphemizer "PrioritySieve: Chinese" was not found.<br><br>'
-                "The Chinese morphemizer can be added by installing a separate companion add-on:<br>"
+                'Parser "PrioritySieve: Chinese" was not found.<br><br>'
+                "The Chinese parser can be added by installing a separate companion add-on:<br>"
                 "Link: <a href='https://ankiweb.net/shared/info/1857311956'>https://ankiweb.net/shared/info/1857311956</a> <br>"
                 "Installation code: 1857311956 <br><br>"
-                "The morphemizer should be automatically found after the add-on is installed and Anki has restarted."
+                "The parser should be automatically found after the add-on is installed and Anki has restarted."
             )
         else:
-            text = f'Morphemizer "{error.morphemizer_name}" was not found.'
+            text = f'Parser "{error.morphemizer_name}" was not found.'
 
     elif isinstance(error, PriorityFileNotFoundException):
         text = f"Priority file: {error.path} not found!"
@@ -509,7 +509,7 @@ def _on_failure(  # pylint:disable=too-many-branches
         )
     elif isinstance(error, KnownMorphsFileMalformedException):
         text = (
-            f"Known morphs file: {error.path} is malformed.<br><br>"
+            f"Known entries file: {error.path} is malformed.<br><br>"
             f"Please generate a new one."
         )
     else:

@@ -22,7 +22,7 @@ def cache_anki_data(  # pylint:disable=too-many-locals, too-many-branches, too-m
     am_config: PrioritySieveConfig,
     read_enabled_config_filters: list[PrioritySieveConfigFilter],
 ) -> None:
-    # Extracting morphs from cards is expensive, so caching them yields a significant
+    # Extracting entries from cards is expensive, so caching them yields a significant
     # performance gain.
     #
     # Note: this function is a monstrosity, but at some point it's better to have
@@ -78,7 +78,7 @@ def cache_anki_data(  # pylint:disable=too-many-locals, too-many-branches, too-m
             morphemizer.get_processed_morphs(am_config, all_text)
         ):
             progress_utils.background_update_progress_potentially_cancel(
-                label=f"Extracting morphs from<br>{config_filter.note_type} cards<br>card: {index} of {card_amount}",
+                label=f"Extracting entries from<br>{config_filter.note_type} cards<br>card: {index} of {card_amount}",
                 counter=index,
                 max_value=card_amount,
             )
@@ -140,7 +140,7 @@ def cache_anki_data(  # pylint:disable=too-many-locals, too-many-branches, too-m
                 )
 
     if am_config.read_known_morphs_folder is True:
-        progress_utils.background_update_progress(label="Importing known morphs")
+        progress_utils.background_update_progress(label="Importing known entries")
         morph_table_data += _get_morphs_from_files(am_config)
 
     progress_utils.background_update_progress(label="Updating learning intervals")
@@ -239,7 +239,7 @@ def _get_morphs_from_files(am_config: PrioritySieveConfig) -> list[dict[str, Any
             raise CancelledOperationException
 
         progress_utils.background_update_progress(
-            label=f"Importing known morphs from file:<br>{input_file.name}",
+            label=f"Importing known entries from file:<br>{input_file.name}",
         )
 
         with open(input_file, encoding="utf-8") as csvfile:

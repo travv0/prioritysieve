@@ -111,7 +111,7 @@
    <item>
     <widget class="QLabel" name="infoLabel">
      <property name="text">
-      <string>Install SudachiPy and optionally download one of the supported dictionaries. You can change which dictionary to use from the AnkiMorphs General settings.</string>
+      <string>Install SudachiPy and optionally download one of the supported dictionaries. You can change which dictionary to use from the PrioritySieve General settings.</string>
      </property>
      <property name="wordWrap">
       <bool>true</bool>

@@ -104,23 +104,23 @@ Current card collections (test/data/card_collections):
   - contains 6 cards:
     - 3 known, not new cards
     - 1 fresh, not new card
-    - 1 with only known or fresh morphs, new card
+    - 1 with only known entries, new card
     - 1 with known, fresh, and one unknown morph, new card
-  - creating an evergreen collection that has fresh morphs is surprisingly difficult, because the
+  - creating an evergreen collection that has fresh entries is surprisingly difficult, because the
   due date of the card actually depends on the timestamp of card creation. To make this problem go away
   you can set the date of your system back a couple of months and then create the cards.
 - `suspend_all_morphs_known.anki2`
   - the base of this collection is `card_handling_collection.anki2`, that has been recalced with
-  the config `config_suspend_morphs_known`
+  the config `config_known_entry_new_card_action_suspend`
 - `suspend_morphs_known_or_fresh.anki2`
   - the base of this collection is `card_handling_collection.anki2`, that has been recalced with
-  the config `config_suspend_morphs_known_or_fresh`
+  the config `config_known_entry_new_card_action_suspend`
 - `move_to_end_morphs_known.anki2`
   - the base of this collection is `card_handling_collection.anki2`, that has been recalced with
-  the config `config_move_to_end_morphs_known`
+  the config `config_known_entry_new_card_action_move`
 - `move_to_end_morphs_known_or_fresh.anki2`
   - the base of this collection is `card_handling_collection.anki2`, that has been recalced with
-  the config `config_move_to_end_morphs_known_or_fresh`
+  the config `config_known_entry_new_card_action_move`
 
 
 ## Engineering and adding collections

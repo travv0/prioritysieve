@@ -94,7 +94,6 @@ ignore_names = [
   "toolbar_stats_use_seen",
   "extra_fields_display_lemmas",
   "min_occurrence",
-  "skip_dont_when_contains_fresh_morphs"
 ]
 min_confidence = 60
 sort_by_size = true

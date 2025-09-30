@@ -119,7 +119,7 @@ class KnownMorphsExporterDialog(QDialog):
     def _export_known_morphs(self) -> None:
         assert mw is not None
 
-        mw.progress.start(label="Exporting Known Morphs")
+        mw.progress.start(label="Exporting Known Entries")
         operation = QueryOp(
             parent=mw,
             op=lambda _: self._background_export_known_morphs(),
@@ -138,7 +138,7 @@ class KnownMorphsExporterDialog(QDialog):
 
         output_dir = self.ui.outputLineEdit.text()
         _datetime = datetime.datetime.now().strftime("%Y-%m-%d@%H-%M-%S")
-        output_file = os.path.join(output_dir, f"known_morphs-{_datetime}.csv")
+        output_file = os.path.join(output_dir, f"known_entries-{_datetime}.csv")
 
         # create the parent directories if they don't exist
         Path(output_file).parent.mkdir(parents=True, exist_ok=True)
@@ -237,7 +237,7 @@ class KnownMorphsExporterDialog(QDialog):
         assert mw.progress is not None
         mw.toolbar.draw()  # updates stats
         mw.progress.finish()
-        tooltip("Known morphs file created", parent=self)
+        tooltip("Known entries file created", parent=self)
 
     def _on_failure(
         self,
@@ -249,7 +249,7 @@ class KnownMorphsExporterDialog(QDialog):
         mw.progress.finish()
 
         if isinstance(error, CancelledOperationException):
-            tooltip("Cancelled Known Morphs Export", parent=self)
+            tooltip("Cancelled Known Entries Export", parent=self)
         elif isinstance(error, EmptyFileSelectionException):
             tooltip("No file/folder selected", parent=self)
         else:
