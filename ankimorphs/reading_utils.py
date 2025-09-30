@@ -7,6 +7,7 @@ _KATAKANA_TO_HIRAGANA = str.maketrans(
 )
 
 _WHITESPACE_RE = re.compile(r"\s+")
+_FURIGANA_PAIR_RE = re.compile(r"([^\[\]]+)\[([^\]]*)\]")
 
 
 def normalize_reading(reading: str | None) -> str:
@@ -16,28 +17,14 @@ def normalize_reading(reading: str | None) -> str:
 
 
 def strip_furigana_token(token: str) -> str:
-    """Convert a furigana token like 食[た]べる into its reading."""
+    """Replace every base+reading pair such as 食[た] with the reading `た`."""
 
-    result: list[str] = []
-    index = 0
-    length = len(token)
+    def _replace(match: re.Match[str]) -> str:
+        reading = match.group(2)
+        return reading if reading else match.group(1)
 
-    while index < length:
-        char = token[index]
-
-        if index + 1 < length and token[index + 1] == "[":
-            closing_index = token.find("]", index + 2)
-            if closing_index != -1:
-                reading = token[index + 2 : closing_index]
-                result.append(reading if reading else char)
-                index = closing_index + 1
-                continue
-
-        if char not in "[]":
-            result.append(char)
-        index += 1
-
-    return "".join(result)
+    stripped = _FURIGANA_PAIR_RE.sub(_replace, token)
+    return stripped.replace("[", "").replace("]", "")
 
 
 def parse_furigana_field(field_text: str) -> list[str]:

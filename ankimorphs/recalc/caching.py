@@ -188,8 +188,14 @@ def _assign_readings_to_morphs(
 
     for morph, reading in pairs:
         normalized = normalize_reading(reading)
-        if normalized:
-            morph.reading = normalized
+        if not normalized:
+            continue
+
+        existing = normalize_reading(morph.reading)
+        if existing and normalized.startswith(existing) and len(normalized) > len(existing):
+            continue
+
+        morph.reading = normalized
 
     return processed_morphs
 
