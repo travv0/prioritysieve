@@ -138,34 +138,18 @@ def get_morph_stats_from_file(
     file_morphs_stats = FileMorphsStats()
     highest_learning_interval: int | None
 
-    if am_config.evaluate_morph_inflection:
-        for morph_occurrence_object in file_morphs.values():
-            morph = morph_occurrence_object.morph
-            occurrence = morph_occurrence_object.occurrence
-            highest_learning_interval = am_db.get_highest_inflection_learning_interval(
-                morph
-            )
+    for morph_occurrence_object in file_morphs.values():
+        morph = morph_occurrence_object.morph
+        occurrence = morph_occurrence_object.occurrence
+        highest_learning_interval = am_db.get_highest_lemma_learning_interval(morph)
 
-            _update_file_morphs_stats(
-                file_morphs_stats=file_morphs_stats,
-                interval_for_known=am_config.interval_for_known_morphs,
-                morph=morph,
-                occurrence=occurrence,
-                highest_learning_interval=highest_learning_interval,
-            )
-    else:
-        for morph_occurrence_object in file_morphs.values():
-            morph = morph_occurrence_object.morph
-            occurrence = morph_occurrence_object.occurrence
-            highest_learning_interval = am_db.get_highest_lemma_learning_interval(morph)
-
-            _update_file_morphs_stats(
-                file_morphs_stats=file_morphs_stats,
-                interval_for_known=am_config.interval_for_known_morphs,
-                morph=morph,
-                occurrence=occurrence,
-                highest_learning_interval=highest_learning_interval,
-            )
+        _update_file_morphs_stats(
+            file_morphs_stats=file_morphs_stats,
+            interval_for_known=am_config.interval_for_known_morphs,
+            morph=morph,
+            occurrence=occurrence,
+            highest_learning_interval=highest_learning_interval,
+        )
 
     return file_morphs_stats
 

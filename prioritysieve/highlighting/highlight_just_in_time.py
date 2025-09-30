@@ -101,14 +101,9 @@ def _get_morph_meta_for_text(
 
     with PrioritySieveDB() as am_db:
         for morph in morphs:
-            if am_config.evaluate_morph_inflection:
-                morph.highest_inflection_learning_interval = (
-                    am_db.get_highest_inflection_learning_interval(morph) or 0
-                )
-            else:
-                morph.highest_lemma_learning_interval = (
-                    am_db.get_highest_lemma_learning_interval(morph) or 0
-                )
+            morph.highest_lemma_learning_interval = (
+                am_db.get_highest_lemma_learning_interval(morph) or 0
+            )
 
     return morphs
 

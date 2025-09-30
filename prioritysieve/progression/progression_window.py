@@ -122,17 +122,6 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
 
         am_config = PrioritySieveConfig()
 
-        stored_lemma_selected: bool = self.am_extra_settings.value(
-            extra_settings_keys.ProgressionWindowKeys.LEMMA_EVALUATION,
-            defaultValue=am_config.evaluate_morph_lemma,
-            type=bool,
-        )
-        stored_inflection_selected: bool = self.am_extra_settings.value(
-            extra_settings_keys.ProgressionWindowKeys.INFLECTION_EVALUATION,
-            defaultValue=not am_config.evaluate_morph_lemma,
-            type=bool,
-        )
-
         stored_normal_bin_type: bool = self.am_extra_settings.value(
             extra_settings_keys.ProgressionWindowKeys.BIN_TYPE_NORMAL,
             defaultValue=True,
@@ -144,8 +133,8 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
             type=bool,
         )
 
-        self.ui.lemmaRadioButton.setChecked(stored_lemma_selected)
-        self.ui.inflectionRadioButton.setChecked(stored_inflection_selected)
+        self.ui.lemmaRadioButton.setChecked(True)
+        self.ui.inflectionRadioButton.hide()
 
         self.ui.normalRadioButton.setChecked(stored_normal_bin_type)
         self.ui.cumulativeRadioButton.setChecked(stored_cumulative_bin_type)
@@ -216,9 +205,6 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
             is_cumulative=self.ui.cumulativeRadioButton.isChecked(),
         )
 
-    def _is_lemma_priority_selected(self) -> bool:
-        return self.ui.lemmaRadioButton.isChecked()
-
     def _background_process_and_populate_tables(self) -> None:
         assert mw is not None
 
@@ -227,7 +213,6 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
 
         morph_priorities = morph_priority_utils.get_morph_priority(
             am_db=am_db,
-            only_lemma_priorities=self._is_lemma_priority_selected(),
             morph_priority_selection=[self.ui.morphPriorityCBox.currentText()],
         )
 
@@ -238,9 +223,7 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
             )
         )
 
-        reports = get_progress_reports(
-            am_db, bins, morph_priorities, self._is_lemma_priority_selected()
-        )
+        reports = get_progress_reports(am_db, bins, morph_priorities)
 
         if mw.progress.want_cancel():
             am_db.con.close()
@@ -253,7 +236,7 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
             )
         )
         morph_statuses = get_priority_ordered_morph_statuses(
-            am_db, bins, morph_priorities, self._is_lemma_priority_selected()
+            am_db, bins, morph_priorities
         )
 
         am_db.con.close()

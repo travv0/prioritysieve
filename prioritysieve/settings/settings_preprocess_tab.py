@@ -23,12 +23,13 @@ class PreprocessTab(SettingsTab):
             RawConfigKeys.PREPROCESS_IGNORE_ROUND_BRACKET_CONTENTS: self.ui.preprocessIgnoreRoundCheckBox,
             RawConfigKeys.PREPROCESS_IGNORE_SLIM_ROUND_BRACKET_CONTENTS: self.ui.preprocessIgnoreSlimCheckBox,
             RawConfigKeys.PREPROCESS_IGNORE_ANGLE_BRACKET_CONTENTS: self.ui.preprocessIgnoreAngleCheckBox,
-            RawConfigKeys.PREPROCESS_IGNORE_NAMES_MORPHEMIZER: self.ui.preprocessIgnoreNamesMizerCheckBox,
             RawConfigKeys.PREPROCESS_IGNORE_NAMES_TEXTFILE: self.ui.preprocessIgnoreNamesFileCheckBox,
             RawConfigKeys.PREPROCESS_IGNORE_NUMBERS: self.ui.preprocessIgnoreNumbersCheckBox,
             RawConfigKeys.PREPROCESS_IGNORE_SUSPENDED_CARDS_CONTENT: self.ui.preprocessIgnoreSuspendedCheckBox,
             RawConfigKeys.PREPROCESS_IGNORE_CUSTOM_CHARACTERS: self.ui.preprocessIgnoreCustomCharactersCheckBox,
         }
+
+        self.ui.preprocessIgnoreNamesMizerCheckBox.hide()
 
         self._raw_config_key_to_line_edit: dict[str, QLineEdit] = {
             RawConfigKeys.PREPROCESS_CUSTOM_CHARACTERS_TO_IGNORE: self.ui.preprocessCustomCharactersLineEdit,

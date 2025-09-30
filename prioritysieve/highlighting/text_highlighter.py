@@ -95,7 +95,6 @@ class TextHighlighter:
 
                 end = start + len(morph.inflection)
                 learning_status = morph.get_learning_status(
-                    self.am_config.evaluate_morph_inflection,
                     self.am_config.interval_for_known_morphs,
                 )
 

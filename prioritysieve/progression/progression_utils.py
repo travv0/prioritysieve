@@ -93,30 +93,19 @@ def get_progress_reports(
     am_db: PrioritySieveDB,
     bins: Bins,
     morph_priorities: dict[tuple[str, str, str], int],
-    only_lemma_priorities: bool,
 ) -> list[ProgressReport]:
     reports = []
 
-    # This function could be cleaner if the learning status dictionaries were
-    # keyed like the morph_priority dictionaries.
-    morph_learning_statuses: dict[tuple[str, str, str], str]
-    if only_lemma_priorities:
-        morph_learning_statuses = am_db.get_morph_lemmas_learning_statuses()
-    else:
-        morph_learning_statuses = am_db.get_morph_inflections_learning_statuses()
+    morph_learning_statuses = am_db.get_morph_lemmas_learning_statuses()
 
     for min_priority, max_priority in bins.indexes:
-
         report = ProgressReport(min_priority, max_priority)
         morph_priorities_subset = _get_morph_priorities_subset(
             morph_priorities, min_priority, max_priority
         )
 
         for morph in morph_priorities_subset:
-
-            morph_status = "missing"
-            if morph in morph_learning_statuses:
-                morph_status = morph_learning_statuses[morph]
+            morph_status = morph_learning_statuses.get(morph, "missing")
             _update_progress_report(report, morph, morph_status)
 
         reports.append(report)
@@ -128,12 +117,8 @@ def get_priority_ordered_morph_statuses(
     am_db: PrioritySieveDB,
     bins: Bins,
     morph_priorities: dict[tuple[str, str, str], int],
-    only_lemma_priorities: bool,
 ) -> list[tuple[int, str, str, str]]:
-    """Returns a list of (priority,lemma,inflection,status) tuples in order of
-    increasing priority"""
-    # (lemma, inflection, and status) in increasing priority order
-    morph_statuses: list[tuple[int, str, str, str]] = []
+    """Returns a list of (priority, lemma, placeholder, status) tuples in order of increasing priority."""
 
     morph_priorities = _get_morph_priorities_subset(
         morph_priorities, bins.min_index, bins.max_index
@@ -146,22 +131,12 @@ def get_priority_ordered_morph_statuses(
         )
     )
 
-    morph_learning_statuses: dict[tuple[str, str, str], str]
-    if only_lemma_priorities:
-        morph_learning_statuses = am_db.get_morph_lemmas_learning_statuses()
-    else:
-        morph_learning_statuses = am_db.get_morph_inflections_learning_statuses()
+    morph_learning_statuses = am_db.get_morph_lemmas_learning_statuses()
+    morph_statuses: list[tuple[int, str, str, str]] = []
 
-    for morph in sorted_morph_priorities:
-        priority = sorted_morph_priorities[morph]
-        morph_status = "missing"
-        if morph in morph_learning_statuses:
-            morph_status = morph_learning_statuses[morph]
-
-        if only_lemma_priorities:
-            morph_statuses.append((priority, morph[0], "-", morph_status))
-        else:
-            morph_statuses.append((priority, morph[0], morph[1], morph_status))
+    for morph, priority in sorted_morph_priorities.items():
+        morph_status = morph_learning_statuses.get(morph, "missing")
+        morph_statuses.append((priority, morph[0], "-", morph_status))
 
     return morph_statuses
 

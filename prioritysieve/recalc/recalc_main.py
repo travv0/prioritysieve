@@ -201,7 +201,6 @@ def _update_cards_and_notes(  # pylint:disable=too-many-locals, too-many-stateme
         )
         morph_priorities: dict[tuple[str, str, str], int] = get_morph_priority(
             am_db=am_db,
-            only_lemma_priorities=am_config.evaluate_morph_lemma,
             morph_priority_selection=config_filter.morph_priority_selections,
         )
         cards_data_dict: dict[CardId, PrioritySieveCardData] = (
@@ -237,7 +236,6 @@ def _update_cards_and_notes(  # pylint:disable=too-many-locals, too-many-stateme
                 am_config,
                 card_id,
                 card_morph_map_cache,
-                morph_priorities,
             )
 
             if card.type == CARD_TYPE_NEW:
@@ -326,16 +324,10 @@ def _add_offsets_to_new_cards(
             max_value=card_amount,
         )
 
-        if am_config.evaluate_morph_inflection:
-            card_unknown_morphs = CardMorphsMetrics.get_unknown_inflections(
-                card_morph_map_cache=card_morph_map_cache,
-                card_id=card_id,
-            )
-        else:
-            card_unknown_morphs = CardMorphsMetrics.get_unknown_lemmas(
-                card_morph_map_cache=card_morph_map_cache,
-                card_id=card_id,
-            )
+        card_unknown_morphs = CardMorphsMetrics.get_unknown_morph_keys(
+            card_morph_map_cache=card_morph_map_cache,
+            card_id=card_id,
+        )
 
         # we don't want to do anything to cards that have multiple unknown morphs
         if len(card_unknown_morphs) == 1:

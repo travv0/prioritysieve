@@ -144,7 +144,7 @@ def cache_anki_data(  # pylint:disable=too-many-locals, too-many-branches, too-m
         morph_table_data += _get_morphs_from_files(am_config)
 
     progress_utils.background_update_progress(label="Updating learning intervals")
-    _update_learning_intervals(am_config, morph_table_data)
+    _update_learning_intervals(morph_table_data)
 
     progress_utils.background_update_progress(label="Saving to prioritysieve.db")
     am_db.insert_many_into_morph_table(morph_table_data)
@@ -369,35 +369,22 @@ def _get_morphs_from_full_format(
 
 
 def _update_learning_intervals(
-    am_config: PrioritySieveConfig, morph_table_data: list[dict[str, Any]]
+    morph_table_data: list[dict[str, Any]]
 ) -> None:
     learning_intervals_of_lemmas: dict[tuple[str, str], int] = (
         _get_learning_intervals_of_lemmas(morph_table_data)
     )
 
-    if am_config.evaluate_morph_lemma:
-        # update both the lemma and inflection intervals
-        for morph_data_dict in morph_table_data:
-            lemma = morph_data_dict["lemma"]
-            reading_key = normalize_reading(morph_data_dict.get("reading"))
-            interval = learning_intervals_of_lemmas.get((lemma, reading_key))
-            if interval is None and reading_key:
-                interval = learning_intervals_of_lemmas.get((lemma, ""))
-            if interval is None:
-                interval = 0
-            morph_data_dict["highest_lemma_learning_interval"] = interval
-            morph_data_dict["highest_inflection_learning_interval"] = interval
-    else:
-        # only update lemma intervals
-        for morph_data_dict in morph_table_data:
-            lemma = morph_data_dict["lemma"]
-            reading_key = normalize_reading(morph_data_dict.get("reading"))
-            interval = learning_intervals_of_lemmas.get((lemma, reading_key))
-            if interval is None and reading_key:
-                interval = learning_intervals_of_lemmas.get((lemma, ""))
-            if interval is None:
-                interval = 0
-            morph_data_dict["highest_lemma_learning_interval"] = interval
+    for morph_data_dict in morph_table_data:
+        lemma = morph_data_dict["lemma"]
+        reading_key = normalize_reading(morph_data_dict.get("reading"))
+        interval = learning_intervals_of_lemmas.get((lemma, reading_key))
+        if interval is None and reading_key:
+            interval = learning_intervals_of_lemmas.get((lemma, ""))
+        if interval is None:
+            interval = 0
+        morph_data_dict["highest_lemma_learning_interval"] = interval
+        morph_data_dict["highest_inflection_learning_interval"] = interval
 
 
 def _get_learning_intervals_of_lemmas(

@@ -12,6 +12,10 @@ from . import prioritysieve_globals as am_globals
 from . import progress_utils
 from .prioritysieve_config import PrioritySieveConfig
 
+QUEUE_END_BASE_DUE = 2_000_000_000
+QUEUE_END_LIMIT = 2_047_000_000
+QUEUE_END_SPREAD = 10_000
+
 suspended = CardQueue(-1)
 
 
@@ -52,6 +56,8 @@ def update_tags_and_queue_of_new_card(
         if _should_suspend_card(am_config, card, has_learning_morphs):
             card.queue = suspended
             note.tags.append(am_config.tag_suspended_automatically)
+        elif _should_move_new_card_to_end(am_config, unknowns, has_learning_morphs):
+            _move_new_card_to_end(card)
 
         if am_config.tag_known_manually in note.tags:
             _remove_exclusive_tags(note, mutually_exclusive_tags)
@@ -70,6 +76,35 @@ def update_tags_and_queue_of_new_card(
         if am_config.tag_not_ready not in note.tags:
             _remove_exclusive_tags(note, mutually_exclusive_tags)
             note.tags.append(am_config.tag_not_ready)
+
+
+def _should_move_new_card_to_end(
+    am_config: PrioritySieveConfig, unknowns: int, has_learning_morphs: bool
+) -> bool:
+    option = am_config.recalc_move_new_cards_to_the_end
+
+    if option == am_globals.NEVER_OPTION:
+        return False
+
+    if unknowns > 0:
+        return False
+
+    if option == am_globals.ONLY_KNOWN_OPTION and has_learning_morphs:
+        return False
+
+    return True
+
+
+def _move_new_card_to_end(card: Card) -> None:
+    if card.queue == suspended:
+        return
+
+    offset = card.id % QUEUE_END_SPREAD
+    due_value = QUEUE_END_BASE_DUE + offset
+    if due_value > QUEUE_END_LIMIT:
+        due_value = QUEUE_END_LIMIT
+
+    card.due = due_value
 
 
 def _should_suspend_card(

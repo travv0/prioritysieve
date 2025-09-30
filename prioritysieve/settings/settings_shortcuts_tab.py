@@ -25,11 +25,14 @@ class ShortcutTab(SettingsTab):
             RawConfigKeys.SHORTCUT_BROWSE_READY_SAME_UNKNOWN_LEMMA: self.ui.shortcutBrowseReadyLemmaKeySequenceEdit,
             RawConfigKeys.SHORTCUT_SET_KNOWN_AND_SKIP: self.ui.shortcutKnownAndSkipKeySequenceEdit,
             RawConfigKeys.SHORTCUT_LEARN_NOW: self.ui.shortcutLearnNowKeySequenceEdit,
-            RawConfigKeys.SHORTCUT_VIEW_MORPHEMES: self.ui.shortcutViewMorphsKeySequenceEdit,
             RawConfigKeys.SHORTCUT_GENERATORS: self.ui.shortcutGeneratorsKeySequenceEdit,
             RawConfigKeys.SHORTCUT_PROGRESSION: self.ui.shortcutProgressionKeySequenceEdit,
             RawConfigKeys.SHORTCUT_KNOWN_MORPHS_EXPORTER: self.ui.shortcutKnownMorphsExporterKeySequenceEdit,
         }
+
+        self.ui.label_12.hide()
+        self.ui.shortcutViewMorphsKeySequenceEdit.hide()
+        self.ui.shortcutViewMorphsDisablePushButton.hide()
 
         self.populate()
         self.setup_buttons()
@@ -41,7 +44,6 @@ class ShortcutTab(SettingsTab):
         self.ui.shortcutSettingsDisablePushButton.setAutoDefault(False)
         self.ui.shortcutKnownAndSkipDisablePushButton.setAutoDefault(False)
         self.ui.shortcutLearnNowDisablePushButton.setAutoDefault(False)
-        self.ui.shortcutViewMorphsDisablePushButton.setAutoDefault(False)
         self.ui.shortcutGeneratorsDisablePushButton.setAutoDefault(False)
         self.ui.shortcutProgressionDisablePushButton.setAutoDefault(False)
         self.ui.shortcutKnownMorphsExporterDisablePushButton.setAutoDefault(False)
@@ -62,9 +64,6 @@ class ShortcutTab(SettingsTab):
         )
         self.ui.shortcutLearnNowDisablePushButton.clicked.connect(
             self.ui.shortcutLearnNowKeySequenceEdit.clear
-        )
-        self.ui.shortcutViewMorphsDisablePushButton.clicked.connect(
-            self.ui.shortcutViewMorphsKeySequenceEdit.clear
         )
         self.ui.shortcutGeneratorsDisablePushButton.clicked.connect(
             self.ui.shortcutGeneratorsKeySequenceEdit.clear

@@ -17,7 +17,6 @@ from ..prioritysieve_config import PrioritySieveConfig
 from ..extra_settings import extra_settings_keys
 from ..extra_settings.prioritysieve_extra_settings import PrioritySieveExtraSettings
 from ..ui.settings_dialog_ui import Ui_SettingsDialog
-from .settings_algorithm_tab import AlgorithmTab
 from .settings_card_handling_tab import CardHandlingTab
 from .settings_extra_fields_tab import ExtraFieldsTab
 from .settings_general_tab import GeneralTab
@@ -47,6 +46,10 @@ class SettingsDialog(QDialog):  # pylint:disable=too-many-instance-attributes
 
         self.ui = Ui_SettingsDialog()  # pylint:disable=invalid-name
         self.ui.setupUi(self)  # type: ignore[no-untyped-call]
+
+        algorithm_index = self.ui.tabWidget.indexOf(self.ui.algorithm_tab)
+        if algorithm_index != -1:
+            self.ui.tabWidget.removeTab(algorithm_index)
 
         self._config = PrioritySieveConfig()
         self._default_config = PrioritySieveConfig(is_default=True)
@@ -87,12 +90,6 @@ class SettingsDialog(QDialog):  # pylint:disable=too-many-instance-attributes
             config=self._config,
             default_config=self._default_config,
         )
-        self._algorithm_tab = AlgorithmTab(
-            parent=self,
-            ui=self.ui,
-            config=self._config,
-            default_config=self._default_config,
-        )
         self._shortcut_tab = ShortcutTab(
             parent=self,
             ui=self.ui,
@@ -110,7 +107,6 @@ class SettingsDialog(QDialog):  # pylint:disable=too-many-instance-attributes
             self._tags_tab,
             self._preprocess_tab,
             self._card_handling_tab,
-            self._algorithm_tab,
             self._shortcut_tab,
         ]
 

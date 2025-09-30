@@ -40,6 +40,8 @@ class ExtraFieldsTab(SettingsTab, DataSubscriber, DataExtractor):
             _filter.note_type for _filter in self._config.filters
         ]
 
+        self.ui.groupBox_5.hide()
+
         # hide the artificial header index
         self.ui.extraFieldsTreeWidget.setHeaderHidden(True)
         self.ui.extraFieldsTreeWidget.itemChanged.connect(self._tree_item_changed)

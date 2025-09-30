@@ -558,10 +558,9 @@ class PrioritySieveDB:  # pylint:disable=too-many-public-methods
 
     # the cache needs to have a max size to maintain garbage collection
     @functools.lru_cache(maxsize=131072)
-    def get_morph_priorities_from_collection(
-        self, only_lemma_priorities: bool
-    ) -> dict[tuple[str, str, str], int]:
-        # Sorting the morphs (ORDER BY) is crucial to avoid bugs
+    def get_morph_priorities_from_collection(self) -> dict[tuple[str, str, str], int]:
+        """Build a priority map from cached card morph usage, using lemmas only."""
+
         morphs_query = self.con.execute(
             """
             SELECT morph_lemma, morph_inflection, morph_reading
@@ -570,32 +569,14 @@ class PrioritySieveDB:  # pylint:disable=too-many-public-methods
             """,
         ).fetchall()
 
-        intermediate_morph_list = []
-
-        if only_lemma_priorities:
-            for lemma, _, reading in morphs_query:
-                intermediate_morph_list.append(
-                    (lemma, lemma, _normalize_reading(reading))
-                )
-        else:
-            for lemma, inflection, reading in morphs_query:
-                intermediate_morph_list.append(
-                    (lemma, inflection, _normalize_reading(reading))
-                )
-
-        morphs_sorted_amount: dict[tuple[str, str, str], int] = dict(
-            Counter(intermediate_morph_list).most_common()
+        counts = Counter(
+            (lemma, lemma, _normalize_reading(reading))
+            for lemma, _inflection, reading in morphs_query
         )
 
         morph_priorities: dict[tuple[str, str, str], int] = {}
-
-        # Reverse the values, the lower the priority number is, the more it is prioritized.
-        # Note: we can use a shortcut of providing the same priority (index) for both
-        # the lemma and the inflection since we generate the intermediate lists from
-        # scratch every recalc, so which ever ends up being used will have the correct value.
-        for index, key in enumerate(morphs_sorted_amount):
+        for index, (key, _count) in enumerate(counts.most_common()):
             morph_priorities[key] = index
-            # print(f"key: {key}, index: {index}")
 
         return morph_priorities
 
