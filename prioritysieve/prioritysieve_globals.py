@@ -20,16 +20,8 @@ GENERATOR_DIALOG_NAME: str = "ps_generator_dialog"
 PROGRESSION_DIALOG_NAME: str = "ps_progression_dialog"
 KNOWN_MORPHS_EXPORTER_DIALOG_NAME: str = "ps_known_morphs_exporter_dialog"
 
-# The static names of the extra fields
-EXTRA_FIELD_ALL_MORPHS: str = "ps-all-morphs"
-EXTRA_FIELD_ALL_MORPHS_COUNT: str = "ps-all-morphs-count"
-EXTRA_FIELD_UNKNOWN_MORPHS: str = "ps-unknown-morphs"
-EXTRA_FIELD_UNKNOWN_MORPHS_COUNT: str = "ps-unknown-morphs-count"
-EXTRA_FIELD_HIGHLIGHTED: str = "ps-highlighted"
-EXTRA_FIELD_SCORE: str = "ps-score"
-EXTRA_FIELD_SCORE_TERMS: str = "ps-score-terms"
-EXTRA_FIELD_STUDY_MORPHS: str = "ps-study-morphs"
-EXTRA_FIELD_MORPH_READINGS: str = "ps-morph-readings"
+# The static name of the extra reading field
+EXTRA_FIELD_READING: str = "ps-reading"
 
 # Morph priority options in the note filter settings
 NONE_OPTION = "(none)"
@@ -53,6 +45,7 @@ STATUS_LEARNING = "learning"
 STATUS_UNKNOWN = "unknown"
 STATUS_UNDEFINED = "undefined"
 
+DEFAULT_REVIEW_DUE = 9_999_999
 config_broken: bool = False
 new_config_found: bool = False
 shown_config_warning: bool = False

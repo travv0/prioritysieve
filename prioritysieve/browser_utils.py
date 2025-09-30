@@ -128,30 +128,7 @@ def browse_same_morphs(  # pylint:disable=too-many-arguments
     browser.onSearchActivated()
 
 
-def browse_study_morphs_for_highlighted_morph(selected_text: str) -> None:
-    # Find all cards that have the am-unknowns field equal to the
-    # selected text. Unlike browse_same_morphs which looks for card
-    # ids of cards in the PrioritySieveDB, this function does a query
-    # for the text
-    global browser
-    assert mw is not None
 
-    browser = dialogs.open("Browser", mw)
-    assert browser is not None
-
-    search_edit: QLineEdit | None = browser.form.searchEdit.lineEdit()
-    assert search_edit is not None
-
-    # if the selected text has special characters, then the
-    # browser search will be wrong unless the characters
-    # are escaped properly, which the anki api can do for us
-    escaped_selected_text = mw.col.build_search_string(
-        SearchNode(literal_text=selected_text),
-    )
-
-    query = f'"{prioritysieve_globals.EXTRA_FIELD_STUDY_MORPHS}:{escaped_selected_text}"'
-    search_edit.setText(query)
-    browser.onSearchActivated()
 
 
 def focus_query(

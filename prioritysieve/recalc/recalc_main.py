@@ -36,7 +36,7 @@ from ..morphemizers import morphemizer_utils
 from . import caching, extra_field_utils
 from .anki_data_utils import PrioritySieveCardData
 from .card_morphs_metrics import CardMorphsMetrics
-from .card_score import _MAX_SCORE, CardScore
+from .card_score import _MAX_SCORE, compute_due_from_priorities
 
 
 def recalc() -> None:
@@ -241,8 +241,10 @@ def _update_cards_and_notes(  # pylint:disable=too-many-locals, too-many-stateme
             )
 
             if card.type == CARD_TYPE_NEW:
-                score_values = CardScore(am_config, cards_morph_metrics)
-                card.due = score_values.due
+                card_due = compute_due_from_priorities(
+                    cards_morph_metrics.all_morphs, morph_priorities
+                )
+                card.due = card_due
 
                 tags_and_queue_utils.update_tags_and_queue_of_new_card(
                     am_config=am_config,
@@ -251,82 +253,18 @@ def _update_cards_and_notes(  # pylint:disable=too-many-locals, too-many-stateme
                     unknowns=len(cards_morph_metrics.unknown_morphs),
                     has_learning_morphs=cards_morph_metrics.has_learning_morphs,
                 )
-
-                if config_filter.extra_study_morphs:
-                    extra_field_utils.update_study_morphs_field(
-                        am_config=am_config,
-                        field_name_dict=field_name_dict,
-                        note=note,
-                        unknowns=cards_morph_metrics.unknown_morphs,
-                    )
-
-                if config_filter.extra_all_morphs:
-                    extra_field_utils.update_all_morphs_field(
-                        am_config=am_config,
-                        field_name_dict=field_name_dict,
-                        note=note,
-                        all_morphs=cards_morph_metrics.all_morphs,
-                    )
-
-                if config_filter.extra_all_morphs_count:
-                    extra_field_utils.update_all_morphs_count_field(
-                        field_name_dict=field_name_dict,
-                        note=note,
-                        all_morphs=cards_morph_metrics.all_morphs,
-                    )
-
-                if config_filter.extra_score:
-                    extra_field_utils.update_score_field(
-                        field_name_dict=field_name_dict,
-                        note=note,
-                        score=score_values.score,
-                    )
-
-                if config_filter.extra_score_terms:
-                    extra_field_utils.update_score_terms_field(
-                        field_name_dict=field_name_dict,
-                        note=note,
-                        score_terms=score_values.score_terms,
-                    )
             else:
-                # not new cards
                 tags_and_queue_utils.update_tags_of_review_cards(
                     am_config=am_config,
                     note=note,
                     has_learning_morphs=cards_morph_metrics.has_learning_morphs,
                 )
 
-            # always update these regardless of the state of the card
-            if config_filter.extra_unknown_morphs:
-                extra_field_utils.update_unknown_morphs_field(
-                    am_config=am_config,
-                    field_name_dict=field_name_dict,
-                    note=note,
-                    unknown_morphs=cards_morph_metrics.unknown_morphs,
-                )
-
-            if config_filter.extra_unknown_morphs_count:
-                extra_field_utils.update_unknown_morphs_count_field(
-                    field_name_dict=field_name_dict,
-                    note=note,
-                    unknown_morphs=cards_morph_metrics.unknown_morphs,
-                )
-
-            if getattr(config_filter, "extra_morph_readings", False):
-                extra_field_utils.update_morph_readings_field(
-                    am_config=am_config,
+            if config_filter.extra_reading_field:
+                extra_field_utils.update_reading_field(
                     field_name_dict=field_name_dict,
                     note=note,
                     morphs=cards_morph_metrics.all_morphs,
-                )
-
-            if config_filter.extra_highlighted:
-                extra_field_utils.update_highlighted_field(
-                    am_config=am_config,
-                    config_filter=config_filter,
-                    field_name_dict=field_name_dict,
-                    note=note,
-                    card_morphs=cards_morph_metrics.all_morphs,
                 )
 
             # we only want anki to update the cards and notes that have actually changed

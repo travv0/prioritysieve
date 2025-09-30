@@ -96,7 +96,6 @@ def main() -> None:
     hooks.field_filter.append(highlight_morphs_jit)
 
     gui_hooks.webview_will_show_context_menu.append(add_text_as_name_action)
-    gui_hooks.webview_will_show_context_menu.append(browse_study_morphs_for_text_action)
 
     gui_hooks.overview_did_refresh.append(update_seen_morphs)
 
@@ -268,7 +267,6 @@ def init_tool_menu_and_actions() -> None:
 def init_browser_menus_and_actions() -> None:
     am_config = PrioritySieveConfig()
 
-    view_action = create_view_morphs_action(am_config)
     learn_now_action = create_learn_now_action(am_config)
     browse_morph_action = create_browse_same_morph_action()
     browse_morph_unknowns_action = create_browse_same_morph_unknowns_action(am_config)
@@ -291,7 +289,6 @@ def init_browser_menus_and_actions() -> None:
         assert am_browse_menu_creation_action is not None
         am_browse_menu_creation_action.setObjectName(_BROWSE_MENU)
 
-        am_browse_menu.addAction(view_action)
         am_browse_menu.addAction(learn_now_action)
         am_browse_menu.addAction(browse_morph_action)
         am_browse_menu.addAction(browse_morph_unknowns_action)
@@ -306,7 +303,6 @@ def init_browser_menus_and_actions() -> None:
         context_menu_creation_action = context_menu.insertSeparator(learn_now_action)
         assert context_menu_creation_action is not None
 
-        context_menu.addAction(view_action)
         context_menu.addAction(learn_now_action)
         context_menu.addAction(browse_morph_action)
         context_menu.addAction(browse_morph_unknowns_action)
@@ -583,12 +579,6 @@ def create_browse_same_morph_unknowns_lemma_action(
     return action
 
 
-def create_view_morphs_action(am_config: PrioritySieveConfig) -> QAction:
-    action = QAction("&View Morphemes", mw)
-    action.setShortcut(am_config.shortcut_view_morphemes)
-    action.triggered.connect(browser_utils.run_view_morphs)
-    return action
-
 
 def create_already_known_tagger_action(am_config: PrioritySieveConfig) -> QAction:
     action = QAction("&Tag As Known", mw)
@@ -609,15 +599,7 @@ def add_text_as_name_action(web_view: AnkiWebView, menu: QMenu) -> None:
     menu.addAction(action)
 
 
-def browse_study_morphs_for_text_action(web_view: AnkiWebView, menu: QMenu) -> None:
-    selected_text = web_view.selectedText()
-    if selected_text == "":
-        return
-    action = QAction(f"Browse in {ps_globals.EXTRA_FIELD_STUDY_MORPHS}", menu)
-    action.triggered.connect(
-        lambda: browser_utils.browse_study_morphs_for_highlighted_morph(selected_text)
-    )
-    menu.addAction(action)
+
 
 
 def create_generators_dialog_action(am_config: PrioritySieveConfig) -> QAction:

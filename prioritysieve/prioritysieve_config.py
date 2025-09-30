@@ -56,15 +56,7 @@ class RawConfigFilterKeys:
     MORPH_PRIORITY_SELECTION = "morph_priority_selection"
     READ = "read"
     MODIFY = "modify"
-    EXTRA_ALL_MORPHS = "extra_all_morphs"
-    EXTRA_ALL_MORPHS_COUNT = "extra_all_morphs_count"
-    EXTRA_UNKNOWN_MORPHS = "extra_unknown_morphs"
-    EXTRA_UNKNOWN_MORPHS_COUNT = "extra_unknown_morphs_count"
-    EXTRA_HIGHLIGHTED = "extra_highlighted"
-    EXTRA_SCORE = "extra_score"
-    EXTRA_SCORE_TERMS = "extra_score_terms"
-    EXTRA_STUDY_MORPHS = "extra_study_morphs"
-    EXTRA_MORPH_READINGS = "extra_morph_readings"
+    EXTRA_READING_FIELD = "extra_reading_field"
 
 
 class RawConfigKeys:
@@ -107,8 +99,6 @@ class RawConfigKeys:
     READ_KNOWN_MORPHS_FOLDER = "read_known_morphs_folder"
     TOOLBAR_STATS_USE_KNOWN = "toolbar_stats_use_known"
     TOOLBAR_STATS_USE_SEEN = "toolbar_stats_use_seen"
-    EXTRA_FIELDS_DISPLAY_INFLECTIONS = "extra_fields_display_inflections"
-    EXTRA_FIELDS_DISPLAY_LEMMAS = "extra_fields_display_lemmas"
     TAG_FRESH = "tag_fresh"
     TAG_READY = "tag_ready"
     TAG_NOT_READY = "tag_not_ready"
@@ -116,8 +106,6 @@ class RawConfigKeys:
     TAG_KNOWN_MANUALLY = "tag_known_manually"
     TAG_LEARN_CARD_NOW = "tag_learn_card_now"
     TAG_SUSPENDED_AUTOMATICALLY = "tag_suspended_automatically"
-    EVALUATE_MORPH_LEMMA = "evaluate_morph_lemma"
-    EVALUATE_MORPH_INFLECTION = "evaluate_morph_inflection"
     ALGORITHM_TOTAL_PRIORITY_UNKNOWN_MORPHS_WEIGHT = "algorithm_total_priority_unknown_morphs_weight"
     ALGORITHM_TOTAL_PRIORITY_ALL_MORPHS_WEIGHT = "algorithm_total_priority_all_morphs_weight"
     ALGORITHM_AVERAGE_PRIORITY_ALL_MORPHS_WEIGHT = "algorithm_average_priority_all_morphs_weight"
@@ -186,39 +174,43 @@ class PrioritySieveConfigFilter:  # pylint:disable=too-many-instance-attributes
             self.modify: bool = self._get_filter_item(
                 key=RawConfigFilterKeys.MODIFY, expected_type=bool
             )
-            self.extra_all_morphs: bool = self._get_filter_item(
-                key=RawConfigFilterKeys.EXTRA_ALL_MORPHS, expected_type=bool
-            )
-            self.extra_all_morphs_count: bool = self._get_filter_item(
-                key=RawConfigFilterKeys.EXTRA_ALL_MORPHS_COUNT, expected_type=bool
-            )
-            self.extra_unknown_morphs: bool = self._get_filter_item(
-                key=RawConfigFilterKeys.EXTRA_UNKNOWN_MORPHS, expected_type=bool
-            )
-            self.extra_unknown_morphs_count: bool = self._get_filter_item(
-                key=RawConfigFilterKeys.EXTRA_UNKNOWN_MORPHS_COUNT, expected_type=bool
-            )
-            self.extra_highlighted: bool = self._get_filter_item(
-                key=RawConfigFilterKeys.EXTRA_HIGHLIGHTED, expected_type=bool
-            )
-            self.extra_score: bool = self._get_filter_item(
-                key=RawConfigFilterKeys.EXTRA_SCORE, expected_type=bool
-            )
-            self.extra_score_terms: bool = self._get_filter_item(
-                key=RawConfigFilterKeys.EXTRA_SCORE_TERMS, expected_type=bool
-            )
-            self.extra_study_morphs: bool = self._get_filter_item(
-                key=RawConfigFilterKeys.EXTRA_STUDY_MORPHS, expected_type=bool
-            )
-            self.extra_morph_readings: bool = self._get_filter_item(
-                key=RawConfigFilterKeys.EXTRA_MORPH_READINGS, expected_type=bool
-            )
+            self.extra_reading_field: bool = self._get_extra_reading_field()
+            # legacy extra field flags remain for compatibility but are immutable
+            self.extra_all_morphs = False
+            self.extra_all_morphs_count = False
+            self.extra_unknown_morphs = False
+            self.extra_unknown_morphs_count = False
+            self.extra_highlighted = False
+            self.extra_score = False
+            self.extra_score_terms = False
+            self.extra_study_morphs = False
+            self.extra_morph_readings = self.extra_reading_field
 
         except AssertionError:
             self.has_error = True
             if not prioritysieve_globals.config_broken:
                 show_critical_config_error()
                 prioritysieve_globals.config_broken = True
+
+    def _get_extra_reading_field(self) -> bool:
+        if RawConfigFilterKeys.EXTRA_READING_FIELD in self._filter:
+            value = self._filter[RawConfigFilterKeys.EXTRA_READING_FIELD]
+        elif 'extra_morph_readings' in self._filter:
+            value = self._filter['extra_morph_readings']
+            if isinstance(value, bool):
+                self._filter[RawConfigFilterKeys.EXTRA_READING_FIELD] = value
+                prioritysieve_globals.new_config_found = True
+            else:
+                value = self._default_config_dict[RawConfigKeys.FILTERS][0][RawConfigFilterKeys.EXTRA_READING_FIELD]
+                self._filter[RawConfigFilterKeys.EXTRA_READING_FIELD] = value
+                prioritysieve_globals.new_config_found = True
+        else:
+            value = self._default_config_dict[RawConfigKeys.FILTERS][0][RawConfigFilterKeys.EXTRA_READING_FIELD]
+            self._filter[RawConfigFilterKeys.EXTRA_READING_FIELD] = value
+            prioritysieve_globals.new_config_found = True
+
+        assert isinstance(value, bool)
+        return value
 
     def _get_morph_priority_selections(self) -> list[str]:
         try:
@@ -448,16 +440,8 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-m
                 expected_type=bool,
                 use_default=is_default,
             )
-            self.extra_fields_display_inflections: bool = self._get_config_item(
-                key=RawConfigKeys.EXTRA_FIELDS_DISPLAY_INFLECTIONS,
-                expected_type=bool,
-                use_default=is_default,
-            )
-            self.extra_fields_display_lemmas: bool = self._get_config_item(
-                key=RawConfigKeys.EXTRA_FIELDS_DISPLAY_LEMMAS,
-                expected_type=bool,
-                use_default=is_default,
-            )
+            self.extra_fields_display_inflections = False
+            self.extra_fields_display_lemmas = True
             self.recalc_offset_new_cards: bool = self._get_config_item(
                 key=RawConfigKeys.RECALC_OFFSET_NEW_CARDS,
                 expected_type=bool,
@@ -514,16 +498,8 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-m
                 expected_type=str,
                 use_default=is_default,
             )
-            self.evaluate_morph_lemma: bool = self._get_config_item(
-                key=RawConfigKeys.EVALUATE_MORPH_LEMMA,
-                expected_type=bool,
-                use_default=is_default,
-            )
-            self.evaluate_morph_inflection: bool = self._get_config_item(
-                key=RawConfigKeys.EVALUATE_MORPH_INFLECTION,
-                expected_type=bool,
-                use_default=is_default,
-            )
+            self.evaluate_morph_lemma = True
+            self.evaluate_morph_inflection = False
             self.algorithm_total_priority_unknown_morphs_weight: int = (
                 self._get_config_item(
                     key=RawConfigKeys.ALGORITHM_TOTAL_PRIORITY_UNKNOWN_MORPHS_WEIGHT,
