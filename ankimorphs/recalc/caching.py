@@ -346,7 +346,11 @@ def _update_learning_intervals(
         for morph_data_dict in morph_table_data:
             lemma = morph_data_dict["lemma"]
             reading_key = normalize_reading(morph_data_dict.get("reading"))
-            interval = learning_intervals_of_lemmas.get((lemma, reading_key), 0)
+            interval = learning_intervals_of_lemmas.get((lemma, reading_key))
+            if interval is None and reading_key:
+                interval = learning_intervals_of_lemmas.get((lemma, ""))
+            if interval is None:
+                interval = 0
             morph_data_dict["highest_lemma_learning_interval"] = interval
             morph_data_dict["highest_inflection_learning_interval"] = interval
     else:
@@ -354,7 +358,11 @@ def _update_learning_intervals(
         for morph_data_dict in morph_table_data:
             lemma = morph_data_dict["lemma"]
             reading_key = normalize_reading(morph_data_dict.get("reading"))
-            interval = learning_intervals_of_lemmas.get((lemma, reading_key), 0)
+            interval = learning_intervals_of_lemmas.get((lemma, reading_key))
+            if interval is None and reading_key:
+                interval = learning_intervals_of_lemmas.get((lemma, ""))
+            if interval is None:
+                interval = 0
             morph_data_dict["highest_lemma_learning_interval"] = interval
 
 
@@ -369,10 +377,14 @@ def _get_learning_intervals_of_lemmas(
         reading_key = normalize_reading(morph_data_dict.get("reading"))
         key = (lemma, reading_key)
 
-        if key in learning_intervals_of_lemmas:
-            if inflection_interval > learning_intervals_of_lemmas[key]:
-                learning_intervals_of_lemmas[key] = inflection_interval
-        else:
+        existing = learning_intervals_of_lemmas.get(key)
+        if existing is None or inflection_interval > existing:
             learning_intervals_of_lemmas[key] = inflection_interval
+
+        if reading_key:
+            fallback_key = (lemma, "")
+            fallback_existing = learning_intervals_of_lemmas.get(fallback_key)
+            if fallback_existing is None or inflection_interval > fallback_existing:
+                learning_intervals_of_lemmas[fallback_key] = inflection_interval
 
     return learning_intervals_of_lemmas
