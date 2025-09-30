@@ -35,6 +35,35 @@ def normalize_reading(reading: str | None) -> str:
     return reading.translate(_KATAKANA_TO_HIRAGANA)
 
 
+def _extract_trailing_kana(text: str) -> str:
+    """Return the trailing run of kana characters (and long vowels) in ``text``."""
+
+    index = len(text)
+    while index > 0:
+        ch = text[index - 1]
+        if _is_hiragana(ch) or _is_katakana(ch) or ch == "ー":
+            index -= 1
+            continue
+        break
+    return text[index:]
+
+
+def _trim_duplicate_prefix(prefix: str, reading: str) -> str:
+    """Remove kana duplicated between ``prefix`` and the start of ``reading``."""
+
+    kana_suffix = _extract_trailing_kana(prefix)
+    if not kana_suffix:
+        return reading
+
+    normalized_suffix = normalize_reading(kana_suffix)
+    normalized_reading = normalize_reading(reading)
+
+    if normalized_reading.startswith(normalized_suffix):
+        return reading[len(normalized_suffix) :]
+
+    return reading
+
+
 def _split_prefix(prefix: str) -> tuple[str, str]:
     if not prefix:
         return "", ""
@@ -94,7 +123,9 @@ def strip_furigana_token(token: str) -> str:
         reading = token[left_bracket + 1 : right_bracket].strip()
 
         if reading:
-            result.append(reading)
+            trimmed_reading = _trim_duplicate_prefix(prefix_to_keep, reading)
+            if trimmed_reading:
+                result.append(trimmed_reading)
         else:
             result.append(base_chunk)
 

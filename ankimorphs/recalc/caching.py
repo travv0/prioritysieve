@@ -167,10 +167,15 @@ def _assign_readings_to_morphs(
         if card_data.furigana
         else []
     )
-    furigana_tokens = [
-        get_processed_text(am_config, token.lower()) for token in furigana_tokens
-    ]
-    furigana_tokens = [token for token in furigana_tokens if token]
+
+    combined_furigana = "".join(furigana_tokens)
+    if combined_furigana:
+        combined_furigana = combined_furigana.lower()
+        combined_furigana = get_processed_text(am_config, combined_furigana)
+        combined_furigana = normalize_reading(combined_furigana.strip())
+        furigana_tokens = [combined_furigana] if combined_furigana else []
+    else:
+        furigana_tokens = []
 
     raw_reading_tokens: list[str] = []
     if card_data.reading:
