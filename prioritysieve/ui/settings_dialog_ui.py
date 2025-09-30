@@ -468,7 +468,7 @@ class Ui_SettingsDialog(object):
         self.label_20.setObjectName("label_20")
         self.horizontalLayout_13.addWidget(self.label_20)
         self.offsetFirstMorphsSpinBox = QtWidgets.QSpinBox(parent=self.groupBox_13)
-        self.offsetFirstMorphsSpinBox.setMaximum(1000)
+        self.offsetFirstMorphsSpinBox.setMaximum(999999)
         self.offsetFirstMorphsSpinBox.setObjectName("offsetFirstMorphsSpinBox")
         self.horizontalLayout_13.addWidget(self.offsetFirstMorphsSpinBox)
         self.label_21 = QtWidgets.QLabel(parent=self.groupBox_13)
