@@ -12,6 +12,7 @@ from ..ankimorphs_config import AnkiMorphsConfig, AnkiMorphsConfigFilter
 from ..ankimorphs_db import AnkiMorphsDB
 from ..exceptions import CancelledOperationException, KnownMorphsFileMalformedException
 from ..morphemizers import morphemizer_utils
+from ..reading_utils import normalize_reading, parse_furigana_field
 from ..text_preprocessing import get_processed_text
 from . import anki_data_utils
 from .anki_data_utils import AnkiCardData
@@ -82,7 +83,11 @@ def cache_anki_data(  # pylint:disable=too-many-locals, too-many-branches, too-m
                 max_value=card_amount,
             )
             key = all_keys[index]
-            cards_data_dict[key].morphs = set(processed_morphs)
+            morphs_with_readings = _assign_readings_to_morphs(
+                card_data=cards_data_dict[key],
+                processed_morphs=processed_morphs,
+            )
+            cards_data_dict[key].morphs = set(morphs_with_readings)
 
         for counter, card_id in enumerate(cards_data_dict):
             progress_utils.background_update_progress_potentially_cancel(
@@ -119,6 +124,7 @@ def cache_anki_data(  # pylint:disable=too-many-locals, too-many-branches, too-m
                     {
                         "lemma": morph.lemma,
                         "inflection": morph.inflection,
+                        "reading": normalize_reading(morph.reading),
                         "highest_lemma_learning_interval": None,  # updates later
                         "highest_inflection_learning_interval": highest_interval,
                     }
@@ -128,6 +134,7 @@ def cache_anki_data(  # pylint:disable=too-many-locals, too-many-branches, too-m
                         "card_id": card_id,
                         "morph_lemma": morph.lemma,
                         "morph_inflection": morph.inflection,
+                        "morph_reading": normalize_reading(morph.reading),
                     }
                 )
 
@@ -144,6 +151,47 @@ def cache_anki_data(  # pylint:disable=too-many-locals, too-many-branches, too-m
     am_db.insert_many_into_card_morph_map_table(card_morph_map_table_data)
     # am_db.print_table("Morphs")
     am_db.con.close()
+
+
+def _assign_readings_to_morphs(
+    card_data: AnkiCardData, processed_morphs: list[Morpheme]
+) -> list[Morpheme]:
+    if not processed_morphs:
+        return processed_morphs
+
+    furigana_tokens = (
+        parse_furigana_field(card_data.furigana)
+        if card_data.furigana
+        else []
+    )
+
+    raw_reading_tokens: list[str] = []
+    if card_data.reading:
+        stripped = card_data.reading.strip()
+        if stripped:
+            parts = stripped.split()
+            if not parts:
+                parts = [stripped]
+            raw_reading_tokens = [normalize_reading(part) for part in parts]
+
+    tokens = furigana_tokens if furigana_tokens else raw_reading_tokens
+
+    if not tokens:
+        return processed_morphs
+
+    if len(tokens) == len(processed_morphs):
+        pairs = zip(processed_morphs, tokens)
+    elif len(tokens) == 1:
+        pairs = ((morph, tokens[0]) for morph in processed_morphs)
+    else:
+        pairs = zip(processed_morphs, tokens)
+
+    for morph, reading in pairs:
+        normalized = normalize_reading(reading)
+        if normalized:
+            morph.reading = normalized
+
+    return processed_morphs
 
 
 def _get_morphs_from_files(am_config: AnkiMorphsConfig) -> list[dict[str, Any]]:
@@ -164,7 +212,7 @@ def _get_morphs_from_files(am_config: AnkiMorphsConfig) -> list[dict[str, Any]]:
             morph_reader = csv.reader(csvfile, delimiter=",")
             headers: list[str] | None = next(morph_reader, None)
 
-            lemma_column_index, inflection_column_index = (
+            lemma_column_index, inflection_column_index, reading_column_index = (
                 _get_lemma_and_inflection_columns(
                     input_file_path=input_file, headers=headers
                 )
@@ -172,11 +220,18 @@ def _get_morphs_from_files(am_config: AnkiMorphsConfig) -> list[dict[str, Any]]:
 
             if inflection_column_index == -1:
                 morphs_from_files += _get_morphs_from_minimum_format(
-                    am_config, morph_reader, lemma_column_index
+                    am_config,
+                    morph_reader,
+                    lemma_column=lemma_column_index,
+                    reading_column=reading_column_index,
                 )
             else:
                 morphs_from_files += _get_morphs_from_full_format(
-                    am_config, morph_reader, lemma_column_index, inflection_column_index
+                    am_config,
+                    morph_reader,
+                    lemma_column=lemma_column_index,
+                    inflection_column=inflection_column_index,
+                    reading_column=reading_column_index,
                 )
 
     return morphs_from_files
@@ -195,7 +250,7 @@ def _get_known_morphs_files() -> list[Path]:
 
 def _get_lemma_and_inflection_columns(
     input_file_path: Path, headers: list[str] | None
-) -> tuple[int, int]:
+) -> tuple[int, int, int | None]:
     if headers is None:
         raise KnownMorphsFileMalformedException(input_file_path)
 
@@ -218,20 +273,33 @@ def _get_lemma_and_inflection_columns(
         # we handle later, so this can safely be ignored.
         pass
 
-    return lemma_column_index, inflection_column_index
+    reading_column_index: int | None = None
+    try:
+        reading_column_index = headers_lower.index(am_globals.READING_HEADER.lower())
+    except ValueError:
+        pass
+
+    return lemma_column_index, inflection_column_index, reading_column_index
 
 
 def _get_morphs_from_minimum_format(
-    am_config: AnkiMorphsConfig, morph_reader: Any, lemma_column: int
+    am_config: AnkiMorphsConfig,
+    morph_reader: Any,
+    lemma_column: int,
+    reading_column: int | None,
 ) -> list[dict[str, Any]]:
     morphs_from_files: list[dict[str, Any]] = []
 
     for row in morph_reader:
         lemma: str = row[lemma_column]
+        reading = normalize_reading(
+            row[reading_column] if reading_column is not None and reading_column < len(row) else None
+        )
         morphs_from_files.append(
             {
                 "lemma": lemma,
                 "inflection": lemma,
+                "reading": reading,
                 "highest_lemma_learning_interval": am_config.interval_for_known_morphs,
                 "highest_inflection_learning_interval": am_config.interval_for_known_morphs,
             }
@@ -244,16 +312,21 @@ def _get_morphs_from_full_format(
     morph_reader: Any,
     lemma_column: int,
     inflection_column: int,
+    reading_column: int | None,
 ) -> list[dict[str, Any]]:
     morphs_from_files: list[dict[str, Any]] = []
 
     for row in morph_reader:
         lemma: str = row[lemma_column]
         inflection: str = row[inflection_column]
+        reading = normalize_reading(
+            row[reading_column] if reading_column is not None and reading_column < len(row) else None
+        )
         morphs_from_files.append(
             {
                 "lemma": lemma,
                 "inflection": inflection,
+                "reading": reading,
                 "highest_lemma_learning_interval": am_config.interval_for_known_morphs,
                 "highest_inflection_learning_interval": am_config.interval_for_known_morphs,
             }
@@ -264,42 +337,42 @@ def _get_morphs_from_full_format(
 def _update_learning_intervals(
     am_config: AnkiMorphsConfig, morph_table_data: list[dict[str, Any]]
 ) -> None:
-    learning_intervals_of_lemmas: dict[str, int] = _get_learning_intervals_of_lemmas(
-        morph_table_data
+    learning_intervals_of_lemmas: dict[tuple[str, str], int] = (
+        _get_learning_intervals_of_lemmas(morph_table_data)
     )
 
     if am_config.evaluate_morph_lemma:
         # update both the lemma and inflection intervals
         for morph_data_dict in morph_table_data:
             lemma = morph_data_dict["lemma"]
-            morph_data_dict["highest_lemma_learning_interval"] = (
-                learning_intervals_of_lemmas[lemma]
-            )
-            morph_data_dict["highest_inflection_learning_interval"] = (
-                learning_intervals_of_lemmas[lemma]
-            )
+            reading_key = normalize_reading(morph_data_dict.get("reading"))
+            interval = learning_intervals_of_lemmas.get((lemma, reading_key), 0)
+            morph_data_dict["highest_lemma_learning_interval"] = interval
+            morph_data_dict["highest_inflection_learning_interval"] = interval
     else:
         # only update lemma intervals
         for morph_data_dict in morph_table_data:
             lemma = morph_data_dict["lemma"]
-            morph_data_dict["highest_lemma_learning_interval"] = (
-                learning_intervals_of_lemmas[lemma]
-            )
+            reading_key = normalize_reading(morph_data_dict.get("reading"))
+            interval = learning_intervals_of_lemmas.get((lemma, reading_key), 0)
+            morph_data_dict["highest_lemma_learning_interval"] = interval
 
 
 def _get_learning_intervals_of_lemmas(
     morph_table_data: list[dict[str, Any]],
-) -> dict[str, int]:
-    learning_intervals_of_lemmas: dict[str, int] = {}
+) -> dict[tuple[str, str], int]:
+    learning_intervals_of_lemmas: dict[tuple[str, str], int] = {}
 
     for morph_data_dict in morph_table_data:
         lemma = morph_data_dict["lemma"]
         inflection_interval = morph_data_dict["highest_inflection_learning_interval"]
+        reading_key = normalize_reading(morph_data_dict.get("reading"))
+        key = (lemma, reading_key)
 
-        if lemma in learning_intervals_of_lemmas:
-            if inflection_interval > learning_intervals_of_lemmas[lemma]:
-                learning_intervals_of_lemmas[lemma] = inflection_interval
+        if key in learning_intervals_of_lemmas:
+            if inflection_interval > learning_intervals_of_lemmas[key]:
+                learning_intervals_of_lemmas[key] = inflection_interval
         else:
-            learning_intervals_of_lemmas[lemma] = inflection_interval
+            learning_intervals_of_lemmas[key] = inflection_interval
 
     return learning_intervals_of_lemmas

@@ -9,6 +9,7 @@ class Morpheme:
     __slots__ = (
         "lemma",
         "inflection",
+        "reading",
         "part_of_speech",
         "sub_part_of_speech",
         "highest_lemma_learning_interval",
@@ -19,6 +20,7 @@ class Morpheme:
         self,
         lemma: str,
         inflection: str,
+        reading: str | None = None,
         part_of_speech: str = "",
         sub_part_of_speech: str = "",
         highest_lemma_learning_interval: int | None = None,
@@ -35,6 +37,7 @@ class Morpheme:
 
         self.lemma: str = lemma  # dictionary form
         self.inflection: str = inflection  # surface lemma
+        self.reading: str | None = reading
         self.part_of_speech = part_of_speech  # determined by mecab tool. for example: u'動詞' or u'助動詞', u'形容詞'
         self.sub_part_of_speech = sub_part_of_speech
         self.highest_lemma_learning_interval: int | None = (
@@ -50,11 +53,15 @@ class Morpheme:
             [
                 self.lemma == other.lemma,
                 self.inflection == other.inflection,
+                self._normalized_reading() == other._normalized_reading(),
             ]
         )
 
     def __hash__(self) -> int:
-        return hash((self.lemma, self.inflection))
+        return hash((self.lemma, self.inflection, self._normalized_reading()))
+
+    def _normalized_reading(self) -> str:
+        return self.reading or ""
 
     def is_proper_noun(self) -> bool:
         return self.sub_part_of_speech == "固有名詞" or self.part_of_speech == "PROPN"

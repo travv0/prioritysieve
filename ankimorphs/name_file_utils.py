@@ -43,15 +43,15 @@ def get_names_from_file() -> set[str]:
     return names
 
 
-def get_names_from_file_as_morphs() -> list[tuple[str, str]]:
+def get_names_from_file_as_morphs() -> list[tuple[str, str, str]]:
     # We want to insert the names from the file into the
     # 'Seen_morphs' sql table. To do this we have to store
-    # the names in a list as tuples (norm, inflected)
+    # the names in a list as tuples (lemma, inflection, reading)
 
-    names_as_simplified_morphs: list[tuple[str, str]] = []
+    names_as_simplified_morphs: list[tuple[str, str, str]] = []
     names: set[str] = get_names_from_file()
 
     for name in names:
-        names_as_simplified_morphs.append((name, name))
+        names_as_simplified_morphs.append((name, name, ""))
 
     return names_as_simplified_morphs

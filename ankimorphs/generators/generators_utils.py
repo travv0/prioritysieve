@@ -19,6 +19,7 @@ from ..ankimorphs_config import AnkiMorphsConfig
 from ..ankimorphs_db import AnkiMorphsDB
 from ..exceptions import CancelledOperationException, UnicodeException
 from ..morpheme import Morpheme, MorphOccurrence
+from ..reading_utils import normalize_reading
 from ..morphemizers import spacy_wrapper
 from ..morphemizers.morphemizer import Morphemizer
 from ..morphemizers.spacy_morphemizer import SpacyMorphemizer
@@ -198,7 +199,7 @@ def generate_morph_occurrences_by_file(
     input_dir_root: Path,
     input_files: list[Path],
     sorted_by_table: int = False,
-) -> dict[Path, dict[str, MorphOccurrence]]:
+) -> dict[Path, dict[tuple[str, str, str], MorphOccurrence]]:
     """
     'sorted_by_table=True' is used for study plans where the order matters.
     """
@@ -208,7 +209,9 @@ def generate_morph_occurrences_by_file(
         morphemizers=morphemizers, morphemizer_combobox=ui.morphemizerComboBox
     )
     preprocess_options = PreprocessOptions(ui)
-    morph_occurrences_by_file: dict[Path, dict[str, MorphOccurrence]] = {}
+    morph_occurrences_by_file: dict[
+        Path, dict[tuple[str, str, str], MorphOccurrence]
+    ] = {}
     sorted_input_files: list[Path]
 
     if sorted_by_table:
@@ -232,7 +235,7 @@ def generate_morph_occurrences_by_file(
             )
         )
 
-        file_morph_occurrences: dict[str, MorphOccurrence] = (
+        file_morph_occurrences: dict[tuple[str, str, str], MorphOccurrence] = (
             create_file_morph_occurrences(
                 preprocess_options=preprocess_options,
                 file_path=input_file,
@@ -250,7 +253,7 @@ def create_file_morph_occurrences(
     file_path: Path,
     morphemizer: Morphemizer,
     translation_table: dict[int, int | None],
-) -> dict[str, MorphOccurrence]:
+) -> dict[tuple[str, str, str], MorphOccurrence]:
 
     raw_lines: list[str]
     filtered_lines: list[str] = []
@@ -286,12 +289,13 @@ def get_morph_occurrences(
     mock_am_config: AnkiMorphsConfig,
     morphemizer: Morphemizer,
     all_lines: list[str],
-) -> dict[str, MorphOccurrence]:
-    morph_occurrences: dict[str, MorphOccurrence] = {}
+) -> dict[tuple[str, str, str], MorphOccurrence]:
+    morph_occurrences: dict[tuple[str, str, str], MorphOccurrence] = {}
 
     for processed_morphs in morphemizer.get_processed_morphs(mock_am_config, all_lines):
         for morph in processed_morphs:
-            key = morph.lemma + morph.inflection
+            reading_key = normalize_reading(morph.reading)
+            key = (morph.lemma, morph.inflection, reading_key)
             if key in morph_occurrences:
                 morph_occurrences[key].occurrence += 1
             else:
@@ -346,13 +350,14 @@ def _get_input_files_table_sorted(
 
 
 def get_total_morph_occurrences_dict(
-    morph_occurrences_by_file: dict[Path, dict[str, MorphOccurrence]],
-) -> dict[str, MorphOccurrence]:
+    morph_occurrences_by_file: dict[
+        Path, dict[tuple[str, str, str], MorphOccurrence]
+    ],
+) -> dict[tuple[str, str, str], MorphOccurrence]:
     """
-    Returns total_morph_occurrences: dict[str, MorphOccurrence]
-    where key: lemma + inflection
+    Returns total_morph_occurrences keyed by (lemma, inflection, reading).
     """
-    total_morph_occurrences: dict[str, MorphOccurrence] = {}
+    total_morph_occurrences: dict[tuple[str, str, str], MorphOccurrence] = {}
 
     for file_morph_dict in morph_occurrences_by_file.values():
         for key in file_morph_dict:
@@ -366,8 +371,8 @@ def get_total_morph_occurrences_dict(
 
 def get_morph_key_cutoff(
     selected_output_options: OutputOptions,
-    sorted_morph_occurrences: dict[str, MorphOccurrence],
-) -> str | None:
+    sorted_morph_occurrences: dict[tuple[str, str, str], MorphOccurrence],
+) -> tuple[str, str, str] | None:
     if selected_output_options.comprehension:
         morph_key_cutoff = get_comprehension_cutoff(
             sorted_morph_occurrences,
@@ -383,9 +388,9 @@ def get_morph_key_cutoff(
 
 
 def get_comprehension_cutoff(
-    sorted_morph_occurrence: dict[str, MorphOccurrence],
+    sorted_morph_occurrence: dict[tuple[str, str, str], MorphOccurrence],
     comprehension_threshold: int,
-) -> str | None:
+) -> tuple[str, str, str] | None:
     total_occurrences = 0
 
     for morph_occurrence in sorted_morph_occurrence.values():
@@ -406,9 +411,9 @@ def get_comprehension_cutoff(
 
 
 def get_min_occurrence_cutoff(
-    sorted_morph_occurrence: dict[str, MorphOccurrence],
+    sorted_morph_occurrence: dict[tuple[str, str, str], MorphOccurrence],
     min_occurrence_threshold: int,
-) -> str | None:
+) -> tuple[str, str, str] | None:
     for morph_key in sorted_morph_occurrence:
         if sorted_morph_occurrence[morph_key].occurrence < min_occurrence_threshold:
             return morph_key
@@ -416,25 +421,27 @@ def get_min_occurrence_cutoff(
 
 
 def get_sorted_lemma_occurrence_dict(
-    morph_occurrence_dict_original: dict[str, MorphOccurrence],
-) -> dict[str, MorphOccurrence]:
+    morph_occurrence_dict_original: dict[tuple[str, str, str], MorphOccurrence],
+) -> dict[tuple[str, str, str], MorphOccurrence]:
     """
-    This creates a new dict with keys that only consist of the lemma, and
+    This creates a new dict keyed by (lemma, lemma, reading) and
     sums all the inflections into the respective lemma occurrences.
     """
 
     # we clone the original dict to prevent mutation problems
     morph_occurrence_dict = copy.deepcopy(morph_occurrence_dict_original)
-    lemma_occurrence: dict[str, MorphOccurrence] = {}
+    lemma_occurrence: dict[tuple[str, str, str], MorphOccurrence] = {}
 
     for morph_occurrence in morph_occurrence_dict.values():
         lemma: str = morph_occurrence.morph.lemma
-        if lemma in lemma_occurrence:
-            lemma_occurrence[lemma] += morph_occurrence
+        reading_key = normalize_reading(morph_occurrence.morph.reading)
+        key = (lemma, lemma, reading_key)
+        if key in lemma_occurrence:
+            lemma_occurrence[key] += morph_occurrence
         else:
-            lemma_occurrence[lemma] = morph_occurrence
+            lemma_occurrence[key] = morph_occurrence
 
-    sorted_lemma_frequency: dict[str, MorphOccurrence] = dict(
+    sorted_lemma_frequency: dict[tuple[str, str, str], MorphOccurrence] = dict(
         sorted(
             lemma_occurrence.items(),
             key=lambda item: item[1].occurrence,

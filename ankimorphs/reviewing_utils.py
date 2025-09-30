@@ -382,7 +382,7 @@ class SkippedCards:
         if am_config.skip_unknown_morph_seen_today_cards:
             # this is the ultimate 'I don't care about fresh morphs'
             # setting, so we don't check for those in this case
-            morphs_already_seen_morphs_today: set[str] = (
+            morphs_already_seen_morphs_today: set[tuple[str, str, str]] = (
                 am_db.get_all_morphs_seen_today(
                     only_lemma=am_config.evaluate_morph_lemma
                 )
@@ -393,10 +393,9 @@ class SkippedCards:
                 only_lemma=am_config.evaluate_morph_lemma,
             )
             if card_unknown_morphs_raw is not None:
-                card_unknown_morphs: set[str] = {
-                    morph_raw[0] + morph_raw[1] for morph_raw in card_unknown_morphs_raw
-                }
-                if card_unknown_morphs.issubset(morphs_already_seen_morphs_today):
+                if card_unknown_morphs_raw.issubset(
+                    morphs_already_seen_morphs_today
+                ):
                     self._will_skip_already_seen()
                     return True
                 return False

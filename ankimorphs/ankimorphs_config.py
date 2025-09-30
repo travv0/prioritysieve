@@ -47,6 +47,8 @@ class RawConfigFilterKeys:
     NOTE_TYPE = "note_type"
     TAGS = "tags"
     FIELD = "field"
+    FURIGANA_FIELD = "furigana_field"
+    READING_FIELD = "reading_field"
     MORPHEMIZER_DESCRIPTION = "morphemizer_description"
     MORPH_PRIORITY_SELECTION = "morph_priority_selection"
     READ = "read"
@@ -155,6 +157,12 @@ class AnkiMorphsConfigFilter:  # pylint:disable=too-many-instance-attributes
             )
             self.field: str = self._get_filter_item(
                 key=RawConfigFilterKeys.FIELD, expected_type=str
+            )
+            self.furigana_field: str = self._get_filter_item(
+                key=RawConfigFilterKeys.FURIGANA_FIELD, expected_type=str
+            )
+            self.reading_field: str = self._get_filter_item(
+                key=RawConfigFilterKeys.READING_FIELD, expected_type=str
             )
             self.morphemizer_description: str = self._get_filter_item(
                 key=RawConfigFilterKeys.MORPHEMIZER_DESCRIPTION, expected_type=str

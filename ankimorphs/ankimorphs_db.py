@@ -20,6 +20,14 @@ from .name_file_utils import get_names_from_file_as_morphs
 from .recalc.anki_data_utils import AnkiMorphsCardData
 
 
+def _normalize_reading(reading: str | None) -> str:
+    return reading if reading is not None else ""
+
+
+def _escape_sql(value: str) -> str:
+    return value.replace("'", "''")
+
+
 class AnkiMorphsDB:  # pylint:disable=too-many-public-methods
     # A card can have many morphs, morphs can be on many cards,
     # therefore, we need a many-to-many db structure:
@@ -88,9 +96,10 @@ class AnkiMorphsDB:  # pylint:disable=too-many-public-methods
                         card_id INTEGER,
                         morph_lemma TEXT,
                         morph_inflection TEXT,
+                        morph_reading TEXT,
                         FOREIGN KEY(card_id) REFERENCES card(id),
-                        FOREIGN KEY(morph_lemma, morph_inflection) REFERENCES morph(lemma, inflection)
-                        PRIMARY KEY(card_id, morph_lemma, morph_inflection)
+                        FOREIGN KEY(morph_lemma, morph_inflection, morph_reading) REFERENCES Morphs(lemma, inflection, reading)
+                        PRIMARY KEY(card_id, morph_lemma, morph_inflection, morph_reading)
                     )
                     """
             )
@@ -103,9 +112,10 @@ class AnkiMorphsDB:  # pylint:disable=too-many-public-methods
                     (
                         lemma TEXT,
                         inflection TEXT,
+                        reading TEXT,
                         highest_lemma_learning_interval INTEGER,
                         highest_inflection_learning_interval INTEGER,
-                        PRIMARY KEY (lemma, inflection)
+                        PRIMARY KEY (lemma, inflection, reading)
                     )
                     """
             )
@@ -118,7 +128,8 @@ class AnkiMorphsDB:  # pylint:disable=too-many-public-methods
                     (
                         lemma TEXT,
                         inflection TEXT,
-                        PRIMARY KEY (lemma, inflection)
+                        reading TEXT,
+                        PRIMARY KEY (lemma, inflection, reading)
                     )
                     """
             )
@@ -154,10 +165,11 @@ class AnkiMorphsDB:  # pylint:disable=too-many-public-methods
                     (
                        :lemma,
                        :inflection,
+                       :reading,
                        :highest_lemma_learning_interval,
                        :highest_inflection_learning_interval
                     )
-                    ON CONFLICT(lemma, inflection) DO UPDATE SET
+                    ON CONFLICT(lemma, inflection, reading) DO UPDATE SET
                         highest_inflection_learning_interval = :highest_inflection_learning_interval
                     WHERE highest_inflection_learning_interval < :highest_inflection_learning_interval
                 """,
@@ -174,19 +186,20 @@ class AnkiMorphsDB:  # pylint:disable=too-many-public-methods
                     (
                        :card_id,
                        :morph_lemma,
-                       :morph_inflection
+                       :morph_inflection,
+                       :morph_reading
                     )
                     """,
                 card_morph_list,
             )
 
-    def get_readable_card_morphs(self, card_id: int) -> list[tuple[str, str]]:
-        card_morphs: list[tuple[str, str]] = []
+    def get_readable_card_morphs(self, card_id: int) -> list[tuple[str, str, str]]:
+        card_morphs: list[tuple[str, str, str]] = []
 
         with self.con:
             card_morphs_raw = self.con.execute(
                 """
-                    SELECT morph_lemma, morph_inflection
+                    SELECT morph_lemma, morph_inflection, morph_reading
                     FROM Card_Morph_Map
                     WHERE card_id = ?
                     """,
@@ -194,28 +207,26 @@ class AnkiMorphsDB:  # pylint:disable=too-many-public-methods
             ).fetchall()
 
             for row in card_morphs_raw:
-                card_morphs.append((row[0], row[1]))
+                card_morphs.append((row[0], row[1], row[2]))
 
         return card_morphs
 
-    def get_all_morphs_seen_today(self, only_lemma: bool = False) -> set[str]:
+    def get_all_morphs_seen_today(
+        self, only_lemma: bool = False
+    ) -> set[tuple[str, str, str]]:
         self.create_seen_morph_table()
-        card_morphs: set[str] = set("")
-        select_statement: str = "SELECT lemma, inflection"
+        card_morphs: set[tuple[str, str, str]] = set()
 
         if only_lemma:
-            select_statement = "SELECT lemma, lemma"
+            select_statement = "SELECT lemma, lemma AS sub_key, reading FROM Seen_Morphs"
+        else:
+            select_statement = "SELECT lemma, inflection, reading FROM Seen_Morphs"
 
         with self.con:
-            card_morphs_raw = self.con.execute(
-                f"""
-                    {select_statement}
-                    FROM Seen_Morphs
-                    """
-            ).fetchall()
+            card_morphs_raw = self.con.execute(select_statement).fetchall()
 
-            for row in card_morphs_raw:
-                card_morphs.add(row[0] + row[1])
+        for lemma, sub_key, reading in card_morphs_raw:
+            card_morphs.add((lemma, sub_key, _normalize_reading(reading)))
 
         return card_morphs
 
@@ -223,8 +234,8 @@ class AnkiMorphsDB:  # pylint:disable=too-many-public-methods
         with self.con:
             self.con.execute(
                 """
-                    INSERT OR IGNORE INTO Seen_Morphs (lemma, inflection)
-                    SELECT morph_lemma, morph_inflection
+                    INSERT OR IGNORE INTO Seen_Morphs (lemma, inflection, reading)
+                    SELECT morph_lemma, morph_inflection, morph_reading
                     FROM Card_Morph_Map
                     WHERE card_id = ?
                     """,
@@ -233,11 +244,11 @@ class AnkiMorphsDB:  # pylint:disable=too-many-public-methods
 
     def get_card_morphs(
         self, card_id: int, search_unknowns: bool = False, only_lemma: bool = False
-    ) -> set[tuple[str, str]] | None:
+    ) -> set[tuple[str, str, str]] | None:
         """
-        Returns a set of tuples (lemma, inflection)
+        Returns a set of tuples (lemma, inflection_or_lemma, reading)
         """
-        morphs: set[tuple[str, str]] = set()
+        morphs: set[tuple[str, str, str]] = set()
 
         if only_lemma:
             raw_base_card_morphs = self._get_card_morph_lemma_and_lemma(
@@ -249,7 +260,8 @@ class AnkiMorphsDB:  # pylint:disable=too-many-public-methods
             )
 
         for card_morph in raw_base_card_morphs:
-            morphs.add((card_morph[0], card_morph[1]))
+            reading = _normalize_reading(card_morph[2])
+            morphs.add((card_morph[0], card_morph[1], reading))
 
         if len(morphs) == 0:
             return None
@@ -267,10 +279,12 @@ class AnkiMorphsDB:  # pylint:disable=too-many-public-methods
         with self.con:
             card_morphs = self.con.execute(
                 """
-                    SELECT DISTINCT morph_lemma, morph_inflection
+                    SELECT DISTINCT morph_lemma, morph_inflection, morph_reading
                     FROM Card_Morph_Map
                     INNER JOIN Morphs ON
-                        Card_Morph_Map.morph_lemma = Morphs.lemma AND Card_Morph_Map.morph_inflection = Morphs.inflection
+                        Card_Morph_Map.morph_lemma = Morphs.lemma
+                        AND Card_Morph_Map.morph_inflection = Morphs.inflection
+                        AND Card_Morph_Map.morph_reading = Morphs.reading
                     """
                 + where_query_string,
                 (card_id,),
@@ -289,10 +303,11 @@ class AnkiMorphsDB:  # pylint:disable=too-many-public-methods
         with self.con:
             card_morphs = self.con.execute(
                 """
-                    SELECT DISTINCT morph_lemma, morph_lemma
+                    SELECT DISTINCT morph_lemma, morph_lemma, morph_reading
                     FROM Card_Morph_Map
                     INNER JOIN Morphs ON
                         Card_Morph_Map.morph_lemma = Morphs.lemma
+                        AND Card_Morph_Map.morph_reading = Morphs.reading
                     """
                 + where_query_string,
                 (card_id,),
@@ -310,7 +325,7 @@ class AnkiMorphsDB:  # pylint:disable=too-many-public-methods
         # of not allowing variable length parameters
 
         card_ids: set[CardId] = set()
-        card_morphs: set[tuple[str, str]] | None = self.get_card_morphs(
+        card_morphs: set[tuple[str, str, str]] | None = self.get_card_morphs(
             card_id, search_unknowns
         )
         if card_morphs is None:
@@ -318,12 +333,21 @@ class AnkiMorphsDB:  # pylint:disable=too-many-public-methods
 
         if search_lemma_only:
             where_query_string = "WHERE" + "".join(
-                [f" (morph_lemma = '{morph[0]}') OR" for morph in card_morphs]
+                [
+                    f" (morph_lemma = '{_escape_sql(morph[0])}'"
+                    f" AND morph_reading = '{_escape_sql(morph[2])}') OR"
+                    for morph in card_morphs
+                ]
             )
         else:
             where_query_string = "WHERE" + "".join(
                 [
-                    f" (morph_lemma = '{morph[0]}' AND morph_inflection = '{morph[1]}') OR"
+                    " (morph_lemma = '{lemma}' AND morph_inflection = '{inflection}'"
+                    " AND morph_reading = '{reading}') OR".format(
+                        lemma=_escape_sql(morph[0]),
+                        inflection=_escape_sql(morph[1]),
+                        reading=_escape_sql(morph[2]),
+                    )
                     for morph in card_morphs
                 ]
             )
@@ -353,9 +377,13 @@ class AnkiMorphsDB:  # pylint:disable=too-many-public-methods
                 """
                     SELECT highest_inflection_learning_interval
                     FROM Morphs
-                    WHERE lemma = ? And inflection = ?
+                    WHERE lemma = ? AND inflection = ? AND reading = ?
                     """,
-                (morph.lemma, morph.inflection),
+                (
+                    morph.lemma,
+                    morph.inflection,
+                    _normalize_reading(morph.reading),
+                ),
             ).fetchone()
 
             if highest_learning_interval is None:
@@ -368,15 +396,30 @@ class AnkiMorphsDB:  # pylint:disable=too-many-public-methods
 
     def get_highest_lemma_learning_interval(self, morph: Morpheme) -> int | None:
         with self.con:
+            reading = _normalize_reading(morph.reading)
             highest_learning_interval = self.con.execute(
                 """
                     SELECT highest_lemma_learning_interval
                     FROM Morphs
-                    WHERE lemma = ?
+                    WHERE lemma = ? AND reading = ?
+                    ORDER BY highest_lemma_learning_interval DESC
                     LIMIT 1
                     """,
-                (morph.lemma,),
+                (morph.lemma, reading),
             ).fetchone()
+
+            if highest_learning_interval is None and reading:
+                # fallback to lemma-only entry if no reading-specific record exists
+                highest_learning_interval = self.con.execute(
+                    """
+                        SELECT highest_lemma_learning_interval
+                        FROM Morphs
+                        WHERE lemma = ?
+                        ORDER BY highest_lemma_learning_interval DESC
+                        LIMIT 1
+                        """,
+                    (morph.lemma,),
+                ).fetchone()
 
             if highest_learning_interval is None:
                 return None
@@ -386,22 +429,23 @@ class AnkiMorphsDB:  # pylint:disable=too-many-public-methods
             assert isinstance(highest_learning_interval, int)
             return highest_learning_interval
 
-    def get_morph_inflections_learning_statuses(self) -> dict[str, str]:
-        morph_status_dict: dict[str, str] = {}
+    def get_morph_inflections_learning_statuses(
+        self,
+    ) -> dict[tuple[str, str, str], str]:
+        morph_status_dict: dict[tuple[str, str, str], str] = {}
         am_config = AnkiMorphsConfig()
 
         with self.con:
             card_morphs_raw = self.con.execute(
                 """
-                    SELECT lemma, inflection, highest_inflection_learning_interval
+                    SELECT lemma, inflection, reading, highest_inflection_learning_interval
                     FROM Morphs
-                    ORDER BY lemma, inflection
+                    ORDER BY lemma, inflection, reading
                     """,
             ).fetchall()
 
-            for row in card_morphs_raw:
-                key = row[0] + row[1]
-                interval = row[2]
+            for lemma, inflection, reading, interval in card_morphs_raw:
+                key = (lemma, inflection, _normalize_reading(reading))
                 if interval >= am_config.interval_for_known_morphs:
                     learning_status = ankimorphs_globals.STATUS_KNOWN
                 elif interval > 0:
@@ -413,21 +457,23 @@ class AnkiMorphsDB:  # pylint:disable=too-many-public-methods
 
         return morph_status_dict
 
-    def get_morph_lemmas_learning_statuses(self) -> dict[str, str]:
-        morph_status_dict: dict[str, str] = {}
+    def get_morph_lemmas_learning_statuses(
+        self,
+    ) -> dict[tuple[str, str, str], str]:
+        morph_status_dict: dict[tuple[str, str, str], str] = {}
         am_config = AnkiMorphsConfig()
 
         with self.con:
             card_morphs_raw = self.con.execute(
                 """
-                    SELECT DISTINCT lemma, highest_lemma_learning_interval
+                    SELECT lemma, reading, highest_lemma_learning_interval
                     FROM Morphs
+                    GROUP BY lemma, reading
                     """,
             ).fetchall()
 
-            for row in card_morphs_raw:
-                key = row[0]
-                interval = row[1]
+            for lemma, reading, interval in card_morphs_raw:
+                key = (lemma, lemma, _normalize_reading(reading))
                 if interval >= am_config.interval_for_known_morphs:
                     learning_status = ankimorphs_globals.STATUS_KNOWN
                 elif interval > 0:
@@ -445,21 +491,26 @@ class AnkiMorphsDB:  # pylint:disable=too-many-public-methods
         # Sorting the morphs (ORDER BY) is crucial to avoid bugs
         card_morph_map_cache_raw = self.con.execute(
             """
-            SELECT Card_Morph_Map.card_id, Morphs.lemma, Morphs.inflection, Morphs.highest_lemma_learning_interval, Morphs.highest_inflection_learning_interval
+            SELECT Card_Morph_Map.card_id, Morphs.lemma, Morphs.inflection, Morphs.reading,
+                   Morphs.highest_lemma_learning_interval, Morphs.highest_inflection_learning_interval
             FROM Card_Morph_Map
             INNER JOIN Morphs ON
-                Card_Morph_Map.morph_lemma = Morphs.lemma AND Card_Morph_Map.morph_inflection = Morphs.inflection
-            ORDER BY Morphs.lemma, Morphs.inflection
+                Card_Morph_Map.morph_lemma = Morphs.lemma
+                AND Card_Morph_Map.morph_inflection = Morphs.inflection
+                AND Card_Morph_Map.morph_reading = Morphs.reading
+            ORDER BY Morphs.lemma, Morphs.inflection, Morphs.reading
             """,
         ).fetchall()
 
         for row in card_morph_map_cache_raw:
             card_id = row[0]
+            reading_value = _normalize_reading(row[3])
             morph = Morpheme(
                 lemma=row[1],
                 inflection=row[2],
-                highest_lemma_learning_interval=row[3],
-                highest_inflection_learning_interval=row[4],
+                reading=reading_value if reading_value else None,
+                highest_lemma_learning_interval=row[4],
+                highest_inflection_learning_interval=row[5],
             )
 
             if card_id not in card_morph_map_cache:
@@ -509,30 +560,34 @@ class AnkiMorphsDB:  # pylint:disable=too-many-public-methods
     @functools.lru_cache(maxsize=131072)
     def get_morph_priorities_from_collection(
         self, only_lemma_priorities: bool
-    ) -> dict[tuple[str, str], int]:
+    ) -> dict[tuple[str, str, str], int]:
         # Sorting the morphs (ORDER BY) is crucial to avoid bugs
         morphs_query = self.con.execute(
             """
-            SELECT morph_lemma, morph_inflection
+            SELECT morph_lemma, morph_inflection, morph_reading
             FROM Card_Morph_Map
-            ORDER BY morph_lemma, morph_inflection
+            ORDER BY morph_lemma, morph_inflection, morph_reading
             """,
         ).fetchall()
 
         intermediate_morph_list = []
 
         if only_lemma_priorities:
-            for lemma, _ in morphs_query:
-                intermediate_morph_list.append((lemma, lemma))
+            for lemma, _, reading in morphs_query:
+                intermediate_morph_list.append(
+                    (lemma, lemma, _normalize_reading(reading))
+                )
         else:
-            for lemma, inflection in morphs_query:
-                intermediate_morph_list.append((lemma, inflection))
+            for lemma, inflection, reading in morphs_query:
+                intermediate_morph_list.append(
+                    (lemma, inflection, _normalize_reading(reading))
+                )
 
-        morphs_sorted_amount: dict[tuple[str, str], int] = dict(
+        morphs_sorted_amount: dict[tuple[str, str, str], int] = dict(
             Counter(intermediate_morph_list).most_common()
         )
 
-        morph_priorities: dict[tuple[str, str], int] = {}
+        morph_priorities: dict[tuple[str, str, str], int] = {}
 
         # Reverse the values, the lower the priority number is, the more it is prioritized.
         # Note: we can use a shortcut of providing the same priority (index) for both
@@ -546,40 +601,44 @@ class AnkiMorphsDB:  # pylint:disable=too-many-public-methods
 
     def get_known_lemmas_with_count(
         self, highest_lemma_learning_interval: int
-    ) -> list[tuple[str, int]]:
+    ) -> list[tuple[str, str, int]]:
         """
-        returns: (lemma, lemma_count)
+        returns: (lemma, reading, lemma_count)
         """
         with self.con:
             return self.con.execute(
                 """
-                SELECT morph_lemma, COUNT(morph_lemma)
+                SELECT morph_lemma, morph_reading, COUNT(morph_lemma)
                 FROM Card_Morph_Map cmm
                 INNER JOIN Morphs m ON
-                    cmm.morph_lemma = m.lemma AND cmm.morph_inflection = m.inflection
+                    cmm.morph_lemma = m.lemma
+                    AND cmm.morph_inflection = m.inflection
+                    AND cmm.morph_reading = m.reading
                 WHERE m.highest_lemma_learning_interval >= ?
-                GROUP BY morph_lemma
-                ORDER BY morph_lemma
+                GROUP BY morph_lemma, morph_reading
+                ORDER BY morph_lemma, morph_reading
                 """,
                 (highest_lemma_learning_interval,),
             ).fetchall()
 
     def get_known_lemmas_and_inflections_with_count(
         self, highest_inflection_learning_interval: int
-    ) -> list[tuple[str, str, int]]:
+    ) -> list[tuple[str, str, str, int]]:
         """
-        returns: (lemma, inflection, inflection_count)
+        returns: (lemma, inflection, reading, inflection_count)
         """
         with self.con:
             return self.con.execute(
                 """
-                SELECT morph_lemma, morph_inflection, COUNT(morph_inflection)
+                SELECT morph_lemma, morph_inflection, morph_reading, COUNT(morph_inflection)
                 FROM Card_Morph_Map cmm
                 INNER JOIN Morphs m ON
-                    cmm.morph_lemma = m.lemma AND cmm.morph_inflection = m.inflection
+                    cmm.morph_lemma = m.lemma
+                    AND cmm.morph_inflection = m.inflection
+                    AND cmm.morph_reading = m.reading
                 WHERE m.highest_inflection_learning_interval >= ?
-                GROUP BY morph_lemma, morph_inflection
-                ORDER BY morph_lemma, morph_inflection
+                GROUP BY morph_lemma, morph_inflection, morph_reading
+                ORDER BY morph_lemma, morph_inflection, morph_reading
                 """,
                 (highest_inflection_learning_interval,),
             ).fetchall()
@@ -651,8 +710,8 @@ class AnkiMorphsDB:  # pylint:disable=too-many-public-methods
             if where_query_string != "":
                 am_db.con.execute(
                     """
-                        INSERT OR IGNORE INTO Seen_Morphs (lemma, inflection)
-                        SELECT morph_lemma, morph_inflection
+                        INSERT OR IGNORE INTO Seen_Morphs (lemma, inflection, reading)
+                        SELECT morph_lemma, morph_inflection, morph_reading
                         FROM Card_Morph_Map
                         """
                     + where_query_string
@@ -692,13 +751,13 @@ class AnkiMorphsDB:  # pylint:disable=too-many-public-methods
 
     @staticmethod
     def insert_names_to_seen_morphs() -> None:
-        name_morphs: list[tuple[str, str]] = get_names_from_file_as_morphs()
+        name_morphs: list[tuple[str, str, str]] = get_names_from_file_as_morphs()
         am_db = AnkiMorphsDB()
 
         with am_db.con:
             am_db.con.executemany(
                 """
-                    INSERT OR IGNORE INTO Seen_Morphs VALUES (?, ?)
+                    INSERT OR IGNORE INTO Seen_Morphs VALUES (?, ?, ?)
                     """,
                 name_morphs,
             )

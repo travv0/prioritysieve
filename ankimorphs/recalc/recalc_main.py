@@ -126,6 +126,18 @@ def _check_selected_settings_for_errors(
         if config_filter.field not in note_type_field_name_dict:
             return AnkiFieldNotFound()
 
+        if (
+            config_filter.furigana_field != ankimorphs_globals.NONE_OPTION
+            and config_filter.furigana_field not in note_type_field_name_dict
+        ):
+            return AnkiFieldNotFound()
+
+        if (
+            config_filter.reading_field != ankimorphs_globals.NONE_OPTION
+            and config_filter.reading_field not in note_type_field_name_dict
+        ):
+            return AnkiFieldNotFound()
+
         morphemizer_found = morphemizer_utils.get_morphemizer_by_description(
             config_filter.morphemizer_description
         )
@@ -184,7 +196,7 @@ def _update_cards_and_notes(  # pylint:disable=too-many-locals, too-many-stateme
         field_name_dict: dict[str, tuple[int, FieldDict]] = model_manager.field_map(
             notetype=note_type_dict
         )
-        morph_priorities: dict[tuple[str, str], int] = get_morph_priority(
+        morph_priorities: dict[tuple[str, str, str], int] = get_morph_priority(
             am_db=am_db,
             only_lemma_priorities=am_config.evaluate_morph_lemma,
             morph_priority_selection=config_filter.morph_priority_selection,
@@ -340,10 +352,10 @@ def _add_offsets_to_new_cards(
     # makes reviewing cards on mobile a viable alternative.
     assert mw is not None
 
-    earliest_due_card_for_unknown_morph: dict[str, Card] = {}
-    lowest_due_for_unknown_morph: dict[str, int] = {}
-    earliest_card_is_priority: dict[str, bool] = {}
-    cards_with_morph: dict[str, set[CardId]] = {}  # a set has faster lookup than a list
+    earliest_due_card_for_unknown_morph: dict[tuple[str, str, str], Card] = {}
+    lowest_due_for_unknown_morph: dict[tuple[str, str, str], int] = {}
+    earliest_card_is_priority: dict[tuple[str, str, str], bool] = {}
+    cards_with_morph: dict[tuple[str, str, str], set[CardId]] = {}
     priority_deck_name: str = am_config.recalc_offset_priority_deck.strip()
 
     def _is_priority_card(card: Card) -> bool:
@@ -435,8 +447,8 @@ def _add_offsets_to_new_cards(
 def _apply_offsets(
     am_config: AnkiMorphsConfig,
     already_modified_cards: dict[CardId, Card],
-    earliest_due_card_for_unknown_morph: dict[str, Card],
-    cards_with_morph: dict[str, set[CardId]],
+    earliest_due_card_for_unknown_morph: dict[tuple[str, str, str], Card],
+    cards_with_morph: dict[tuple[str, str, str], set[CardId]],
 ) -> dict[CardId, Card]:
     assert mw is not None
 

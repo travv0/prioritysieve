@@ -10,6 +10,7 @@ from types import ModuleType
 from typing import IO, Any
 
 from ..morpheme import Morpheme
+from ..reading_utils import normalize_reading
 
 _MECAB_NODE_IPADIC_PARTS = ["%f[6]", "%m", "%f[7]", "%f[0]", "%f[1]"]
 _MECAB_NODE_LENGTH_IPADIC = len(_MECAB_NODE_IPADIC_PARTS)
@@ -147,8 +148,13 @@ def _get_morpheme(morph_string_parts: list[str]) -> Morpheme | None:
 
     lemma = morph_string_parts[0].strip()
     inflection = morph_string_parts[1].strip()
+    raw_reading = morph_string_parts[2].strip()
+    reading: str | None = None
+    if raw_reading and raw_reading != "*":
+        normalized = normalize_reading(raw_reading)
+        reading = normalized if normalized else None
 
-    return Morpheme(lemma, inflection)
+    return Morpheme(lemma, inflection, reading=reading)
 
 
 def _interact(string_expression: str) -> str:  # Str -> IO Str

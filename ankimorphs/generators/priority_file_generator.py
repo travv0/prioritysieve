@@ -8,6 +8,7 @@ from aqt import mw
 
 from .. import ankimorphs_globals as am_globals
 from ..morpheme import MorphOccurrence
+from ..reading_utils import normalize_reading
 from ..morphemizers.morphemizer import Morphemizer
 from ..ui.generators_window_ui import Ui_GeneratorsWindow
 from . import generators_utils
@@ -26,7 +27,9 @@ def background_generate_priority_file(
     mw.progress.start(label="Generating priority file")
 
     # pylint: disable=duplicate-code
-    morph_occurrences_by_file: dict[Path, dict[str, MorphOccurrence]] = (
+    morph_occurrences_by_file: dict[
+        Path, dict[tuple[str, str, str], MorphOccurrence]
+    ] = (
         generators_utils.generate_morph_occurrences_by_file(
             ui=ui,
             morphemizers=morphemizers,
@@ -53,7 +56,7 @@ def background_generate_priority_file(
 
 def write_out_priority_file(
     selected_output_options: OutputOptions,
-    total_morph_occurrences: dict[str, MorphOccurrence],
+    total_morph_occurrences: dict[tuple[str, str, str], MorphOccurrence],
 ) -> None:
 
     output_file: Path = selected_output_options.output_path
@@ -75,7 +78,7 @@ def write_out_priority_file(
 
 def lemma_and_inflection_writer(  # pylint:disable=too-many-locals
     selected_output_options: OutputOptions,
-    total_morph_occurrences: dict[str, MorphOccurrence],
+    total_morph_occurrences: dict[tuple[str, str, str], MorphOccurrence],
 ) -> None:
     output_file: Path = selected_output_options.output_path
 
@@ -94,11 +97,12 @@ def lemma_and_inflection_writer(  # pylint:disable=too-many-locals
         )
     )
 
-    sorted_lemma_occurrences: dict[str, MorphOccurrence] = (
+    sorted_lemma_occurrences: dict[tuple[str, str, str], MorphOccurrence] = (
         generators_utils.get_sorted_lemma_occurrence_dict(total_morph_occurrences)
     )
-    sorted_index_replaced_lemma_dict: dict[str, int] = {
-        morph_lemma: index for index, morph_lemma in enumerate(sorted_lemma_occurrences)
+    sorted_index_replaced_lemma_dict: dict[tuple[str, str, str], int] = {
+        lemma_key: index
+        for index, lemma_key in enumerate(sorted_lemma_occurrences)
     }
 
     if selected_output_options.selected_extra_occurrences_column:
@@ -124,7 +128,12 @@ def lemma_and_inflection_writer(  # pylint:disable=too-many-locals
 
             if selected_output_options.store_lemma_and_inflection:
                 row_values.append(morph.inflection)
-                row_values.append(sorted_index_replaced_lemma_dict[morph.lemma])
+                lemma_key = (
+                    morph.lemma,
+                    morph.lemma,
+                    normalize_reading(morph.reading),
+                )
+                row_values.append(sorted_index_replaced_lemma_dict.get(lemma_key, index))
                 row_values.append(index)
 
             if selected_output_options.selected_extra_occurrences_column:
@@ -135,9 +144,10 @@ def lemma_and_inflection_writer(  # pylint:disable=too-many-locals
 
 def lemma_only_writer(
     selected_output_options: OutputOptions,
-    total_morph_occurrences: dict[str, MorphOccurrence],
+    total_morph_occurrences: dict[tuple[str, str, str], MorphOccurrence],
 ) -> None:
     output_file: Path = selected_output_options.output_path
+
     headers = [am_globals.LEMMA_HEADER]
 
     if selected_output_options.selected_extra_occurrences_column:

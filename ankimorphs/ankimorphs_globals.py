@@ -44,6 +44,7 @@ ONLY_KNOWN_OR_FRESH_OPTION = "If all morphs are known or fresh"
 # Priority file/study plan headers
 LEMMA_HEADER = "Morph-Lemma"
 INFLECTION_HEADER = "Morph-Inflection"
+READING_HEADER = "Morph-Reading"
 LEMMA_PRIORITY_HEADER = "Lemma-Priority"
 INFLECTION_PRIORITY_HEADER = "Inflection-Priority"
 OCCURRENCES_HEADER = "Occurrences"

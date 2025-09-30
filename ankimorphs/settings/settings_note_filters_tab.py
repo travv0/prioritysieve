@@ -64,10 +64,26 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
         self._note_filter_note_type_column: int = 0
         self._note_filter_tags_column: int = 1
         self._note_filter_field_column: int = 2
-        self._note_filter_morphemizer_column: int = 3
-        self._note_filter_morph_priority_column: int = 4
-        self._note_filter_read_column: int = 5
-        self._note_filter_modify_column: int = 6
+        self._note_filter_furigana_field_column: int = 3
+        self._note_filter_reading_field_column: int = 4
+        self._note_filter_morphemizer_column: int = 5
+        self._note_filter_morph_priority_column: int = 6
+        self._note_filter_read_column: int = 7
+        self._note_filter_modify_column: int = 8
+
+        headers = [
+            "Note Type",
+            "Tags",
+            "Field",
+            "Furigana Field",
+            "Reading Field",
+            "Morphemizer",
+            "Priority",
+            "Read",
+            "Modify",
+        ]
+        self.ui.note_filters_table.setColumnCount(len(headers))
+        self.ui.note_filters_table.setHorizontalHeaderLabels(headers)
 
         self._morphemizers = get_all_morphemizers()
         self._note_type_models: Sequence[NotetypeNameId] = (
@@ -134,6 +150,15 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
     ) -> None:
         self.ui.note_filters_table.setColumnWidth(
             self._note_filter_note_type_column, 150
+        )
+        self.ui.note_filters_table.setColumnWidth(
+            self._note_filter_field_column, 150
+        )
+        self.ui.note_filters_table.setColumnWidth(
+            self._note_filter_furigana_field_column, 150
+        )
+        self.ui.note_filters_table.setColumnWidth(
+            self._note_filter_reading_field_column, 150
         )
         self.ui.note_filters_table.setColumnWidth(
             self._note_filter_morphemizer_column, 150
@@ -225,6 +250,16 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
                     row, self._note_filter_field_column
                 )
             )
+            furigana_field_cbox: QComboBox = table_utils.get_combobox_widget(
+                self.ui.note_filters_table.cellWidget(
+                    row, self._note_filter_furigana_field_column
+                )
+            )
+            reading_field_cbox: QComboBox = table_utils.get_combobox_widget(
+                self.ui.note_filters_table.cellWidget(
+                    row, self._note_filter_reading_field_column
+                )
+            )
             morphemizer_widget: QComboBox = table_utils.get_combobox_widget(
                 self.ui.note_filters_table.cellWidget(
                     row, self._note_filter_morphemizer_column
@@ -253,6 +288,12 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
                 RawConfigFilterKeys.TAGS: json.loads(tags_widget.text()),
                 RawConfigFilterKeys.FIELD: field_cbox.itemText(
                     field_cbox.currentIndex()
+                ),
+                RawConfigFilterKeys.FURIGANA_FIELD: furigana_field_cbox.itemText(
+                    furigana_field_cbox.currentIndex()
+                ),
+                RawConfigFilterKeys.READING_FIELD: reading_field_cbox.itemText(
+                    reading_field_cbox.currentIndex()
                 ),
                 RawConfigFilterKeys.MORPHEMIZER_DESCRIPTION: morphemizer_widget.itemText(
                     morphemizer_widget.currentIndex()
@@ -317,7 +358,10 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
 
         tags_filter_widget = QTableWidgetItem(json.dumps(config_filter.tags))
 
-        field_cbox = self._setup_fields_cbox(config_filter, selected_note_type)
+        field_cbox = self._setup_fields_cbox(
+            selected_note_type=selected_note_type,
+            selected_value=config_filter.field,
+        )
         field_cbox.setProperty("previousIndex", field_cbox.currentIndex())
         field_cbox.currentIndexChanged.connect(
             lambda index: self._potentially_reset_tags(
@@ -327,9 +371,27 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
             )
         )
 
+        furigana_field_cbox = self._setup_fields_cbox(
+            selected_note_type=selected_note_type,
+            selected_value=config_filter.furigana_field,
+        )
+
+        reading_field_cbox = self._setup_fields_cbox(
+            selected_note_type=selected_note_type,
+            selected_value=config_filter.reading_field,
+        )
+
         # Fields are dependent on note-type
         note_type_cbox.currentIndexChanged.connect(
             lambda _: self._update_fields_cbox(field_cbox, note_type_cbox)
+        )
+        note_type_cbox.currentIndexChanged.connect(
+            lambda _: self._update_fields_cbox(
+                furigana_field_cbox, note_type_cbox
+            )
+        )
+        note_type_cbox.currentIndexChanged.connect(
+            lambda _: self._update_fields_cbox(reading_field_cbox, note_type_cbox)
         )
         note_type_cbox.currentIndexChanged.connect(
             lambda index: self._potentially_reset_tags(
@@ -372,6 +434,12 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
             row, self._note_filter_field_column, field_cbox
         )
         self.ui.note_filters_table.setCellWidget(
+            row, self._note_filter_furigana_field_column, furigana_field_cbox
+        )
+        self.ui.note_filters_table.setCellWidget(
+            row, self._note_filter_reading_field_column, reading_field_cbox
+        )
+        self.ui.note_filters_table.setCellWidget(
             row, self._note_filter_morphemizer_column, morphemizer_cbox
         )
         self.ui.note_filters_table.setCellWidget(
@@ -390,6 +458,8 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
                 note_type_cbox,
                 tags_filter_widget,
                 field_cbox,
+                furigana_field_cbox,
+                reading_field_cbox,
                 morphemizer_cbox,
                 morph_priority_cbox,
                 read_checkbox,
@@ -432,7 +502,7 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
         return note_type_cbox
 
     def _setup_fields_cbox(
-        self, config_filter: AnkiMorphsConfigFilter, selected_note_type: str
+        self, selected_note_type: str, selected_value: str
     ) -> QComboBox:
         assert mw is not None
 
@@ -447,7 +517,7 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
         field_cbox = QComboBox(self.ui.note_filters_table)
         field_cbox.addItems(note_type_fields)
         field_cbox_index = table_utils.get_combobox_index(
-            note_type_fields, config_filter.field
+            note_type_fields, selected_value
         )
         if field_cbox_index is not None:
             field_cbox.setCurrentIndex(field_cbox_index)

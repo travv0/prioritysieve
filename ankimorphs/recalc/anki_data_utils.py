@@ -14,6 +14,7 @@ from anki.models import ModelManager, NotetypeDict, NotetypeId
 from anki.tags import TagManager
 from aqt import mw
 
+from .. import ankimorphs_globals
 from ..ankimorphs_config import AnkiMorphsConfig, AnkiMorphsConfigFilter
 from ..morpheme import Morpheme
 
@@ -53,6 +54,8 @@ class AnkiCardData:  # pylint:disable=too-many-instance-attributes
         "interval",
         "type",
         "expression",
+        "furigana",
+        "reading",
         "automatically_known_tag",
         "manually_known_tag",
         "ready_tag",
@@ -69,6 +72,8 @@ class AnkiCardData:  # pylint:disable=too-many-instance-attributes
         tag_manager: TagManager,
         note_type_id: NotetypeId,
         expression_field_index: int,
+        furigana_field_index: int | None,
+        reading_field_index: int | None,
         anki_row_data: AnkiDBRowData,
     ) -> None:
         fields_list = anki.utils.split_fields(anki_row_data.note_fields)
@@ -77,6 +82,20 @@ class AnkiCardData:  # pylint:disable=too-many-instance-attributes
             # this prevents morphs accidentally merging
             expression_field.replace("<br>", "\n")
         )
+
+        furigana_value: str | None = None
+        if furigana_field_index is not None and furigana_field_index < len(fields_list):
+            furigana_raw = fields_list[furigana_field_index]
+            furigana_value = anki.utils.strip_html(
+                furigana_raw.replace("<br>", "\n")
+            ).strip()
+
+        reading_value: str | None = None
+        if reading_field_index is not None and reading_field_index < len(fields_list):
+            reading_raw = fields_list[reading_field_index]
+            reading_value = anki.utils.strip_html(
+                reading_raw.replace("<br>", "\n")
+            ).strip()
 
         tags_list = tag_manager.split(anki_row_data.note_tags)
 
@@ -88,6 +107,8 @@ class AnkiCardData:  # pylint:disable=too-many-instance-attributes
         self.interval = anki_row_data.card_interval
         self.type = anki_row_data.card_type
         self.expression = expression
+        self.furigana = furigana_value
+        self.reading = reading_value
         self.automatically_known_tag = automatically_known_tag
         self.manually_known_tag = manually_known_tag
         self.ready_tag = ready_tag
@@ -148,6 +169,18 @@ def create_card_data_dict(
     assert note_type_dict is not None
     existing_field_names: list[str] = model_manager.field_names(note_type_dict)
     field_index: int = existing_field_names.index(config_filter.field)
+    furigana_field_index: int | None = None
+    if (
+        config_filter.furigana_field != ankimorphs_globals.NONE_OPTION
+        and config_filter.furigana_field in existing_field_names
+    ):
+        furigana_field_index = existing_field_names.index(config_filter.furigana_field)
+    reading_field_index: int | None = None
+    if (
+        config_filter.reading_field != ankimorphs_globals.NONE_OPTION
+        and config_filter.reading_field in existing_field_names
+    ):
+        reading_field_index = existing_field_names.index(config_filter.reading_field)
 
     for anki_row_data in _get_anki_data(am_config, note_type_id, tags).values():
         card_data = AnkiCardData(
@@ -155,6 +188,8 @@ def create_card_data_dict(
             tag_manager=tag_manager,
             note_type_id=note_type_id,
             expression_field_index=field_index,
+            furigana_field_index=furigana_field_index,
+            reading_field_index=reading_field_index,
             anki_row_data=anki_row_data,
         )
         card_data_dict[anki_row_data.card_id] = card_data

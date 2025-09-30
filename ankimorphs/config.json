@@ -37,6 +37,8 @@
       "extra_unknown_morphs": false,
       "extra_unknown_morphs_count": false,
       "field": "(none)",
+      "furigana_field": "(none)",
+      "reading_field": "(none)",
       "modify": true,
       "morph_priority_selection": "(none)",
       "morphemizer_description": "(none)",

@@ -9,6 +9,7 @@ from aqt import mw
 from . import ankimorphs_globals as am_globals
 from .ankimorphs_db import AnkiMorphsDB
 from .exceptions import PriorityFileMalformedException, PriorityFileNotFoundException
+from .reading_utils import normalize_reading
 from .recalc.card_score import MORPH_UNKNOWN_PENALTY
 
 
@@ -30,6 +31,7 @@ class PriorityFile:
         file_format: str,
         lemma_header_index: int,
         inflection_header_index: int | None = None,
+        reading_header_index: int | None = None,
         lemma_priority_header_index: int | None = None,
         inflection_priority_header_index: int | None = None,
     ):
@@ -37,6 +39,7 @@ class PriorityFile:
         self.format = file_format
         self.lemma_header_index = lemma_header_index
         self.inflection_header_index = inflection_header_index
+        self.reading_header_index = reading_header_index
         self.lemma_priority_header_index = lemma_priority_header_index
         self.inflection_priority_header_index = inflection_priority_header_index
 
@@ -54,7 +57,7 @@ def get_morph_priority(
     am_db: AnkiMorphsDB,
     only_lemma_priorities: bool,
     morph_priority_selection: str,
-) -> dict[tuple[str, str], int]:
+) -> dict[tuple[str, str, str], int]:
     if morph_priority_selection == am_globals.COLLECTION_FREQUENCY_OPTION:  # fmt: skip
         return am_db.get_morph_priorities_from_collection(
             only_lemma_priorities=only_lemma_priorities
@@ -68,7 +71,7 @@ def get_morph_priority(
 
 def _load_morph_priorities_from_file(
     priority_file_name: str, only_lemma_priorities: bool
-) -> dict[tuple[str, str], int]:
+) -> dict[tuple[str, str, str], int]:
     assert mw is not None
 
     priority_file_path = Path(
@@ -98,7 +101,7 @@ def _get_morph_priorities_from_file(
     morph_reader: Any,
     priority_file: PriorityFile,
     only_lemma_priorities: bool,
-) -> dict[tuple[str, str], int]:
+) -> dict[tuple[str, str, str], int]:
     # Full-format priority files were designed to allow switching between evaluating
     # morphs based on their lemma or their inflections. However, this switching
     # is not possible with full-format study plans, so they must be treated differently.
@@ -117,7 +120,7 @@ def _get_morph_priorities_from_file(
     #    - evaluating lemma -> raise exception
     #    - evaluating inflection -> ok
 
-    morph_priority_dict: dict[tuple[str, str], int] = {}
+    morph_priority_dict: dict[tuple[str, str, str], int] = {}
 
     if only_lemma_priorities:
         if priority_file.format == PriorityFileFormat.Full:
@@ -170,6 +173,13 @@ def _get_morph_priorities_from_file(
     )
 
 
+def _get_row_reading(row: list[str], priority_file: PriorityFile) -> str:
+    index = priority_file.reading_header_index
+    if index is None or index >= len(row):
+        return ""
+    return normalize_reading(row[index])
+
+
 def _get_file_type_and_format(
     priority_file_path: Path, headers: list[str] | None
 ) -> PriorityFile:
@@ -192,6 +202,10 @@ def _get_file_type_and_format(
         )
 
     lemma_header_index: int = headers.index(am_globals.LEMMA_HEADER)
+    reading_header_index: int | None = None
+
+    if am_globals.READING_HEADER in headers:
+        reading_header_index = headers.index(am_globals.READING_HEADER)
 
     if am_globals.INFLECTION_HEADER not in headers:
         # this is either a minimal priority file or a minimal study plan,
@@ -201,6 +215,7 @@ def _get_file_type_and_format(
             file_type=PriorityFileType.PriorityFile,  # arbitrary choice
             file_format=PriorityFileFormat.Minimal,
             lemma_header_index=lemma_header_index,
+            reading_header_index=reading_header_index,
         )
 
     inflection_header_index: int = headers.index(am_globals.INFLECTION_HEADER)
@@ -227,6 +242,7 @@ def _get_file_type_and_format(
             file_format=PriorityFileFormat.Full,
             lemma_header_index=lemma_header_index,
             inflection_header_index=inflection_header_index,
+            reading_header_index=reading_header_index,
             lemma_priority_header_index=lemma_priority_header_index,
             inflection_priority_header_index=inflection_priority_header_index,
         )
@@ -237,13 +253,14 @@ def _get_file_type_and_format(
         lemma_header_index=lemma_header_index,
         file_format=PriorityFileFormat.Full,
         inflection_header_index=inflection_header_index,
+        reading_header_index=reading_header_index,
     )
 
 
 def _populate_priorities_with_lemmas_and_inflections_from_full_priority_file(
     morph_reader: Any,
     file_type_and_format: PriorityFile,
-    morph_priority_dict: dict[tuple[str, str], int],
+    morph_priority_dict: dict[tuple[str, str, str], int],
 ) -> None:
     for index, row in enumerate(morph_reader):
         if index > MORPH_UNKNOWN_PENALTY:
@@ -251,7 +268,8 @@ def _populate_priorities_with_lemmas_and_inflections_from_full_priority_file(
             break
         lemma = row[file_type_and_format.lemma_header_index]
         inflection = row[file_type_and_format.inflection_header_index]
-        key = (lemma, inflection)
+        reading = _get_row_reading(row, file_type_and_format)
+        key = (lemma, inflection, reading)
         priority = int(row[file_type_and_format.inflection_priority_header_index])
         _assign_priority_if_lower(morph_priority_dict, key, priority)
 
@@ -259,7 +277,7 @@ def _populate_priorities_with_lemmas_and_inflections_from_full_priority_file(
 def _populate_priorities_with_lemmas_and_inflections_from_full_study_plan(
     morph_reader: Any,
     file_type_and_format: PriorityFile,
-    morph_priority_dict: dict[tuple[str, str], int],
+    morph_priority_dict: dict[tuple[str, str, str], int],
 ) -> None:
     for index, row in enumerate(morph_reader):
         if index > MORPH_UNKNOWN_PENALTY:
@@ -267,21 +285,23 @@ def _populate_priorities_with_lemmas_and_inflections_from_full_study_plan(
             break
         lemma = row[file_type_and_format.lemma_header_index]
         inflection = row[file_type_and_format.inflection_header_index]
-        key = (lemma, inflection)
+        reading = _get_row_reading(row, file_type_and_format)
+        key = (lemma, inflection, reading)
         _assign_priority_if_lower(morph_priority_dict, key, index)
 
 
 def _populate_priorities_with_lemmas_from_full_priority_file(
     morph_reader: Any,
     file_type_and_format: PriorityFile,
-    morph_priority_dict: dict[tuple[str, str], int],
+    morph_priority_dict: dict[tuple[str, str, str], int],
 ) -> None:
     for index, row in enumerate(morph_reader):
         if index > MORPH_UNKNOWN_PENALTY:
             # rows after this will be ignored by the scoring algorithm
             break
         lemma = row[file_type_and_format.lemma_header_index]
-        key = (lemma, lemma)
+        reading = _get_row_reading(row, file_type_and_format)
+        key = (lemma, lemma, reading)
         priority = int(row[file_type_and_format.lemma_priority_header_index])
         _assign_priority_if_lower(morph_priority_dict, key, priority)
 
@@ -289,19 +309,22 @@ def _populate_priorities_with_lemmas_from_full_priority_file(
 def _populate_priorities_with_lemmas_from_minimal_priority_file(
     morph_reader: Any,
     file_type_and_format: PriorityFile,
-    morph_priority_dict: dict[tuple[str, str], int],
+    morph_priority_dict: dict[tuple[str, str, str], int],
 ) -> None:
     for index, row in enumerate(morph_reader):
         if index > MORPH_UNKNOWN_PENALTY:
             # rows after this will be ignored by the scoring algorithm
             break
         lemma = row[file_type_and_format.lemma_header_index]
-        key = (lemma, lemma)
+        reading = _get_row_reading(row, file_type_and_format)
+        key = (lemma, lemma, reading)
         _assign_priority_if_lower(morph_priority_dict, key, index)
 
 
 def _assign_priority_if_lower(
-    priority_dict: dict[tuple[str, str], int], key: tuple[str, str], priority: int
+    priority_dict: dict[tuple[str, str, str], int],
+    key: tuple[str, str, str],
+    priority: int,
 ) -> None:
     existing = priority_dict.get(key)
     if existing is None or priority < existing:

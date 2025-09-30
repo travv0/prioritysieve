@@ -168,11 +168,15 @@ class KnownMorphsExporterDialog(QDialog):
         known_interval: int,
         selected_extra_occurrences_column: bool,
     ) -> None:
-        headers: list[str] = [am_globals.LEMMA_HEADER, am_globals.INFLECTION_HEADER]
+        headers: list[str] = [
+            am_globals.LEMMA_HEADER,
+            am_globals.INFLECTION_HEADER,
+            am_globals.READING_HEADER,
+        ]
         if selected_extra_occurrences_column:
             headers.append("Occurrence")
 
-        export_list: list[tuple[str, str, int]] = (
+        export_list: list[tuple[str, str, str, int]] = (
             AnkiMorphsDB().get_known_lemmas_and_inflections_with_count(known_interval)
         )
 
@@ -181,11 +185,11 @@ class KnownMorphsExporterDialog(QDialog):
             morph_writer.writerow(headers)
 
             if selected_extra_occurrences_column:
-                for lemma, inflection, inflection_count in export_list:
-                    morph_writer.writerow([lemma, inflection, inflection_count])
+                for lemma, inflection, reading, inflection_count in export_list:
+                    morph_writer.writerow([lemma, inflection, reading, inflection_count])
             else:
-                for lemma, inflection, _ in export_list:
-                    morph_writer.writerow([lemma, inflection])
+                for lemma, inflection, reading, _ in export_list:
+                    morph_writer.writerow([lemma, inflection, reading])
 
     @staticmethod
     def _export_lemmas(
@@ -193,11 +197,11 @@ class KnownMorphsExporterDialog(QDialog):
         known_interval: int,
         selected_extra_occurrences_column: bool,
     ) -> None:
-        headers: list[str] = [am_globals.LEMMA_HEADER]
+        headers: list[str] = [am_globals.LEMMA_HEADER, am_globals.READING_HEADER]
         if selected_extra_occurrences_column is True:
             headers.append("Occurrence")
 
-        export_list: list[tuple[str, int]] = AnkiMorphsDB().get_known_lemmas_with_count(
+        export_list: list[tuple[str, str, int]] = AnkiMorphsDB().get_known_lemmas_with_count(
             known_interval
         )
 
@@ -206,11 +210,11 @@ class KnownMorphsExporterDialog(QDialog):
             morph_writer.writerow(headers)
 
             if selected_extra_occurrences_column:
-                for lemma, count in export_list:
-                    morph_writer.writerow([lemma, count])
+                for lemma, reading, count in export_list:
+                    morph_writer.writerow([lemma, reading, count])
             else:
-                for lemma, _ in export_list:
-                    morph_writer.writerow([lemma])
+                for lemma, reading, _ in export_list:
+                    morph_writer.writerow([lemma, reading])
 
     def closeWithCallback(  # pylint:disable=invalid-name
         self, callback: Callable[[], None]

@@ -44,12 +44,12 @@ class ProgressReport:
         self.min_priority = min_priority
         self.max_priority = max_priority
 
-        # Morphs are represented as (lemma,inflection/lemma) keys,
+        # Morphs are represented as (lemma, inflection_or_lemma, reading) keys,
         # identical to morph_priorities
-        self.unique_known: set[tuple[str, str]] = set()
-        self.unique_learning: set[tuple[str, str]] = set()
-        self.unique_unknowns: set[tuple[str, str]] = set()
-        self.unique_missing: set[tuple[str, str]] = set()
+        self.unique_known: set[tuple[str, str, str]] = set()
+        self.unique_learning: set[tuple[str, str, str]] = set()
+        self.unique_unknowns: set[tuple[str, str, str]] = set()
+        self.unique_missing: set[tuple[str, str, str]] = set()
 
     def get_total_known(self) -> int:
         return len(self.unique_known)
@@ -73,7 +73,9 @@ class ProgressReport:
 
 
 def _update_progress_report(
-    progress_report: ProgressReport, morph: tuple[str, str], morph_status: str
+    progress_report: ProgressReport,
+    morph: tuple[str, str, str],
+    morph_status: str,
 ) -> None:
     """Adds morph and status information to a progress report."""
     assert morph_status in ["known", "learning", "unknown", "missing"]
@@ -90,14 +92,14 @@ def _update_progress_report(
 def get_progress_reports(
     am_db: AnkiMorphsDB,
     bins: Bins,
-    morph_priorities: dict[tuple[str, str], int],
+    morph_priorities: dict[tuple[str, str, str], int],
     only_lemma_priorities: bool,
 ) -> list[ProgressReport]:
     reports = []
 
     # This function could be cleaner if the learning status dictionaries were
     # keyed like the morph_priority dictionaries.
-    morph_learning_statuses: dict[str, str]
+    morph_learning_statuses: dict[tuple[str, str, str], str]
     if only_lemma_priorities:
         morph_learning_statuses = am_db.get_morph_lemmas_learning_statuses()
     else:
@@ -112,15 +114,9 @@ def get_progress_reports(
 
         for morph in morph_priorities_subset:
 
-            learning_status_key = morph[0] + morph[1]
-            if only_lemma_priorities:
-                learning_status_key = morph[0]  # expect morph=(lemma,lemma)
-
             morph_status = "missing"
-            if (
-                learning_status_key in morph_learning_statuses
-            ):  # if the morph is in the database
-                morph_status = morph_learning_statuses[learning_status_key]
+            if morph in morph_learning_statuses:
+                morph_status = morph_learning_statuses[morph]
             _update_progress_report(report, morph, morph_status)
 
         reports.append(report)
@@ -131,7 +127,7 @@ def get_progress_reports(
 def get_priority_ordered_morph_statuses(
     am_db: AnkiMorphsDB,
     bins: Bins,
-    morph_priorities: dict[tuple[str, str], int],
+    morph_priorities: dict[tuple[str, str, str], int],
     only_lemma_priorities: bool,
 ) -> list[tuple[int, str, str, str]]:
     """Returns a list of (priority,lemma,inflection,status) tuples in order of
@@ -150,7 +146,7 @@ def get_priority_ordered_morph_statuses(
         )
     )
 
-    morph_learning_statuses: dict[str, str]
+    morph_learning_statuses: dict[tuple[str, str, str], str]
     if only_lemma_priorities:
         morph_learning_statuses = am_db.get_morph_lemmas_learning_statuses()
     else:
@@ -158,15 +154,9 @@ def get_priority_ordered_morph_statuses(
 
     for morph in sorted_morph_priorities:
         priority = sorted_morph_priorities[morph]
-        learning_status_key = morph[0] + morph[1]
-        if only_lemma_priorities:
-            learning_status_key = morph[0]  # expect morph=(lemma,lemma)
-
         morph_status = "missing"
-        if (
-            learning_status_key in morph_learning_statuses
-        ):  # if the morph is in the database
-            morph_status = morph_learning_statuses[learning_status_key]
+        if morph in morph_learning_statuses:
+            morph_status = morph_learning_statuses[morph]
 
         if only_lemma_priorities:
             morph_statuses.append((priority, morph[0], "-", morph_status))
@@ -177,8 +167,10 @@ def get_priority_ordered_morph_statuses(
 
 
 def _get_morph_priorities_subset(
-    morph_priorities: dict[tuple[str, str], int], min_priority: int, max_priority: int
-) -> dict[tuple[str, str], int]:
+    morph_priorities: dict[tuple[str, str, str], int],
+    min_priority: int,
+    max_priority: int,
+) -> dict[tuple[str, str, str], int]:
     """Returns morph priorities within a priority range."""
 
     def is_in_range(item: tuple[tuple[str, str], int]) -> bool:

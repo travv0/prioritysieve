@@ -1,5 +1,6 @@
 from ..ankimorphs_config import AnkiMorphsConfig
 from ..morpheme import Morpheme
+from ..reading_utils import normalize_reading
 
 
 class CardMorphsMetrics:  # pylint:disable=too-many-instance-attributes
@@ -20,7 +21,7 @@ class CardMorphsMetrics:  # pylint:disable=too-many-instance-attributes
         am_config: AnkiMorphsConfig,
         card_id: int,
         card_morph_map_cache: dict[int, list[Morpheme]],
-        morph_priorities: dict[tuple[str, str], int],
+        morph_priorities: dict[tuple[str, str, str], int],
     ) -> None:
         self.all_morphs: list[Morpheme] = []
         self.unknown_morphs: list[Morpheme] = []
@@ -43,7 +44,7 @@ class CardMorphsMetrics:  # pylint:disable=too-many-instance-attributes
     def _process(
         self,
         am_config: AnkiMorphsConfig,
-        morph_priorities: dict[tuple[str, str], int],
+        morph_priorities: dict[tuple[str, str, str], int],
     ) -> None:
         default_morph_priority = len(morph_priorities) + 1
         learning_interval_attribute: str
@@ -63,10 +64,12 @@ class CardMorphsMetrics:  # pylint:disable=too-many-instance-attributes
             sub_key = getattr(morph, sub_key_attribute)
             assert sub_key is not None
 
+            reading_key = normalize_reading(morph.reading)
+
             # this is a composite key consisting of either:
             # - (morph.lemma, morph.lemma)
             # - (morph.lemma, morph.inflection)
-            key = (morph.lemma, sub_key)
+            key = (morph.lemma, sub_key, reading_key)
 
             if key in morph_priorities:
                 morph_priority = morph_priorities[key]
@@ -96,14 +99,20 @@ class CardMorphsMetrics:  # pylint:disable=too-many-instance-attributes
     def get_unknown_inflections(
         card_morph_map_cache: dict[int, list[Morpheme]],
         card_id: int,
-    ) -> set[str]:
-        card_unknown_morphs: set[str] = set()
+    ) -> set[tuple[str, str, str]]:
+        card_unknown_morphs: set[tuple[str, str, str]] = set()
         try:
             card_morphs: list[Morpheme] = card_morph_map_cache[card_id]
             for morph in card_morphs:
                 assert morph.highest_inflection_learning_interval is not None
                 if morph.highest_inflection_learning_interval == 0:
-                    card_unknown_morphs.add(morph.inflection)
+                    card_unknown_morphs.add(
+                        (
+                            morph.lemma,
+                            morph.inflection,
+                            normalize_reading(morph.reading),
+                        )
+                    )
                     # we don't want to do anything to cards that have multiple unknown morphs
                     if len(card_unknown_morphs) > 1:
                         break
@@ -116,14 +125,20 @@ class CardMorphsMetrics:  # pylint:disable=too-many-instance-attributes
     def get_unknown_lemmas(
         card_morph_map_cache: dict[int, list[Morpheme]],
         card_id: int,
-    ) -> set[str]:
-        card_unknown_morphs: set[str] = set()
+    ) -> set[tuple[str, str, str]]:
+        card_unknown_morphs: set[tuple[str, str, str]] = set()
         try:
             card_morphs: list[Morpheme] = card_morph_map_cache[card_id]
             for morph in card_morphs:
                 assert morph.highest_lemma_learning_interval is not None
                 if morph.highest_lemma_learning_interval == 0:
-                    card_unknown_morphs.add(morph.lemma)
+                    card_unknown_morphs.add(
+                        (
+                            morph.lemma,
+                            morph.lemma,
+                            normalize_reading(morph.reading),
+                        )
+                    )
                     # we don't want to do anything to cards that have multiple unknown morphs
                     if len(card_unknown_morphs) > 1:
                         break

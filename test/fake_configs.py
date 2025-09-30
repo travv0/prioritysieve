@@ -17,6 +17,7 @@ with open(DEFAULT_CONFIG_PATH, encoding="utf-8") as _file:
 default_config_filter = default_config_dict[ConfigKeys.FILTERS][0]
 default_config_filter[FilterKeys.NOTE_TYPE] = "Basic"
 default_config_filter[FilterKeys.FIELD] = "Front"
+default_config_filter[FilterKeys.READING_FIELD] = am_globals.NONE_OPTION
 default_config_filter[FilterKeys.MORPHEMIZER_DESCRIPTION] = (
     "AnkiMorphs: Simple Space Splitter"
 )

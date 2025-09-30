@@ -216,13 +216,13 @@ def test_duplicate_entries_keep_lowest_priority_inflection() -> None:
         inflection_priority_header_index=3,
     )
 
-    priorities: dict[tuple[str, str], int] = {}
+    priorities: dict[tuple[str, str, str], int] = {}
 
     _populate_priorities_with_lemmas_and_inflections_from_full_priority_file(
         iter(rows), priority_file, priorities
     )
 
-    assert priorities[("人", "人")] == 55
+    assert priorities[("人", "人", "")] == 55
 
 
 def test_duplicate_entries_keep_lowest_priority_minimal() -> None:
@@ -234,10 +234,36 @@ def test_duplicate_entries_keep_lowest_priority_minimal() -> None:
         lemma_header_index=0,
     )
 
-    priorities: dict[tuple[str, str], int] = {}
+    priorities: dict[tuple[str, str, str], int] = {}
 
     _populate_priorities_with_lemmas_from_minimal_priority_file(
         iter(rows), priority_file, priorities
     )
 
-    assert priorities[("人", "人")] == 0
+    assert priorities[("人", "人", "")] == 0
+
+
+def test_reading_column_creates_distinct_keys() -> None:
+    rows = [
+        ["人", "人", "じん", "10", "10"],
+        ["人", "人", "にん", "20", "20"],
+    ]
+
+    priority_file = PriorityFile(
+        file_type=PriorityFileType.PriorityFile,
+        file_format=PriorityFileFormat.Full,
+        lemma_header_index=0,
+        inflection_header_index=1,
+        reading_header_index=2,
+        lemma_priority_header_index=3,
+        inflection_priority_header_index=4,
+    )
+
+    priorities: dict[tuple[str, str, str], int] = {}
+
+    _populate_priorities_with_lemmas_and_inflections_from_full_priority_file(
+        iter(rows), priority_file, priorities
+    )
+
+    assert priorities[("人", "人", "じん")] == 10
+    assert priorities[("人", "人", "にん")] == 20

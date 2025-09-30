@@ -26,7 +26,9 @@ def background_generate_study_plan(
 
     mw.progress.start(label="Generating study plan")
 
-    morph_occurrences_by_file: dict[Path, dict[str, MorphOccurrence]] = (
+    morph_occurrences_by_file: dict[
+        Path, dict[tuple[str, str, str], MorphOccurrence]
+    ] = (
         generators_utils.generate_morph_occurrences_by_file(
             ui=ui,
             morphemizers=morphemizers,
@@ -53,7 +55,9 @@ def background_generate_study_plan(
 def write_out_study_plan(  # pylint:disable=too-many-locals
     input_dir_root: Path,
     selected_output_options: OutputOptions,
-    morph_occurrences_by_file: dict[Path, dict[str, MorphOccurrence]],
+    morph_occurrences_by_file: dict[
+        Path, dict[tuple[str, str, str], MorphOccurrence]
+    ],
 ) -> None:
     # Note: the study plan cannot have a full-format where one can switch
     # between evaluating lemmas and inflections like you can with regular
@@ -67,8 +71,8 @@ def write_out_study_plan(  # pylint:disable=too-many-locals
     # make sure the parent dirs exist before creating the file
     Path(output_file).parent.mkdir(parents=True, exist_ok=True)
 
-    morph_in_study_plan: dict[str, None] = {}  # we only care about lookup not the value
-    learning_status_of_morph: dict[str, str]
+    morph_in_study_plan: set[tuple[str, str, str]] = set()
+    learning_status_of_morph: dict[tuple[str, str, str], str]
 
     if selected_output_options.store_lemma_and_inflection:
         learning_status_of_morph = am_db.get_morph_inflections_learning_statuses()
@@ -82,13 +86,13 @@ def write_out_study_plan(  # pylint:disable=too-many-locals
 
         for file_path, file_morph_occurrences in morph_occurrences_by_file.items():
             # we always include the lemmas
-            sorted_lemma_occurrences: dict[str, MorphOccurrence] = (
+            sorted_lemma_occurrences: dict[tuple[str, str, str], MorphOccurrence] = (
                 generators_utils.get_sorted_lemma_occurrence_dict(
                     file_morph_occurrences
                 )
             )
-            sorted_dict_to_use: dict[str, MorphOccurrence]
-            morph_key_cutoff: str | None
+            sorted_dict_to_use: dict[tuple[str, str, str], MorphOccurrence]
+            morph_key_cutoff: tuple[str, str, str] | None
 
             if selected_output_options.store_lemma_and_inflection:
                 sorted_inflection_occurrences = dict(
@@ -129,7 +133,7 @@ def write_out_study_plan(  # pylint:disable=too-many-locals
                 )
 
                 morph_writer.writerow(row)
-                morph_in_study_plan[key] = None  # inserts the key
+                morph_in_study_plan.add(key)
 
 
 def _get_study_plan_headers(selected_output_options: OutputOptions) -> list[str]:
@@ -150,9 +154,7 @@ def _get_study_plan_headers(selected_output_options: OutputOptions) -> list[str]
             "File",
         ]
     """
-    headers = [
-        am_globals.LEMMA_HEADER,
-    ]
+    headers = [am_globals.LEMMA_HEADER]
     if selected_output_options.store_lemma_and_inflection:
         headers.append(am_globals.INFLECTION_HEADER)
     headers.append("Learning-status")
@@ -166,16 +168,13 @@ def _get_study_plan_row(  # pylint:disable=too-many-arguments
     selected_output_options: OutputOptions,
     input_dir_root: Path,
     file_path: Path,
-    learning_status_of_morph: dict[str, str],
-    morph_key: str,
+    learning_status_of_morph: dict[tuple[str, str, str], str],
+    morph_key: tuple[str, str, str],
     morph_occurrence: MorphOccurrence,
 ) -> list[str]:
     learning_status: str
 
-    if morph_key not in learning_status_of_morph:
-        learning_status = "unknown"
-    else:
-        learning_status = learning_status_of_morph[morph_key]
+    learning_status = learning_status_of_morph.get(morph_key, "unknown")
 
     row = [morph_occurrence.morph.lemma]
 

@@ -242,7 +242,7 @@ def run_view_morphs() -> None:  # pylint:disable=too-many-locals
             tooltip("Card does not match any 'Note Filters' that has 'Read' enabled")
             return
 
-        morphs: list[tuple[str, str]] = am_db.get_readable_card_morphs(cid)
+        morphs: list[tuple[str, str, str]] = am_db.get_readable_card_morphs(cid)
 
         if len(morphs) == 0:
             tooltip("No morphs found")
@@ -253,21 +253,30 @@ def run_view_morphs() -> None:  # pylint:disable=too-many-locals
 
             ui.tableWidget.setAlternatingRowColors(True)
             ui.tableWidget.setRowCount(len(morphs))
+            ui.tableWidget.setColumnCount(3)
 
             # disables manual editing of the table
             ui.tableWidget.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
 
+            ui.tableWidget.setHorizontalHeaderLabels(
+                ["Inflection", "Lemma", "Reading"]
+            )
+
             inflection_column = 0
             lemma_column = 1
+            reading_column = 2
 
             for row, morph in enumerate(morphs):
                 inflection = morph[1]
                 lemma = morph[0]
+                reading = morph[2]
 
                 inflection_item = QTableWidgetItem(inflection)
                 lemma_item = QTableWidgetItem(lemma)
+                reading_item = QTableWidgetItem(reading)
 
                 ui.tableWidget.setItem(row, inflection_column, inflection_item)
                 ui.tableWidget.setItem(row, lemma_column, lemma_item)
+                ui.tableWidget.setItem(row, reading_column, reading_item)
 
             dialog.exec()
