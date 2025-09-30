@@ -184,7 +184,11 @@ def _assign_readings_to_morphs(
     elif len(tokens) == 1:
         pairs = ((morph, tokens[0]) for morph in processed_morphs)
     else:
-        pairs = zip(processed_morphs, tokens)
+        if len(processed_morphs) == 1:
+            joined = "".join(tokens)
+            pairs = ((processed_morphs[0], joined),)
+        else:
+            pairs = zip(processed_morphs, tokens)
 
     for morph, reading in pairs:
         normalized = normalize_reading(reading)

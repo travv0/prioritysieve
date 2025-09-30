@@ -71,9 +71,11 @@ class CardMorphsMetrics:  # pylint:disable=too-many-instance-attributes
             # - (morph.lemma, morph.inflection)
             key = (morph.lemma, sub_key, reading_key)
 
-            if key in morph_priorities:
-                morph_priority = morph_priorities[key]
-            else:
+            morph_priority = morph_priorities.get(key)
+            if morph_priority is None and reading_key:
+                fallback_key = (morph.lemma, sub_key, "")
+                morph_priority = morph_priorities.get(fallback_key)
+            if morph_priority is None:
                 morph_priority = default_morph_priority
 
             self.total_priority_all_morphs += morph_priority
