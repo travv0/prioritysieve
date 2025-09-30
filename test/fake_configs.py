@@ -29,7 +29,9 @@ default_config_filter[FilterKeys.EXTRA_SCORE_TERMS] = True
 default_config_filter[FilterKeys.EXTRA_STUDY_MORPHS] = True
 default_config_filter[FilterKeys.EXTRA_UNKNOWN_MORPHS] = True
 default_config_filter[FilterKeys.EXTRA_UNKNOWN_MORPHS_COUNT] = True
-default_config_filter[FilterKeys.MORPH_PRIORITY_SELECTION] = "Collection frequency"
+default_config_filter[FilterKeys.MORPH_PRIORITY_SELECTION] = [
+    am_globals.COLLECTION_FREQUENCY_OPTION
+]
 default_config_filter[FilterKeys.EXTRA_MORPH_READINGS] = False
 
 
@@ -182,7 +184,9 @@ config_big_japanese_collection_filter[FilterKeys.MORPHEMIZER_DESCRIPTION] = "Ank
 config_max_morph_priority = copy.deepcopy(default_config_dict)
 config_max_morph_priority_filter = config_max_morph_priority[ConfigKeys.FILTERS][0]
 config_max_morph_priority_filter[FilterKeys.MORPHEMIZER_DESCRIPTION] = "spaCy: ja_core_news_sm"
-config_max_morph_priority_filter[FilterKeys.MORPH_PRIORITY_SELECTION] = "ja_core_news_sm_freq_inflection_min_occurrence.csv"
+config_max_morph_priority_filter[FilterKeys.MORPH_PRIORITY_SELECTION] = [
+    "ja_core_news_sm_freq_inflection_min_occurrence.csv"
+]
 # fmt: on
 
 ################################################################
@@ -255,7 +259,7 @@ config_wrong_field_name[ConfigKeys.FILTERS][0][FilterKeys.FIELD] = "random_wrong
 config_wrong_morph_priority = copy.deepcopy(default_config_dict)
 config_wrong_morph_priority[ConfigKeys.FILTERS][0][
     FilterKeys.MORPH_PRIORITY_SELECTION
-] = "random_wrong_value"
+] = ["random_wrong_value"]
 
 
 ################################################################
@@ -297,7 +301,7 @@ config_default_field[ConfigKeys.FILTERS][0][FilterKeys.FIELD] = am_globals.NONE_
 config_default_morph_priority = copy.deepcopy(default_config_dict)
 config_default_morph_priority[ConfigKeys.FILTERS][0][
     FilterKeys.MORPH_PRIORITY_SELECTION
-] = am_globals.NONE_OPTION
+] = []
 
 
 ################################################################

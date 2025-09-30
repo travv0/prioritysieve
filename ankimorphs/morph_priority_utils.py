@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import csv
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 from aqt import mw
 
@@ -56,17 +56,56 @@ def get_priority_files() -> list[str]:
 def get_morph_priority(
     am_db: AnkiMorphsDB,
     only_lemma_priorities: bool,
-    morph_priority_selection: str,
+    morph_priority_selection: Iterable[str] | str,
 ) -> dict[tuple[str, str, str], int]:
-    if morph_priority_selection == am_globals.COLLECTION_FREQUENCY_OPTION:  # fmt: skip
-        return am_db.get_morph_priorities_from_collection(
+    selections = _normalize_priority_selections(morph_priority_selection)
+
+    merged_priorities: dict[tuple[str, str, str], int] = {}
+
+    if am_globals.COLLECTION_FREQUENCY_OPTION in selections:
+        collection_priorities = am_db.get_morph_priorities_from_collection(
             only_lemma_priorities=only_lemma_priorities
         )
+        _merge_priorities(merged_priorities, collection_priorities)
 
-    return _load_morph_priorities_from_file(
-        priority_file_name=morph_priority_selection,
-        only_lemma_priorities=only_lemma_priorities,
-    )
+    for selection in selections:
+        if selection in (
+            am_globals.COLLECTION_FREQUENCY_OPTION,
+            am_globals.NONE_OPTION,
+        ):
+            continue
+
+        file_priorities = _load_morph_priorities_from_file(
+            priority_file_name=selection,
+            only_lemma_priorities=only_lemma_priorities,
+        )
+        _merge_priorities(merged_priorities, file_priorities)
+
+    return merged_priorities
+
+
+def _normalize_priority_selections(
+    morph_priority_selection: Iterable[str] | str,
+) -> list[str]:
+    if isinstance(morph_priority_selection, str):
+        candidates = [morph_priority_selection]
+    else:
+        candidates = list(morph_priority_selection)
+
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        if not isinstance(candidate, str):
+            continue
+        selection = candidate.strip()
+        if not selection or selection == am_globals.NONE_OPTION:
+            continue
+        if selection in seen:
+            continue
+        seen.add(selection)
+        normalized.append(selection)
+
+    return normalized
 
 
 def _load_morph_priorities_from_file(
@@ -319,6 +358,14 @@ def _populate_priorities_with_lemmas_from_minimal_priority_file(
         reading = _get_row_reading(row, file_type_and_format)
         key = (lemma, lemma, reading)
         _assign_priority_if_lower(morph_priority_dict, key, index)
+
+
+def _merge_priorities(
+    target: dict[tuple[str, str, str], int],
+    source: dict[tuple[str, str, str], int],
+) -> None:
+    for key, priority in source.items():
+        _assign_priority_if_lower(target, key, priority)
 
 
 def _assign_priority_if_lower(

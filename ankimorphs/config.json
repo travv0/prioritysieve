@@ -41,7 +41,7 @@
       "furigana_field": "(none)",
       "reading_field": "(none)",
       "modify": true,
-      "morph_priority_selection": "(none)",
+      "morph_priority_selection": [],
       "morphemizer_description": "(none)",
       "note_type": "(none)",
       "read": true,

@@ -40,7 +40,10 @@ from . import ankimorphs_globals
 # Unfortunately, 'TypeAlias' is introduced in python 3.10 so for now
 # we can only create implicit type aliases. We also have to use the
 # 'Union' notation even though we use '__future__ import annotations'.
-FilterTypeAlias = dict[str, Union[str, bool, int, dict[str, str], None]]
+FilterTypeAlias = dict[
+    str,
+    Union[str, bool, int, list[str], dict[str, str], None],
+]
 
 
 class RawConfigFilterKeys:
@@ -169,8 +172,13 @@ class AnkiMorphsConfigFilter:  # pylint:disable=too-many-instance-attributes
             self.morphemizer_description: str = self._get_filter_item(
                 key=RawConfigFilterKeys.MORPHEMIZER_DESCRIPTION, expected_type=str
             )
-            self.morph_priority_selection: str = self._get_filter_item(
-                key=RawConfigFilterKeys.MORPH_PRIORITY_SELECTION, expected_type=str
+            self.morph_priority_selections: list[str] = (
+                self._get_morph_priority_selections()
+            )
+            self.morph_priority_selection: str = (
+                self.morph_priority_selections[0]
+                if self.morph_priority_selections
+                else ankimorphs_globals.NONE_OPTION
             )
             self.read: bool = self._get_filter_item(
                 key=RawConfigFilterKeys.READ, expected_type=bool
@@ -211,6 +219,42 @@ class AnkiMorphsConfigFilter:  # pylint:disable=too-many-instance-attributes
             if not ankimorphs_globals.config_broken:
                 show_critical_config_error()
                 ankimorphs_globals.config_broken = True
+
+    def _get_morph_priority_selections(self) -> list[str]:
+        try:
+            raw_value = self._filter[RawConfigFilterKeys.MORPH_PRIORITY_SELECTION]
+        except KeyError:
+            raw_value = self._default_config_dict[RawConfigKeys.FILTERS][0][
+                RawConfigFilterKeys.MORPH_PRIORITY_SELECTION
+            ]
+            ankimorphs_globals.new_config_found = True
+
+        selections = self._normalize_priority_selections(raw_value)
+        # ensure canonical form stored back for subsequent saves
+        self._filter[RawConfigFilterKeys.MORPH_PRIORITY_SELECTION] = selections
+        return selections
+
+    @staticmethod
+    def _normalize_priority_selections(value: Any) -> list[str]:
+        normalized: list[str] = []
+
+        if isinstance(value, list):
+            candidates = value
+        elif isinstance(value, str):
+            candidates = [value]
+        else:
+            candidates = []
+
+        for candidate in candidates:
+            if not isinstance(candidate, str):
+                continue
+            entry = candidate.strip()
+            if not entry or entry == ankimorphs_globals.NONE_OPTION:
+                continue
+            if entry not in normalized:
+                normalized.append(entry)
+
+        return normalized
 
     def _get_filter_item(self, key: str, expected_type: type) -> Any:
         try:

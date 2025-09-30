@@ -110,7 +110,7 @@ def _check_selected_settings_for_errors(
         if config_filter.field == ankimorphs_globals.NONE_OPTION:
             return DefaultSettingsException()
 
-        if config_filter.morph_priority_selection == ankimorphs_globals.NONE_OPTION:
+        if not config_filter.morph_priority_selections:
             return DefaultSettingsException()
 
         note_type_dict: NotetypeDict | None = mw.col.models.by_name(
@@ -144,14 +144,17 @@ def _check_selected_settings_for_errors(
         if morphemizer_found is None:
             return MorphemizerNotFoundException(config_filter.morphemizer_description)
 
-        if (
-            config_filter.morph_priority_selection
-            != ankimorphs_globals.COLLECTION_FREQUENCY_OPTION
-        ):
+        for selection in config_filter.morph_priority_selections:
+            if selection in (
+                ankimorphs_globals.NONE_OPTION,
+                ankimorphs_globals.COLLECTION_FREQUENCY_OPTION,
+            ):
+                continue
+
             priority_file_path = Path(
                 mw.pm.profileFolder(),
                 ankimorphs_globals.PRIORITY_FILES_DIR_NAME,
-                config_filter.morph_priority_selection,
+                selection,
             )
             if not priority_file_path.is_file():
                 return PriorityFileNotFoundException(path=str(priority_file_path))
@@ -199,7 +202,7 @@ def _update_cards_and_notes(  # pylint:disable=too-many-locals, too-many-stateme
         morph_priorities: dict[tuple[str, str, str], int] = get_morph_priority(
             am_db=am_db,
             only_lemma_priorities=am_config.evaluate_morph_lemma,
-            morph_priority_selection=config_filter.morph_priority_selection,
+            morph_priority_selection=config_filter.morph_priority_selections,
         )
         cards_data_dict: dict[CardId, AnkiMorphsCardData] = (
             am_db.get_am_cards_data_dict(

@@ -10,7 +10,7 @@ from test.fake_environment_module import (  # pylint:disable=unused-import
 
 import pytest
 
-from ankimorphs import debug_utils, morph_priority_utils
+from ankimorphs import ankimorphs_globals as am_globals, debug_utils, morph_priority_utils
 from ankimorphs.morph_priority_utils import (
     PriorityFile,
     PriorityFileFormat,
@@ -137,7 +137,7 @@ def test_morph_priority_with_collection_frequency(  # pylint:disable=unused-argu
     morph_priorities = morph_priority_utils.get_morph_priority(
         am_db=fake_environment_fixture.mock_db,
         only_lemma_priorities=am_config.evaluate_morph_lemma,
-        morph_priority_selection=am_config.filters[0].morph_priority_selection,
+        morph_priority_selection=am_config.filters[0].morph_priority_selections,
     )
 
     json_file_path = Path(
@@ -267,3 +267,65 @@ def test_reading_column_creates_distinct_keys() -> None:
 
     assert priorities[("人", "人", "じん")] == 10
     assert priorities[("人", "人", "にん")] == 20
+
+
+def test_get_morph_priority_merges_multiple_sources(monkeypatch: pytest.MonkeyPatch) -> None:
+
+    class DummyDB:
+        def __init__(self) -> None:
+            self.calls: list[bool] = []
+
+        def get_morph_priorities_from_collection(
+            self, only_lemma_priorities: bool
+        ) -> dict[tuple[str, str, str], int]:
+            self.calls.append(only_lemma_priorities)
+            return {
+                ("A", "A", ""): 10,
+                ("B", "B", ""): 5,
+                ("D", "D", ""): 7,
+            }
+
+    load_calls: dict[str, list[bool]] = {}
+
+    def fake_loader(
+        priority_file_name: str, only_lemma_priorities: bool
+    ) -> dict[tuple[str, str, str], int]:
+        load_calls.setdefault(priority_file_name, []).append(only_lemma_priorities)
+        if priority_file_name == "file1.csv":
+            return {
+                ("A", "A", ""): 20,
+                ("C", "C", ""): 1,
+            }
+        if priority_file_name == "file2.csv":
+            return {
+                ("A", "A", ""): 3,
+                ("B", "B", ""): 9,
+            }
+        raise AssertionError("unexpected file request")
+
+    monkeypatch.setattr(
+        morph_priority_utils,
+        "_load_morph_priorities_from_file",
+        fake_loader,
+    )
+
+    am_db = DummyDB()
+
+    priorities = morph_priority_utils.get_morph_priority(
+        am_db=am_db,
+        only_lemma_priorities=False,
+        morph_priority_selection=[
+            am_globals.COLLECTION_FREQUENCY_OPTION,
+            "file1.csv",
+            "file2.csv",
+            "file1.csv",
+        ],
+    )
+
+    assert priorities[("A", "A", "")] == 3
+    assert priorities[("B", "B", "")] == 5
+    assert priorities[("C", "C", "")] == 1
+    assert priorities[("D", "D", "")] == 7
+    assert len(priorities) == 4
+    assert am_db.calls == [False]
+    assert load_calls == {"file1.csv": [False], "file2.csv": [False]}

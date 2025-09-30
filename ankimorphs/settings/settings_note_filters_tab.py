@@ -12,8 +12,14 @@ from aqt.qt import (  # pylint:disable=no-name-in-module
     QCheckBox,
     QComboBox,
     QDialog,
+    QDialogButtonBox,
+    Qt,
     QItemSelectionModel,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
     QTableWidgetItem,
+    QVBoxLayout,
 )
 from aqt.utils import tooltip
 
@@ -38,6 +44,102 @@ from .data_provider import DataProvider
 from .settings_tab import SettingsTab
 
 
+class PriorityFileSelectionDialog(QDialog):
+
+    def __init__(
+        self,
+        parent: QDialog | None,
+        available_options: list[str],
+        selected_options: list[str],
+    ) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Select Frequency Files")
+
+        self._none_option = ankimorphs_globals.NONE_OPTION
+
+        layout = QVBoxLayout(self)
+        layout.addWidget(
+            QLabel(
+                "Choose the frequency files to combine. The lowest rank among selections will be used."
+            )
+        )
+
+        self._list_widget = QListWidget(self)
+        layout.addWidget(self._list_widget)
+
+        normalized_selected = (
+            selected_options if selected_options is not None else []
+        )
+
+        for option in available_options:
+            item = QListWidgetItem(option)
+            item.setFlags(
+                item.flags()
+                | Qt.ItemFlag.ItemIsUserCheckable
+                | Qt.ItemFlag.ItemIsEnabled
+                | Qt.ItemFlag.ItemIsSelectable
+            )
+            if option == self._none_option:
+                item.setCheckState(
+                    Qt.CheckState.Checked
+                    if not normalized_selected
+                    else Qt.CheckState.Unchecked
+                )
+            elif option in normalized_selected:
+                item.setCheckState(Qt.CheckState.Checked)
+            else:
+                item.setCheckState(Qt.CheckState.Unchecked)
+            self._list_widget.addItem(item)
+
+        self._list_widget.itemChanged.connect(self._on_item_changed)
+
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok
+            | QDialogButtonBox.StandardButton.Cancel,
+            parent=self,
+        )
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
+    def _on_item_changed(self, item: QListWidgetItem) -> None:
+        if item.text() == self._none_option and item.checkState() == Qt.CheckState.Checked:
+            self._clear_all_except_none()
+        elif item.checkState() == Qt.CheckState.Checked:
+            none_item = self._find_item(self._none_option)
+            if none_item is not None and none_item.checkState() == Qt.CheckState.Checked:
+                self._set_item_check_state(none_item, Qt.CheckState.Unchecked)
+
+    def _clear_all_except_none(self) -> None:
+        for idx in range(self._list_widget.count()):
+            item = self._list_widget.item(idx)
+            if item is None or item.text() == self._none_option:
+                continue
+            self._set_item_check_state(item, Qt.CheckState.Unchecked)
+
+    def _set_item_check_state(self, item: QListWidgetItem, state: Qt.CheckState) -> None:
+        self._list_widget.blockSignals(True)
+        item.setCheckState(state)
+        self._list_widget.blockSignals(False)
+
+    def _find_item(self, text: str) -> QListWidgetItem | None:
+        for idx in range(self._list_widget.count()):
+            candidate = self._list_widget.item(idx)
+            if candidate is not None and candidate.text() == text:
+                return candidate
+        return None
+
+    def selected_files(self) -> list[str]:
+        selections: list[str] = []
+        for idx in range(self._list_widget.count()):
+            item = self._list_widget.item(idx)
+            if item is None:
+                continue
+            if item.checkState() == Qt.CheckState.Checked and item.text() != self._none_option:
+                selections.append(item.text())
+        return selections
+
+
 class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
     SettingsTab, DataProvider
 ):
@@ -54,7 +156,9 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
         SettingsTab.__init__(self, parent, ui, config, default_config)
         DataProvider.__init__(self)
 
-        self.ui.note_filters_table.cellClicked.connect(self._tags_cell_clicked)
+        self.ui.note_filters_table.cellClicked.connect(
+            self._note_filters_table_cell_clicked
+        )
 
         # disables manual editing of note filter table
         self.ui.note_filters_table.setEditTriggers(
@@ -265,11 +369,22 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
                     row, self._note_filter_morphemizer_column
                 )
             )
-            morph_priority_widget: QComboBox = table_utils.get_combobox_widget(
-                self.ui.note_filters_table.cellWidget(
-                    row, self._note_filter_morph_priority_column
-                )
+            priority_item: QTableWidgetItem | None = self.ui.note_filters_table.item(
+                row, self._note_filter_morph_priority_column
             )
+            raw_priority_data = (
+                priority_item.data(Qt.ItemDataRole.UserRole)
+                if priority_item is not None
+                else None
+            )
+            try:
+                morph_priority_selections: list[str] = (
+                    json.loads(raw_priority_data)
+                    if isinstance(raw_priority_data, str)
+                    else []
+                )
+            except json.JSONDecodeError:
+                morph_priority_selections = []
             read_widget: QCheckBox = table_utils.get_checkbox_widget(
                 self.ui.note_filters_table.cellWidget(
                     row, self._note_filter_read_column
@@ -298,9 +413,7 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
                 RawConfigFilterKeys.MORPHEMIZER_DESCRIPTION: morphemizer_widget.itemText(
                     morphemizer_widget.currentIndex()
                 ),
-                RawConfigFilterKeys.MORPH_PRIORITY_SELECTION: morph_priority_widget.itemText(
-                    morph_priority_widget.currentIndex()
-                ),
+                RawConfigFilterKeys.MORPH_PRIORITY_SELECTION: morph_priority_selections,
                 RawConfigFilterKeys.READ: read_widget.isChecked(),
                 RawConfigFilterKeys.MODIFY: modify_widget.isChecked(),
             }
@@ -412,7 +525,7 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
             )
         )
 
-        morph_priority_cbox = self._setup_morph_priority_cbox(config_filter)
+        self._set_priority_item(row, config_filter.morph_priority_selections)
 
         read_checkbox = QCheckBox()
         read_checkbox.setChecked(config_filter.read)
@@ -443,9 +556,6 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
             row, self._note_filter_morphemizer_column, morphemizer_cbox
         )
         self.ui.note_filters_table.setCellWidget(
-            row, self._note_filter_morph_priority_column, morph_priority_cbox
-        )
-        self.ui.note_filters_table.setCellWidget(
             row, self._note_filter_read_column, read_checkbox
         )
         self.ui.note_filters_table.setCellWidget(
@@ -461,11 +571,73 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
                 furigana_field_cbox,
                 reading_field_cbox,
                 morphemizer_cbox,
-                morph_priority_cbox,
+                None,
                 read_checkbox,
                 modify_checkbox,
             )
         )
+
+    def _format_priority_summary(self, selections: list[str]) -> str:
+        if not selections:
+            return ankimorphs_globals.NONE_OPTION
+
+        if len(selections) <= 3:
+            return ", ".join(selections)
+
+        remaining = len(selections) - 3
+        return ", ".join(selections[:3]) + f" (+{remaining})"
+
+    def _set_priority_item(self, row: int, selections: list[str]) -> None:
+        item = self.ui.note_filters_table.item(
+            row, self._note_filter_morph_priority_column
+        )
+        if item is None:
+            item = QTableWidgetItem()
+            self.ui.note_filters_table.setItem(
+                row, self._note_filter_morph_priority_column, item
+            )
+
+        item.setText(self._format_priority_summary(selections))
+        item.setData(Qt.ItemDataRole.UserRole, json.dumps(selections))
+        flags = item.flags()
+        item.setFlags(
+            (flags | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)
+            & ~Qt.ItemFlag.ItemIsEditable
+        )
+
+    def _open_priority_selection_dialog(self, row: int) -> None:
+        current_item = self.ui.note_filters_table.item(
+            row, self._note_filter_morph_priority_column
+        )
+        raw_data = (
+            current_item.data(Qt.ItemDataRole.UserRole)
+            if current_item is not None
+            else None
+        )
+        try:
+            current_selections: list[str] = (
+                json.loads(raw_data) if isinstance(raw_data, str) else []
+            )
+        except json.JSONDecodeError:
+            current_selections = []
+
+        available_options = [
+            ankimorphs_globals.NONE_OPTION,
+            ankimorphs_globals.COLLECTION_FREQUENCY_OPTION,
+        ]
+        available_options += morph_priority_utils.get_priority_files()
+
+        dialog = PriorityFileSelectionDialog(
+            parent=self._parent,
+            available_options=available_options,
+            selected_options=current_selections,
+        )
+
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        selections = dialog.selected_files()
+        self._set_priority_item(row, selections)
 
     def _potentially_reset_tags(
         self, new_index: int, combo_box: QComboBox, reason_for_reset: str
@@ -538,23 +710,6 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
             morphemizer_cbox.setCurrentIndex(morphemizer_cbox_index)
         return morphemizer_cbox
 
-    def _setup_morph_priority_cbox(
-        self, config_filter: AnkiMorphsConfigFilter
-    ) -> QComboBox:
-        morph_priority_cbox = QComboBox(self.ui.note_filters_table)
-        priority_files: list[str] = [
-            ankimorphs_globals.NONE_OPTION,
-            ankimorphs_globals.COLLECTION_FREQUENCY_OPTION,
-        ]
-        priority_files += morph_priority_utils.get_priority_files()
-        morph_priority_cbox.addItems(priority_files)
-        morph_priority_cbox_index = table_utils.get_combobox_index(
-            priority_files, config_filter.morph_priority_selection
-        )
-        if morph_priority_cbox_index is not None:
-            morph_priority_cbox.setCurrentIndex(morph_priority_cbox_index)
-        return morph_priority_cbox
-
     def _update_fields_cbox(
         self, field_cbox: QComboBox, note_type_cbox: QComboBox
     ) -> None:
@@ -582,19 +737,21 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
 
         field_cbox.blockSignals(False)  # prevent currentIndexChanged signals
 
-    def _tags_cell_clicked(self, row: int, column: int) -> None:
-        if column != self._note_filter_tags_column:
+    def _note_filters_table_cell_clicked(self, row: int, column: int) -> None:
+        if column == self._note_filter_tags_column:
+            tags_widget: QTableWidgetItem = table_utils.get_table_item(
+                self.ui.note_filters_table.item(row, self._note_filter_tags_column)
+            )
+            self.tag_selector.set_selected_tags_and_row(
+                selected_tags=tags_widget.text(), row=row
+            )
+            aqt.dialogs.open(
+                name=ankimorphs_globals.TAG_SELECTOR_DIALOG_NAME,
+            )
             return
 
-        tags_widget: QTableWidgetItem = table_utils.get_table_item(
-            self.ui.note_filters_table.item(row, 1)
-        )
-        self.tag_selector.set_selected_tags_and_row(
-            selected_tags=tags_widget.text(), row=row
-        )
-        aqt.dialogs.open(
-            name=ankimorphs_globals.TAG_SELECTOR_DIALOG_NAME,
-        )
+        if column == self._note_filter_morph_priority_column:
+            self._open_priority_selection_dialog(row)
 
     def _update_note_filter_tags(self) -> None:
         self.ui.note_filters_table.setItem(

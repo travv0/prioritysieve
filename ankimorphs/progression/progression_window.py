@@ -228,7 +228,7 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
         morph_priorities = morph_priority_utils.get_morph_priority(
             am_db=am_db,
             only_lemma_priorities=self._is_lemma_priority_selected(),
-            morph_priority_selection=self.ui.morphPriorityCBox.currentText(),
+            morph_priority_selection=[self.ui.morphPriorityCBox.currentText()],
         )
 
         mw.taskman.run_on_main(
