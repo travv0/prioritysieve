@@ -31,6 +31,7 @@ EXTRA_FIELD_HIGHLIGHTED: str = "am-highlighted"
 EXTRA_FIELD_SCORE: str = "am-score"
 EXTRA_FIELD_SCORE_TERMS: str = "am-score-terms"
 EXTRA_FIELD_STUDY_MORPHS: str = "am-study-morphs"
+EXTRA_FIELD_MORPH_READINGS: str = "am-morph-readings"
 
 # Morph priority options in the note filter settings
 NONE_OPTION = "(none)"

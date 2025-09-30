@@ -51,6 +51,10 @@ def _get_states_of_extra_fields(
         (config_filter.extra_score, am_globals.EXTRA_FIELD_SCORE),
         (config_filter.extra_score_terms, am_globals.EXTRA_FIELD_SCORE_TERMS),
         (config_filter.extra_study_morphs, am_globals.EXTRA_FIELD_STUDY_MORPHS),
+        (
+            getattr(config_filter, "extra_morph_readings", False),
+            am_globals.EXTRA_FIELD_MORPH_READINGS,
+        ),
     ]
     # fmt: on
 
@@ -159,6 +163,29 @@ def update_score_terms_field(
 ) -> None:
     index: int = field_name_dict[am_globals.EXTRA_FIELD_SCORE_TERMS][0]
     note.fields[index] = score_terms
+
+
+def update_morph_readings_field(
+    am_config: AnkiMorphsConfig,
+    field_name_dict: dict[str, tuple[int, FieldDict]],
+    note: Note,
+    morphs: list[Morpheme],
+) -> None:
+    index: int = field_name_dict[am_globals.EXTRA_FIELD_MORPH_READINGS][0]
+    if not morphs:
+        note.fields[index] = ""
+        return
+
+    parts: list[str] = []
+    for morph in morphs:
+        base = morph.inflection if am_config.evaluate_morph_inflection else morph.lemma
+        reading = morph.reading or ""
+        if reading:
+            parts.append(f"{base}[{reading}]")
+        else:
+            parts.append(base)
+
+    note.fields[index] = ", ".join(parts)
 
 
 def update_highlighted_field(

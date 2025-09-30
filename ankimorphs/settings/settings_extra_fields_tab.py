@@ -48,6 +48,7 @@ class ExtraFieldsTab(SettingsTab, DataSubscriber, DataExtractor):
             am_globals.EXTRA_FIELD_SCORE,
             am_globals.EXTRA_FIELD_SCORE_TERMS,
             am_globals.EXTRA_FIELD_STUDY_MORPHS,
+            am_globals.EXTRA_FIELD_MORPH_READINGS,
         ]
 
         # hides the '1' number in the top left corner
@@ -132,6 +133,7 @@ class ExtraFieldsTab(SettingsTab, DataSubscriber, DataExtractor):
         extra_unknown_morphs: bool = False
         extra_unknown_morphs_count: bool = False
         extra_study_morphs: bool = False
+        extra_morph_readings: bool = False
 
         if restore_defaults is False:
             for _filter in self._config.filters:
@@ -144,6 +146,9 @@ class ExtraFieldsTab(SettingsTab, DataSubscriber, DataExtractor):
                     extra_unknown_morphs = _filter.extra_unknown_morphs
                     extra_unknown_morphs_count = _filter.extra_unknown_morphs_count
                     extra_study_morphs = _filter.extra_study_morphs
+                    extra_morph_readings = getattr(
+                        _filter, "extra_morph_readings", False
+                    )
                     break
 
         selected_extra_fields: dict[str, bool] = {
@@ -155,6 +160,7 @@ class ExtraFieldsTab(SettingsTab, DataSubscriber, DataExtractor):
             am_globals.EXTRA_FIELD_UNKNOWN_MORPHS: extra_unknown_morphs,
             am_globals.EXTRA_FIELD_UNKNOWN_MORPHS_COUNT: extra_unknown_morphs_count,
             am_globals.EXTRA_FIELD_STUDY_MORPHS: extra_study_morphs,
+            am_globals.EXTRA_FIELD_MORPH_READINGS: extra_morph_readings,
         }
         return selected_extra_fields
 

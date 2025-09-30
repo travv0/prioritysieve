@@ -309,6 +309,14 @@ def _update_cards_and_notes(  # pylint:disable=too-many-locals, too-many-stateme
                     unknown_morphs=cards_morph_metrics.unknown_morphs,
                 )
 
+            if getattr(config_filter, "extra_morph_readings", False):
+                extra_field_utils.update_morph_readings_field(
+                    am_config=am_config,
+                    field_name_dict=field_name_dict,
+                    note=note,
+                    morphs=cards_morph_metrics.all_morphs,
+                )
+
             if config_filter.extra_highlighted:
                 extra_field_utils.update_highlighted_field(
                     am_config=am_config,
