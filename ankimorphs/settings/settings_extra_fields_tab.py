@@ -238,6 +238,9 @@ class ExtraFieldsTab(SettingsTab, DataSubscriber, DataExtractor):
         extra_unknown_morphs = am_globals.EXTRA_FIELD_UNKNOWN_MORPHS in selected_fields
         extra_unknown_morphs_count = am_globals.EXTRA_FIELD_UNKNOWN_MORPHS_COUNT in selected_fields
         extra_study_morphs = am_globals.EXTRA_FIELD_STUDY_MORPHS in selected_fields
+        extra_morph_readings = (
+            am_globals.EXTRA_FIELD_MORPH_READINGS in selected_fields
+        )
         # fmt: on
 
         return {
@@ -249,6 +252,7 @@ class ExtraFieldsTab(SettingsTab, DataSubscriber, DataExtractor):
             RawConfigFilterKeys.EXTRA_UNKNOWN_MORPHS: extra_unknown_morphs,
             RawConfigFilterKeys.EXTRA_UNKNOWN_MORPHS_COUNT: extra_unknown_morphs_count,
             RawConfigFilterKeys.EXTRA_STUDY_MORPHS: extra_study_morphs,
+            RawConfigFilterKeys.EXTRA_MORPH_READINGS: extra_morph_readings,
         }
 
     def get_confirmation_text(self) -> str:

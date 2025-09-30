@@ -9,37 +9,64 @@ _KATAKANA_TO_HIRAGANA = str.maketrans(
 _WHITESPACE_RE = re.compile(r"\s+")
 
 
+def _is_hiragana(char: str) -> bool:
+    return "\u3041" <= char <= "\u309f"
+
+
+def _is_katakana(char: str) -> bool:
+    return ("\u30a0" <= char <= "\u30ff") or ("\uff66" <= char <= "\uff9f")
+
+
+def _is_kanji(char: str) -> bool:
+    return (
+        "\u4e00" <= char <= "\u9fff"
+        or "\u3400" <= char <= "\u4dbf"
+        or char == "々"
+    )
+
+
+def _is_word_char(char: str) -> bool:
+    return _is_hiragana(char) or _is_katakana(char) or _is_kanji(char) or char == "ー"
+
+
 def normalize_reading(reading: str | None) -> str:
     if reading is None:
         return ""
     return reading.translate(_KATAKANA_TO_HIRAGANA)
 
 
+def _only_hiragana(text: str) -> str:
+    return "".join(ch for ch in text if _is_hiragana(ch) or ch == "ー")
+
+
 def _split_prefix(prefix: str) -> tuple[str, str]:
     if not prefix:
         return "", ""
 
-    replace_start = len(prefix)
-    while replace_start > 0:
-        char = prefix[replace_start - 1]
-        if _is_replaced_char(char):
-            replace_start -= 1
-        else:
-            break
+    end = len(prefix)
+    start = end
 
-    if replace_start == len(prefix):
+    while start > 0 and _is_word_char(prefix[start - 1]):
+        start -= 1
+
+    chunk = prefix[start:]
+    if not chunk:
         return prefix, ""
 
-    return prefix[:replace_start], prefix[replace_start:]
+    first_kanji_index: int | None = None
+    for idx, ch in enumerate(chunk):
+        if _is_kanji(ch):
+            first_kanji_index = idx
+            break
 
+    if first_kanji_index is not None:
+        base_chunk = chunk[first_kanji_index:]
+        prefix_to_keep = prefix[: start + first_kanji_index]
+    else:
+        base_chunk = chunk
+        prefix_to_keep = prefix[:start]
 
-def _is_replaced_char(char: str) -> bool:
-    if char.isspace():
-        return False
-    return not (
-        "\u3041" <= char <= "\u309f"  # hiragana
-        or "\uff65" <= char <= "\uff9f"  # half-width katakana
-    )
+    return prefix_to_keep, base_chunk
 
 
 def strip_furigana_token(token: str) -> str:
@@ -116,6 +143,7 @@ def parse_furigana_field(field_text: str) -> list[str]:
         if not stripped:
             continue
         normalized = normalize_reading(stripped)
+        normalized = _only_hiragana(normalized)
         if normalized:
             readings.append(normalized)
 

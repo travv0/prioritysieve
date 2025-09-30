@@ -30,6 +30,7 @@ default_config_filter[FilterKeys.EXTRA_STUDY_MORPHS] = True
 default_config_filter[FilterKeys.EXTRA_UNKNOWN_MORPHS] = True
 default_config_filter[FilterKeys.EXTRA_UNKNOWN_MORPHS_COUNT] = True
 default_config_filter[FilterKeys.MORPH_PRIORITY_SELECTION] = "Collection frequency"
+default_config_filter[FilterKeys.EXTRA_MORPH_READINGS] = False
 
 
 # print("default config dict:")
