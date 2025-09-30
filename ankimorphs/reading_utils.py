@@ -35,10 +35,6 @@ def normalize_reading(reading: str | None) -> str:
     return reading.translate(_KATAKANA_TO_HIRAGANA)
 
 
-def _only_hiragana(text: str) -> str:
-    return "".join(ch for ch in text if _is_hiragana(ch) or ch == "ー")
-
-
 def _split_prefix(prefix: str) -> tuple[str, str]:
     if not prefix:
         return "", ""
@@ -112,6 +108,9 @@ def parse_furigana_field(field_text: str) -> list[str]:
     if not stripped_text:
         return []
 
+    if "[" not in stripped_text:
+        return [normalize_reading(stripped_text)]
+
     tokens: list[str] = []
     current: list[str] = []
     depth = 0
@@ -142,9 +141,6 @@ def parse_furigana_field(field_text: str) -> list[str]:
         stripped = strip_furigana_token(token).strip()
         if not stripped:
             continue
-        normalized = normalize_reading(stripped)
-        normalized = _only_hiragana(normalized)
-        if normalized:
-            readings.append(normalized)
+        readings.append(normalize_reading(stripped))
 
     return readings

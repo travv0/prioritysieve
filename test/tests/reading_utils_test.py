@@ -9,6 +9,10 @@ def test_parse_furigana_field_single_token() -> None:
     assert parse_furigana_field("殺意[さつい]") == ["さつい"]
 
 
+def test_parse_furigana_field_okurigana_chain() -> None:
+    assert parse_furigana_field("繰り返[くりかえ]す") == ["くりかえす"]
+
+
 def test_parse_furigana_field_mixed_kana() -> None:
     assert parse_furigana_field("甘[あま]く 見[み]る") == ["あまく", "みる"]
 
