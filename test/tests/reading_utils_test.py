@@ -22,7 +22,7 @@ def test_parse_furigana_mixed_with_plain_kana() -> None:
 
 
 def test_parse_furigana_with_empty_readings() -> None:
-    assert parse_furigana_field("持[も]っ[　]て[　]行[い]く") == ["もっ", "て", "いく"]
+    assert parse_furigana_field("持[も]っ[　]て[　]行[い]く") == ["もっていく"]
 
 
 def test_normalize_reading_katakana_to_hiragana() -> None:
