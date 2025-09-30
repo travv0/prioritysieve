@@ -7,7 +7,7 @@ from .prioritysieve_db import PrioritySieveDB
 class MorphToolbarStats:
     def __init__(self) -> None:
         self.lemmas = "L: ?"
-        self.inflections = "I: ?"
+        self.variants = "V: ?"
         self.update_stats()
 
     def update_stats(self) -> None:
@@ -37,7 +37,7 @@ class MorphToolbarStats:
                 (learning_interval,),
             ).fetchone()[0]
 
-            known_inflections = am_db.con.execute(
+            known_variants = am_db.con.execute(
                 """
                 SELECT COUNT(*)
                 FROM Morphs
@@ -51,4 +51,4 @@ class MorphToolbarStats:
             return
 
         self.lemmas = f"L: {known_lemmas}"
-        self.inflections = f"I: {known_inflections}"
+        self.variants = f"V: {known_variants}"

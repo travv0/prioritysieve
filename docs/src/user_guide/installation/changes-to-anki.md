@@ -10,17 +10,17 @@ The toolbar now has three new items:
 
 - [Recalc](../usage/recalc.md)
 - `L`, which stands for `Known Morph Lemmas`
-- `I`, which stands for `Known Morph Inflections`
+- `V`, which stands for `Known entry variants`
 
 <details>
-  <summary style="display:list-item">English examples of L and I</summary>
+  <summary style="display:list-item">English examples of L and V</summary>
 
 
 <blockquote>
 
-**Each column in the table contains a morph lemma, and every row in a column contains a different inflection of that lemma.**
+**Each column in the table represents a lemma, and every row in a column contains a different variant of that lemma.**
 
-Knowing the morph in the highlighted cell below would give you L: 1 and I: 1
+Knowing the morph in the highlighted cell below would give you L: 1 and V: 1
 <div class='morph-variation'>
 <table>
     <colgroup>
@@ -55,7 +55,7 @@ Knowing the morph in the highlighted cell below would give you L: 1 and I: 1
 </table>
 </div>
 
-Knowing the morphs in the highlighted cells below would give you L: 1 and I: 2
+Knowing the morphs in the highlighted cells below would give you L: 1 and V: 2
 
 <div class='morph-variation'>
 <table>
@@ -91,7 +91,7 @@ Knowing the morphs in the highlighted cells below would give you L: 1 and I: 2
 </table>
 </div>
 
-Knowing the morphs in the highlighted cells below would give you L: 2 and I: 3
+Knowing the morphs in the highlighted cells below would give you L: 2 and V: 3
 
 <div class='morph-variation'>
 <table>
@@ -133,14 +133,14 @@ Knowing the morphs in the highlighted cells below would give you L: 2 and I: 3
 
 
 <details>
-  <summary style="display:list-item">Japanese examples of L and I</summary>
+  <summary style="display:list-item">Japanese examples of L and V</summary>
 
 
 <blockquote>
 
-**Each column in the table contains a morph lemma, and every row in a column contains a different inflection of that lemma.**
+**Each column in the table represents a lemma, and every row in a column contains a different variant of that lemma.**
 
-Knowing the morph in the highlighted cell below would give you L: 1 and I: 1
+Knowing the morph in the highlighted cell below would give you L: 1 and V: 1
 <div class='morph-variation'>
 <table>
     <colgroup>
@@ -169,7 +169,7 @@ Knowing the morph in the highlighted cell below would give you L: 1 and I: 1
 </table>
 </div>
 
-Knowing the morphs in the highlighted cells below would give you L: 1 and I: 2
+Knowing the morphs in the highlighted cells below would give you L: 1 and V: 2
 
 <div class='morph-variation'>
 <table>
@@ -199,7 +199,7 @@ Knowing the morphs in the highlighted cells below would give you L: 1 and I: 2
 </table>
 </div>
 
-Knowing the morphs in the highlighted cells below would give you L: 2 and I: 3
+Knowing the morphs in the highlighted cells below would give you L: 2 and V: 3
 
 <div class='morph-variation'>
 <table>
@@ -234,7 +234,7 @@ Knowing the morphs in the highlighted cells below would give you L: 2 and I: 3
 
 The `L` and `I` numbers are updated after every [Recalc](../usage/recalc.md).
 
-> **Note**: Chinese and other languages that don't have inflections will result in `L` and `I` having equal numbers.
+> **Note**: Chinese and other languages that don't have variants will result in `L` and `V` having equal numbers.
 
 
 ## Browse

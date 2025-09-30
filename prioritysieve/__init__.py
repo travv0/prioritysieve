@@ -107,13 +107,13 @@ def main() -> None:
 
 
 def init_toolbar_items(links: list[str], toolbar: Toolbar) -> None:
-    # Adds the 'L: I:' and 'Recalc' to the toolbar
+    # Adds the 'L: V:' and 'Recalc' to the toolbar
 
     morph_toolbar_stats = MorphToolbarStats()
     am_config = PrioritySieveConfig()
 
     known_entries_tooltip_message = (
-        "L = Known entry base forms<br>I = Known entry variants"
+        "L = Known entry base forms<br>V = Known entry variants"
     )
 
     if am_config.hide_recalc_toolbar is False:
@@ -141,11 +141,11 @@ def init_toolbar_items(links: list[str], toolbar: Toolbar) -> None:
     if am_config.hide_inflection_toolbar is False:
         links.append(
             toolbar.create_link(
-                cmd="known_inflections",
-                label=morph_toolbar_stats.inflections,
+                cmd="known_variants",
+                label=morph_toolbar_stats.variants,
                 func=lambda: tooltip(known_entries_tooltip_message),
-                tip="I = Known entry variants",
-                id="known_inflections",
+                tip="V = Known entry variants",
+                id="known_variants",
             )
         )
 
