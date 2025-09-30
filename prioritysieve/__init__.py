@@ -11,6 +11,7 @@
 ################################################################
 
 import json
+import sqlite3
 from functools import partial
 from pathlib import Path
 from typing import Literal
@@ -246,6 +247,7 @@ def init_tool_menu_and_actions() -> None:
     progression_action = create_progression_dialog_action(am_config)
     known_morphs_exporter_action = create_known_morphs_exporter_action(am_config)
     reset_tags_action = create_tag_reset_action()
+    duplicate_entries_action = create_duplicate_entries_action()
     guide_action = create_guide_action()
     changelog_action = create_changelog_action()
 
@@ -256,6 +258,7 @@ def init_tool_menu_and_actions() -> None:
     am_tool_menu.addAction(progression_action)
     am_tool_menu.addAction(known_morphs_exporter_action)
     am_tool_menu.addAction(reset_tags_action)
+    am_tool_menu.addAction(duplicate_entries_action)
     am_tool_menu.addAction(guide_action)
     am_tool_menu.addAction(changelog_action)
 
@@ -491,6 +494,63 @@ def reset_am_tags() -> None:
         tags_and_queue_utils.reset_am_tags(parent=mw)
 
 
+def find_duplicate_non_new_entry_cards() -> None:
+    assert mw is not None
+    assert mw.col is not None
+    assert mw.col.db is not None
+
+    try:
+        with PrioritySieveDB() as am_db:
+            entry_map = am_db.get_non_new_card_ids_grouped_by_entry()
+    except sqlite3.OperationalError:
+        tooltip("Run Recalc before searching for duplicate entries.")
+        return
+
+    duplicates: dict[tuple[str, str], list[int]] = {}
+
+    for entry_key, card_ids in entry_map.items():
+        active_ids: list[int] = []
+        for card_id in card_ids:
+            row = mw.col.db.first(
+                "SELECT queue, type FROM cards WHERE id = ?", card_id
+            )
+            if row is None:
+                continue
+            queue, card_type = row
+            if queue == -1:
+                continue
+            if card_type == 0:
+                continue
+            active_ids.append(card_id)
+        if len(active_ids) >= 2:
+            duplicates[entry_key] = active_ids
+
+    if not duplicates:
+        tooltip("No duplicate non-new entries found")
+        return
+
+    card_ids_to_browse: set[int] = set()
+    for ids in duplicates.values():
+        card_ids_to_browse.update(ids)
+
+    query = "cid:" + ",".join(str(cid) for cid in sorted(card_ids_to_browse))
+
+    browser_instance = aqt.dialogs.open("Browser", mw)
+    assert browser_instance is not None
+
+    browser_utils.browser = browser_instance
+    search_edit = browser_instance.form.searchEdit.lineEdit()
+    assert search_edit is not None
+
+    search_edit.setText(query)
+    browser_instance.onSearchActivated()
+
+    tooltip(
+        f"Found {len(duplicates)} duplicate entry group(s); opened Browser with {len(card_ids_to_browse)} card(s)."
+    )
+
+
+
 def create_am_tool_menu() -> QMenu:
     assert mw is not None
     am_tool_menu = QMenu("PrioritySieve", mw)
@@ -514,6 +574,13 @@ def create_settings_action(am_config: PrioritySieveConfig) -> QAction:
         partial(aqt.dialogs.open, name=ps_globals.SETTINGS_DIALOG_NAME)
     )
     return action
+
+
+def create_duplicate_entries_action() -> QAction:
+    action = QAction("&Find Duplicate Entry Cards", mw)
+    action.triggered.connect(find_duplicate_non_new_entry_cards)
+    return action
+
 
 
 def create_tag_reset_action() -> QAction:

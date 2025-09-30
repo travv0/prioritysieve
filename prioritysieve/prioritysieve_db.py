@@ -624,6 +624,27 @@ class PrioritySieveDB:  # pylint:disable=too-many-public-methods
                 (highest_inflection_learning_interval,),
             ).fetchall()
 
+    def get_non_new_card_ids_grouped_by_entry(self) -> dict[tuple[str, str], set[CardId]]:
+        entries: dict[tuple[str, str], set[CardId]] = {}
+
+        rows = self.con.execute(
+            """
+                SELECT cmm.morph_lemma, cmm.morph_reading, c.card_id
+                FROM Card_Morph_Map cmm
+                INNER JOIN Cards c ON cmm.card_id = c.card_id
+                WHERE c.card_type != 0
+            """,
+        ).fetchall()
+
+        for lemma, reading, card_id in rows:
+            key = (lemma, _normalize_reading(reading))
+            if key not in entries:
+                entries[key] = {card_id}
+            else:
+                entries[key].add(card_id)
+
+        return entries
+
     def print_table(self, table: str) -> None:
         try:
             # using f-string is terrible practice, but this is a trivial operation
