@@ -360,12 +360,14 @@ def recalc_on_sync() -> None:
 
     recalc_main.set_followup_sync_callback(None)
 
+    print("PrioritySieve pre-sync snapshot state:", current_state_json)
     if not am_config.recalc_on_sync:
         _state_before_sync_recalc = current_state_json
         return
 
     if current_state_json is not None:
         previous_state = extra_settings.get_recalc_collection_state()
+        print("PrioritySieve cached snapshot state:", previous_state)
         if previous_state == current_state_json:
             print(
                 "PrioritySieve: skipping pre-sync recalc (collection unchanged)"
@@ -379,22 +381,32 @@ def recalc_on_sync() -> None:
             reason = "collection metrics changed"
         print(f"PrioritySieve: running pre-sync recalc ({reason})")
 
-    recalc_main.recalc()
+    def _cache_post_recalc_state() -> None:
+        global _state_before_sync_recalc
 
-    updated_state = None
-    try:
-        updated_state = extra_settings.get_recalc_collection_state()
-        if updated_state is None:
-            updated_state = json.dumps(
-                recalc_main.compute_modify_filters_state(), sort_keys=True
+        updated_state: str | None = None
+        try:
+            updated_state = extra_settings.get_recalc_collection_state()
+            if updated_state is None:
+                updated_state = json.dumps(
+                    recalc_main.compute_modify_filters_state(), sort_keys=True
+                )
+        except Exception as error:  # pylint:disable=broad-except
+            print(
+                f"PrioritySieve: unable to cache pre-sync state after recalc ({error})"
             )
-    except Exception as error:  # pylint:disable=broad-except
-        print(
-            f"PrioritySieve: unable to cache pre-sync state after recalc ({error})"
-        )
-        updated_state = current_state_json
+            updated_state = current_state_json
 
-    _state_before_sync_recalc = updated_state
+        _state_before_sync_recalc = updated_state
+        print(
+            "PrioritySieve pre-sync baseline stored state:",
+            _state_before_sync_recalc,
+        )
+
+    _state_before_sync_recalc = None
+    recalc_main.set_followup_sync_callback(_cache_post_recalc_state)
+    recalc_main.recalc()
+    return
 
 
 def recalc_after_sync(success: bool | None = None) -> None:
@@ -437,6 +449,9 @@ def recalc_after_sync(success: bool | None = None) -> None:
     if baseline_state is None:
         baseline_state = extra_settings.get_recalc_collection_state()
 
+    print("PrioritySieve post-sync baseline state:", baseline_state)
+    print("PrioritySieve post-sync observed state:", post_state_json)
+
     if not am_config.recalc_after_sync:
         if post_state_json is not None:
             extra_settings.set_recalc_collection_state(post_state_json)
@@ -456,6 +471,10 @@ def recalc_after_sync(success: bool | None = None) -> None:
 
     if baseline_state == post_state_json:
         print(
+            "PrioritySieve post-sync skip (baseline == post) state:",
+            post_state_json,
+        )
+        print(
             "PrioritySieve: skipping post-sync recalc (no changes downloaded)"
         )
         _state_before_sync_recalc = post_state_json
@@ -463,7 +482,11 @@ def recalc_after_sync(success: bool | None = None) -> None:
         return
 
     print(
-        "PrioritySieve: running post-sync recalc (sync changed relevant cards)"
+        "PrioritySieve post-sync recalc triggered (baseline != post) state:",
+        {
+            "baseline": baseline_state,
+            "post": post_state_json,
+        },
     )
     recalc_main.set_followup_sync_callback(_schedule_followup_sync)
     recalc_main.recalc()
@@ -481,6 +504,10 @@ def recalc_after_sync(success: bool | None = None) -> None:
         updated_state = post_state_json
 
     _state_before_sync_recalc = updated_state
+    print(
+        "PrioritySieve post-sync baseline stored state:",
+        _state_before_sync_recalc,
+    )
 
 
 def replace_card_reviewer() -> None:

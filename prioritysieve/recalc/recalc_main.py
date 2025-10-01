@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
+from collections.abc import Callable
 
 from anki.cards import Card, CardId
 from anki.consts import CARD_TYPE_NEW, CardQueue
@@ -41,7 +42,6 @@ from .anki_data_utils import PrioritySieveCardData
 from .card_morphs_metrics import CardMorphsMetrics
 from .card_score import _MAX_SCORE, compute_due_from_priorities
 
-
 _last_modified_cards_count: int = 0
 _last_modified_notes_count: int = 0
 _recent_card_diffs: list[str] = []
@@ -52,7 +52,6 @@ _followup_sync_callback: Callable[[], None] | None = None
 def set_followup_sync_callback(callback: Callable[[], None] | None) -> None:
     global _followup_sync_callback
     _followup_sync_callback = callback
-
 
 def _get_filter_identifier(config_filter: PrioritySieveConfigFilter) -> str:
     include_tags = sorted(
@@ -73,7 +72,6 @@ def _get_filter_identifier(config_filter: PrioritySieveConfigFilter) -> str:
             f"exc:{','.join(exclude_tags)}",
         )
     )
-
 
 def _collect_filters_state(
     filters: list[PrioritySieveConfigFilter],
@@ -152,11 +150,9 @@ def _collect_filters_state(
     state.sort(key=lambda entry: entry["id"])
     return state
 
-
 def compute_modify_filters_state() -> list[dict[str, int | str]]:
     modify_filters = prioritysieve_config.get_modify_enabled_filters()
     return _collect_filters_state(modify_filters)
-
 
 def recalc() -> None:
     ################################################################
@@ -207,7 +203,6 @@ def recalc() -> None:
     )
     operation.failure(_on_failure)
     operation.with_progress().run_in_background()
-
 
 def _check_selected_settings_for_errors(
     read_enabled_config_filters: list[PrioritySieveConfigFilter],
@@ -280,7 +275,6 @@ def _check_selected_settings_for_errors(
 
     return None
 
-
 def _recalc_background_op(
     read_enabled_config_filters: list[PrioritySieveConfigFilter],
     modify_enabled_config_filters: list[PrioritySieveConfigFilter],
@@ -288,7 +282,6 @@ def _recalc_background_op(
     am_config = PrioritySieveConfig()
     caching.cache_anki_data(am_config, read_enabled_config_filters)
     _update_cards_and_notes(am_config, modify_enabled_config_filters)
-
 
 def _update_cards_and_notes(  # pylint:disable=too-many-locals, too-many-statements, too-many-branches
     am_config: PrioritySieveConfig,
@@ -474,7 +467,6 @@ def _update_cards_and_notes(  # pylint:disable=too-many-locals, too-many-stateme
     _last_modified_cards_count = len(final_modified_cards)
     _last_modified_notes_count = len(final_modified_notes)
 
-
 def _add_offsets_to_new_cards(
     am_config: PrioritySieveConfig,
     card_morph_map_cache: dict[int, list[Morpheme]],
@@ -576,7 +568,6 @@ def _add_offsets_to_new_cards(
     already_modified_cards.update(modified_offset_cards)
     return already_modified_cards
 
-
 def _apply_offsets(
     am_config: PrioritySieveConfig,
     already_modified_cards: dict[CardId, Card],
@@ -665,7 +656,6 @@ def _apply_offsets(
 
     return modified_offset_cards
 
-
 def _on_success(_start_time: float) -> None:
     # This function runs on the main thread.
     assert mw is not None
@@ -711,7 +701,6 @@ def _on_success(_start_time: float) -> None:
             print("  " + entry)
     end_time: float = time.time()
     print(f"Recalc duration: {round(end_time - _start_time, 3)} seconds")
-
 
 def _on_failure(  # pylint:disable=too-many-branches
     error: (
