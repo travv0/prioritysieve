@@ -39,6 +39,10 @@ from .card_morphs_metrics import CardMorphsMetrics
 from .card_score import _MAX_SCORE, compute_due_from_priorities
 
 
+_last_modified_cards_count: int = 0
+_last_modified_notes_count: int = 0
+
+
 def recalc() -> None:
     ################################################################
     #                          FREEZING
@@ -288,6 +292,11 @@ def _update_cards_and_notes(  # pylint:disable=too-many-locals, too-many-stateme
     mw.col.update_cards(list(modified_cards.values()))
     mw.col.update_notes(modified_notes)
 
+    global _last_modified_cards_count
+    global _last_modified_notes_count
+    _last_modified_cards_count = len(modified_cards)
+    _last_modified_notes_count = len(modified_notes)
+
 
 def _add_offsets_to_new_cards(
     am_config: PrioritySieveConfig,
@@ -433,7 +442,15 @@ def _on_success(_start_time: float) -> None:
     mw.toolbar.draw()  # updates stats
     mw.progress.finish()
 
-    tooltip("Finished Recalc", parent=mw)
+    if _last_modified_cards_count or _last_modified_notes_count:
+        message = (
+            "Finished Recalc – updated "
+            f"{_last_modified_cards_count} card(s) and {_last_modified_notes_count} note(s)"
+        )
+    else:
+        message = "Finished Recalc"
+
+    tooltip(message, parent=mw)
     end_time: float = time.time()
     print(f"Recalc duration: {round(end_time - _start_time, 3)} seconds")
 
