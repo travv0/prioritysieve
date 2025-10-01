@@ -74,6 +74,7 @@ _CONTEXT_MENU: str = "ps_context_menu"
 _startup_sync: bool = True
 _showed_update_warning: bool = False
 _updated_seen_morphs_for_profile: bool = False
+_state_before_sync_recalc: str | None = None
 
 
 def main() -> None:
@@ -96,6 +97,7 @@ def main() -> None:
     gui_hooks.profile_did_open.append(maybe_show_version_warning_wrapper)
 
     gui_hooks.sync_will_start.append(recalc_on_sync)
+    gui_hooks.sync_did_finish.append(recalc_after_sync)
 
     hooks.field_filter.append(highlight_morphs_jit)
 
@@ -326,6 +328,7 @@ def recalc_on_sync() -> None:
     # Anki can sync automatically on startup, but we don't
     # want to recalc at that point.
     global _startup_sync
+    global _state_before_sync_recalc
 
     if mw.pm.auto_syncing_enabled():
         if _startup_sync:
@@ -336,27 +339,114 @@ def recalc_on_sync() -> None:
             return
 
     am_config = PrioritySieveConfig()
-    if am_config.recalc_on_sync:
-        try:
-            current_state = recalc_main.compute_modify_filters_state()
-            current_state_json = json.dumps(current_state, sort_keys=True)
-            extra_settings = PrioritySieveExtraSettings()
-            previous_state = extra_settings.get_recalc_collection_state()
 
-            if previous_state == current_state_json:
-                print('PrioritySieve: skipping pre-sync recalc (collection unchanged)')
-                return
+    current_state_json: str | None = None
+    try:
+        current_state = recalc_main.compute_modify_filters_state()
+        current_state_json = json.dumps(current_state, sort_keys=True)
+    except Exception as error:  # pylint:disable=broad-except
+        print(
+            f"PrioritySieve: running pre-sync recalc (state snapshot failed: {error})"
+        )
 
-            if previous_state is None:
-                reason = 'no cached state'
-            else:
-                reason = 'collection metrics changed'
-            print(f'PrioritySieve: running pre-sync recalc ({reason})')
-        except Exception as error:  # pylint:disable=broad-except
-            print(f'PrioritySieve: running pre-sync recalc (failed to read state: {error})')
-            current_state_json = None
+    extra_settings = PrioritySieveExtraSettings()
 
-        recalc_main.recalc()
+    if not am_config.recalc_on_sync:
+        _state_before_sync_recalc = current_state_json
+        return
+
+    if current_state_json is not None:
+        previous_state = extra_settings.get_recalc_collection_state()
+        if previous_state == current_state_json:
+            print(
+                "PrioritySieve: skipping pre-sync recalc (collection unchanged)"
+            )
+            _state_before_sync_recalc = current_state_json
+            return
+
+        if previous_state is None:
+            reason = "no cached state"
+        else:
+            reason = "collection metrics changed"
+        print(f"PrioritySieve: running pre-sync recalc ({reason})")
+
+    recalc_main.recalc()
+
+    updated_state = None
+    try:
+        updated_state = extra_settings.get_recalc_collection_state()
+        if updated_state is None:
+            updated_state = json.dumps(
+                recalc_main.compute_modify_filters_state(), sort_keys=True
+            )
+    except Exception as error:  # pylint:disable=broad-except
+        print(
+            f"PrioritySieve: unable to cache pre-sync state after recalc ({error})"
+        )
+        updated_state = current_state_json
+
+    _state_before_sync_recalc = updated_state
+
+
+def recalc_after_sync(success: bool | None = None) -> None:
+    global _state_before_sync_recalc
+
+    if success is False:
+        _state_before_sync_recalc = None
+        return
+
+    am_config = PrioritySieveConfig()
+
+    try:
+        post_state = recalc_main.compute_modify_filters_state()
+        post_state_json = json.dumps(post_state, sort_keys=True)
+    except Exception as error:  # pylint:disable=broad-except
+        if am_config.recalc_after_sync:
+            print(
+                f"PrioritySieve: running post-sync recalc (state snapshot failed: {error})"
+            )
+            recalc_main.recalc()
+            try:
+                extra_settings = PrioritySieveExtraSettings()
+                _state_before_sync_recalc = (
+                    extra_settings.get_recalc_collection_state()
+                )
+            except Exception:  # pylint:disable=broad-except
+                _state_before_sync_recalc = None
+        else:
+            _state_before_sync_recalc = None
+        return
+
+    if not am_config.recalc_after_sync:
+        _state_before_sync_recalc = post_state_json
+        return
+
+    if _state_before_sync_recalc == post_state_json:
+        print(
+            "PrioritySieve: skipping post-sync recalc (no changes downloaded)"
+        )
+        _state_before_sync_recalc = post_state_json
+        return
+
+    print(
+        "PrioritySieve: running post-sync recalc (sync changed relevant cards)"
+    )
+    recalc_main.recalc()
+
+    try:
+        extra_settings = PrioritySieveExtraSettings()
+        updated_state = extra_settings.get_recalc_collection_state()
+        if updated_state is None:
+            updated_state = json.dumps(
+                recalc_main.compute_modify_filters_state(), sort_keys=True
+            )
+    except Exception as error:  # pylint:disable=broad-except
+        print(
+            f"PrioritySieve: failed to cache post-sync state ({error})"
+        )
+        updated_state = post_state_json
+
+    _state_before_sync_recalc = updated_state
 
 
 def replace_card_reviewer() -> None:

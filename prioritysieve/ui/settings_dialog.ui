@@ -162,16 +162,23 @@
             <string>On Sync</string>
            </property>
            <layout class="QVBoxLayout" name="verticalLayout_18">
-            <item>
-             <widget class="QCheckBox" name="recalcBeforeSyncCheckBox">
-              <property name="text">
-               <string>Automatically Recalc before Anki sync</string>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </widget>
-         </item>
+           <item>
+            <widget class="QCheckBox" name="recalcBeforeSyncCheckBox">
+             <property name="text">
+              <string>Automatically Recalc before Anki sync</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="recalcAfterSyncCheckBox">
+             <property name="text">
+              <string>Automatically Recalc after Anki sync when relevant changes are downloaded</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
          <item>
           <widget class="QGroupBox" name="groupBox_10">
            <property name="title">

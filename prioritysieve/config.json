@@ -68,6 +68,7 @@
   "recalc_offset_priority_decks": [],
   "auto_suspend_unlisted_entries": false,
   "recalc_on_sync": false,
+  "recalc_after_sync": false,
   "shortcut_browse_all_same_unknown": "Shift+L",
   "shortcut_browse_ready_same_unknown": "L",
   "shortcut_browse_ready_same_unknown_lemma": "Ctrl+Shift+L",

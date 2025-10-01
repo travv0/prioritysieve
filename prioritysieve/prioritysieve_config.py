@@ -87,6 +87,7 @@ class RawConfigKeys:
     PREPROCESS_CUSTOM_CHARACTERS_TO_IGNORE = "preprocess_custom_characters_to_ignore"
     INTERVAL_FOR_KNOWN_MORPHS = "interval_for_known_morphs"
     RECALC_ON_SYNC = "recalc_on_sync"
+    RECALC_AFTER_SYNC = "recalc_after_sync"
     AUTO_SUSPEND_UNLISTED_ENTRIES = "auto_suspend_unlisted_entries"
     RECALC_OFFSET_PRIORITY_DECKS = "recalc_offset_priority_decks"
     LEGACY_RECALC_OFFSET_PRIORITY_DECK = "recalc_offset_priority_deck"
@@ -395,6 +396,11 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-m
             )
             self.recalc_on_sync: bool = self._get_config_item(
                 key=RawConfigKeys.RECALC_ON_SYNC,
+                expected_type=bool,
+                use_default=is_default,
+            )
+            self.recalc_after_sync: bool = self._get_config_item(
+                key=RawConfigKeys.RECALC_AFTER_SYNC,
                 expected_type=bool,
                 use_default=is_default,
             )
