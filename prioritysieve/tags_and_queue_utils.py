@@ -43,6 +43,20 @@ def update_tags_and_queue_of_new_card(
         am_config.tag_known_automatically,
     ]
 
+    tracked_tags = set(mutually_exclusive_tags)
+    tracked_tags.add(am_config.tag_suspended_automatically)
+    original_positions: dict[str, int] = {}
+    for index, tag in enumerate(note.tags):
+        if tag in tracked_tags and tag not in original_positions:
+            original_positions[tag] = index
+
+    def _insert_tag(tag: str) -> None:
+        position = original_positions.get(tag)
+        if position is None or position >= len(note.tags):
+            note.tags.append(tag)
+        else:
+            note.tags.insert(position, tag)
+
     has_learning_for_tag = has_learning_morphs and unknowns > 0
 
     if has_learning_for_tag:
@@ -58,7 +72,7 @@ def update_tags_and_queue_of_new_card(
 
     if should_auto_suspend:
         if auto_suspended_tag not in note.tags:
-            note.tags.append(auto_suspended_tag)
+            _insert_tag(auto_suspended_tag)
         if card.queue != suspended:
             card.queue = suspended
         if card.due != _MAX_SCORE:
@@ -73,20 +87,20 @@ def update_tags_and_queue_of_new_card(
             _remove_exclusive_tags(note, mutually_exclusive_tags)
         elif am_config.tag_known_automatically not in note.tags:
             _remove_exclusive_tags(note, mutually_exclusive_tags)
-            note.tags.append(am_config.tag_known_automatically)
+            _insert_tag(am_config.tag_known_automatically)
     elif unknowns == 1:
         if should_auto_suspend:
             _remove_exclusive_tags(note, mutually_exclusive_tags)
             if am_config.tag_not_ready not in note.tags:
-                note.tags.append(am_config.tag_not_ready)
+                _insert_tag(am_config.tag_not_ready)
         else:
             if am_config.tag_ready not in note.tags:
                 _remove_exclusive_tags(note, mutually_exclusive_tags)
-                note.tags.append(am_config.tag_ready)
+                _insert_tag(am_config.tag_ready)
     else:
         if am_config.tag_not_ready not in note.tags:
             _remove_exclusive_tags(note, mutually_exclusive_tags)
-            note.tags.append(am_config.tag_not_ready)
+            _insert_tag(am_config.tag_not_ready)
 
     _sanitize_tags(note)
 

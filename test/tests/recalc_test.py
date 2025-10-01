@@ -694,6 +694,7 @@ def test_update_tags_auto_suspend_override() -> None:
 
 def test_force_auto_suspend_survives_offset(monkeypatch: pytest.MonkeyPatch) -> None:
     auto_tag = "auto-tag"
+    original_tags = ["foo", auto_tag, "bar"]
     card = SimpleNamespace(
         id=1,
         nid=1,
@@ -701,7 +702,7 @@ def test_force_auto_suspend_survives_offset(monkeypatch: pytest.MonkeyPatch) -> 
         due=_MAX_SCORE,
         queue=tags_and_queue_utils.suspended,
     )
-    note = SimpleNamespace(id=1, tags=[auto_tag], fields=[])
+    note = SimpleNamespace(id=1, tags=list(original_tags), fields=[])
 
     class FakeCol:
         @staticmethod
@@ -742,6 +743,7 @@ def test_force_auto_suspend_survives_offset(monkeypatch: pytest.MonkeyPatch) -> 
     assert card.queue == tags_and_queue_utils.suspended
     assert card.due == _MAX_SCORE
     assert auto_tag in note.tags
+    assert note.tags == original_tags
 
 
 def test_update_tags_of_review_cards_removes_auto_tag() -> None:
@@ -762,3 +764,28 @@ def test_update_tags_of_review_cards_removes_auto_tag() -> None:
 
     assert "auto-tag" not in note.tags
     assert "ready" not in note.tags
+
+
+def test_auto_suspend_preserves_order() -> None:
+    am_config = SimpleNamespace(
+        tag_ready="ready",
+        tag_not_ready="not-ready",
+        tag_known_automatically="known-auto",
+        tag_known_manually="known-manual",
+        tag_fresh="fresh",
+        tag_suspended_automatically="auto-tag",
+    )
+
+    note = SimpleNamespace(id=1, tags=["foo", "not-ready", "bar", "auto-tag"], fields=[])
+    card = SimpleNamespace(queue=0, nid=note.id, due=0)
+
+    tags_and_queue_utils.update_tags_and_queue_of_new_card(
+        am_config=am_config,
+        note=note,
+        card=card,
+        unknowns=1,
+        has_learning_morphs=False,
+        force_auto_suspend=True,
+    )
+
+    assert note.tags == ["foo", "not-ready", "bar", "auto-tag"]

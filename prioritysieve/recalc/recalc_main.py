@@ -490,6 +490,21 @@ def _apply_offsets(
         note_original_state.setdefault(note.id, (list(note.fields), list(note.tags)))
         return note
 
+    original_positions_cache: dict[int, dict[str, int]] = {}
+
+    def _insert_tag_preserving_order(note: Note, tag: str) -> None:
+        positions = original_positions_cache.get(note.id)
+        if positions is None:
+            original_tags = note_original_state.get(note.id, ([], []))[1]
+            positions = {tag_value: idx for idx, tag_value in enumerate(original_tags)}
+            original_positions_cache[note.id] = positions
+
+        position = positions.get(tag)
+        if position is None or position >= len(note.tags):
+            note.tags.append(tag)
+        else:
+            note.tags.insert(position, tag)
+
     for unknown_morph, earliest_due_card in earliest_due_card_for_unknown_morph.items():
         base_card = already_modified_cards.get(earliest_due_card.id, earliest_due_card)
         base_note = _ensure_note(base_card)
@@ -516,7 +531,7 @@ def _apply_offsets(
 
             note = _ensure_note(existing_card)
             if auto_suspend_tag not in note.tags:
-                note.tags.append(auto_suspend_tag)
+                _insert_tag_preserving_order(note, auto_suspend_tag)
                 _sanitize_tags(note)
                 modified_notes[note.id] = note
 
