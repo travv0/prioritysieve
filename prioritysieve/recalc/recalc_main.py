@@ -41,6 +41,8 @@ from .card_score import _MAX_SCORE, compute_due_from_priorities
 
 _last_modified_cards_count: int = 0
 _last_modified_notes_count: int = 0
+_recent_card_diffs: list[str] = []
+_recent_note_diffs: list[str] = []
 
 
 def recalc() -> None:
@@ -188,7 +190,14 @@ def _update_cards_and_notes(  # pylint:disable=too-many-locals, too-many-stateme
     card_morph_map_cache: dict[int, list[Morpheme]] = am_db.get_card_morph_map_cache()
     handled_cards: dict[CardId, None] = {}  # we only care about the key lookup
     modified_cards: dict[CardId, Card] = {}
-    modified_notes: list[Note] = []
+    modified_notes: dict[int, Note] = {}
+    card_original_state: dict[CardId, tuple[int, int]] = {}
+    note_original_state: dict[int, tuple[list[str], list[str]]] = {}
+
+    global _recent_card_diffs
+    global _recent_note_diffs
+    _recent_card_diffs = []
+    _recent_note_diffs = []
 
     # clear relevant caches between recalcs
     am_db.get_morph_priorities_from_collection.cache_clear()
@@ -236,6 +245,9 @@ def _update_cards_and_notes(  # pylint:disable=too-many-locals, too-many-stateme
             original_fields: list[str] = note.fields.copy()
             original_tags: list[str] = note.tags.copy()
 
+            card_original_state.setdefault(card_id, (original_due, original_queue))
+            note_original_state.setdefault(note.id, (original_fields, original_tags))
+
             cards_morph_metrics = CardMorphsMetrics(
                 am_config,
                 card_id,
@@ -274,7 +286,7 @@ def _update_cards_and_notes(  # pylint:disable=too-many-locals, too-many-stateme
                 modified_cards[card_id] = card
 
             if original_fields != note.fields or original_tags != note.tags:
-                modified_notes.append(note)
+                modified_notes.setdefault(note.id, note)
 
             handled_cards[card_id] = None  # this marks the card as handled
 
@@ -288,14 +300,46 @@ def _update_cards_and_notes(  # pylint:disable=too-many-locals, too-many-stateme
             handled_cards=handled_cards,
         )
 
+    final_modified_cards: dict[CardId, Card] = {}
+    final_modified_notes: dict[int, Note] = {}
+
+    for card_id, card in modified_cards.items():
+        original_due, original_queue = card_original_state.get(
+            card_id, (card.due, card.queue)
+        )
+        if card.due == original_due and card.queue == original_queue:
+            continue
+        if len(_recent_card_diffs) < 5:
+            _recent_card_diffs.append(
+                f"card {card_id}: due {original_due}→{card.due}, queue {original_queue}→{card.queue}"
+            )
+        final_modified_cards[card_id] = card
+
+    for note_id, note in modified_notes.items():
+        original_fields, original_tags = note_original_state.get(
+            note_id, (note.fields, note.tags)
+        )
+        if original_fields == note.fields and original_tags == note.tags:
+            continue
+
+        if len(_recent_note_diffs) < 5:
+            changes: list[str] = []
+            if original_tags != note.tags:
+                changes.append(f"tags {original_tags}→{note.tags}")
+            if original_fields != note.fields:
+                changes.append(f"fields {original_fields}→{note.fields}")
+            _recent_note_diffs.append(f"note {note_id}: " + "; ".join(changes))
+
+        final_modified_notes[note_id] = note
+
     progress_utils.background_update_progress(label="Inserting into Anki collection")
-    mw.col.update_cards(list(modified_cards.values()))
-    mw.col.update_notes(modified_notes)
+    mw.col.update_cards(list(final_modified_cards.values()))
+    mw.col.update_notes(list(final_modified_notes.values()))
 
     global _last_modified_cards_count
     global _last_modified_notes_count
-    _last_modified_cards_count = len(modified_cards)
-    _last_modified_notes_count = len(modified_notes)
+    _last_modified_cards_count = len(final_modified_cards)
+    _last_modified_notes_count = len(final_modified_notes)
 
 
 def _add_offsets_to_new_cards(
@@ -451,6 +495,16 @@ def _on_success(_start_time: float) -> None:
         message = "Finished Recalc"
 
     tooltip(message, parent=mw)
+
+    if _recent_card_diffs:
+        print("PrioritySieve recalc modified cards sample:")
+        for entry in _recent_card_diffs:
+            print("  " + entry)
+
+    if _recent_note_diffs:
+        print("PrioritySieve recalc modified notes sample:")
+        for entry in _recent_note_diffs:
+            print("  " + entry)
     end_time: float = time.time()
     print(f"Recalc duration: {round(end_time - _start_time, 3)} seconds")
 

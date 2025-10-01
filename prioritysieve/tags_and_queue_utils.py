@@ -75,6 +75,7 @@ def update_tags_and_queue_of_new_card(
             _remove_exclusive_tags(note, mutually_exclusive_tags)
             note.tags.append(am_config.tag_not_ready)
 
+    _sanitize_tags(note)
 
 
 def _move_new_card_to_end(card: Card) -> None:
@@ -95,6 +96,12 @@ def _remove_exclusive_tags(note: Note, mutually_exclusive_tags: list[str]) -> No
             note.tags.remove(tag)
 
 
+def _sanitize_tags(note: Note) -> None:
+    cleaned = [tag for tag in note.tags if tag and tag.strip()]
+    if len(cleaned) != len(note.tags):
+        note.tags = cleaned
+
+
 def update_tags_of_review_cards(
     am_config: PrioritySieveConfig,
     note: Note,
@@ -111,6 +118,8 @@ def update_tags_of_review_cards(
     else:
         if am_config.tag_fresh in note.tags:
             note.tags.remove(am_config.tag_fresh)
+
+    _sanitize_tags(note)
 
 
 def reset_am_tags(parent: QWidget) -> None:
