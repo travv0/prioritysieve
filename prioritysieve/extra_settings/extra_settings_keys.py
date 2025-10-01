@@ -1,5 +1,6 @@
 class General:
     PRIORITYSIEVE_VERSION = "prioritysieve_version"
+    RECALC_COLLECTION_STATE = "recalc_collection_state"
 
 
 class Dialogs:

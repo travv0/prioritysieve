@@ -78,6 +78,16 @@ class PrioritySieveExtraSettings(QSettings):
         self.endGroup()
         # fmt: on
 
+    def get_recalc_collection_state(self) -> str | None:
+        return self.value(keys.General.RECALC_COLLECTION_STATE, None, type=str)
+
+    def set_recalc_collection_state(self, state: str | None) -> None:
+        if state is None:
+            self.remove(keys.General.RECALC_COLLECTION_STATE)
+        else:
+            self.setValue(keys.General.RECALC_COLLECTION_STATE, state)
+
+
     def spacy_manager_window_settings(self, geometry: QByteArray) -> None:
         # fmt: off
         self.beginGroup(keys.Dialogs.SPACY_MANAGER_WINDOW)
@@ -143,6 +153,8 @@ class PrioritySieveExtraSettings(QSettings):
         self.endGroup()
         # fmt: on
 
+
+    
     def save_settings_dialog_settings(self, geometry: QByteArray) -> None:
         self.beginGroup(keys.Dialogs.SETTINGS_DIALOG)
         self.setValue(GeneratorsOutputKeys.WINDOW_GEOMETRY, geometry)

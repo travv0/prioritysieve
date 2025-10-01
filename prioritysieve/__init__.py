@@ -337,6 +337,25 @@ def recalc_on_sync() -> None:
 
     am_config = PrioritySieveConfig()
     if am_config.recalc_on_sync:
+        try:
+            current_state = recalc_main.compute_modify_filters_state()
+            current_state_json = json.dumps(current_state, sort_keys=True)
+            extra_settings = PrioritySieveExtraSettings()
+            previous_state = extra_settings.get_recalc_collection_state()
+
+            if previous_state == current_state_json:
+                print('PrioritySieve: skipping pre-sync recalc (collection unchanged)')
+                return
+
+            if previous_state is None:
+                reason = 'no cached state'
+            else:
+                reason = 'collection metrics changed'
+            print(f'PrioritySieve: running pre-sync recalc ({reason})')
+        except Exception as error:  # pylint:disable=broad-except
+            print(f'PrioritySieve: running pre-sync recalc (failed to read state: {error})')
+            current_state_json = None
+
         recalc_main.recalc()
 
 

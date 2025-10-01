@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 from pathlib import Path
 
@@ -33,6 +34,8 @@ from ..exceptions import (
 from ..morph_priority_utils import get_morph_priority
 from ..morpheme import Morpheme
 from ..morphemizers import morphemizer_utils
+from ..extra_settings import extra_settings_keys
+from ..extra_settings.prioritysieve_extra_settings import PrioritySieveExtraSettings
 from . import caching, extra_field_utils
 from .anki_data_utils import PrioritySieveCardData
 from .card_morphs_metrics import CardMorphsMetrics
@@ -43,6 +46,110 @@ _last_modified_cards_count: int = 0
 _last_modified_notes_count: int = 0
 _recent_card_diffs: list[str] = []
 _recent_note_diffs: list[str] = []
+
+
+def _get_filter_identifier(config_filter: PrioritySieveConfigFilter) -> str:
+    include_tags = sorted(
+        tag.strip()
+        for tag in config_filter.tags.get("include", [])
+        if isinstance(tag, str) and tag.strip()
+    )
+    exclude_tags = sorted(
+        tag.strip()
+        for tag in config_filter.tags.get("exclude", [])
+        if isinstance(tag, str) and tag.strip()
+    )
+
+    return "|".join(
+        (
+            config_filter.note_type,
+            f"inc:{','.join(include_tags)}",
+            f"exc:{','.join(exclude_tags)}",
+        )
+    )
+
+
+def _collect_filters_state(
+    filters: list[PrioritySieveConfigFilter],
+) -> list[dict[str, int | str]]:
+    assert mw is not None
+    assert mw.col is not None and mw.col.db is not None
+
+    state: list[dict[str, int | str]] = []
+    model_manager: ModelManager = mw.col.models
+
+    for config_filter in filters:
+        note_type_name = config_filter.note_type
+        if note_type_name == prioritysieve_globals.NONE_OPTION:
+            continue
+
+        note_type_id = model_manager.id_for_name(note_type_name)
+        if note_type_id is None:
+            continue
+
+        include_tags = config_filter.tags.get("include", [])
+        exclude_tags = config_filter.tags.get("exclude", [])
+
+        where_clauses = ["notes.mid = ?"]
+        params: list[object] = [note_type_id]
+
+        for tag in include_tags:
+            if not isinstance(tag, str) or not tag.strip():
+                continue
+            where_clauses.append("notes.tags LIKE ?")
+            params.append(f"% {tag.strip()} %")
+
+        for tag in exclude_tags:
+            if not isinstance(tag, str) or not tag.strip():
+                continue
+            where_clauses.append("notes.tags NOT LIKE ?")
+            params.append(f"% {tag.strip()} %")
+
+        where_sql = " AND ".join(where_clauses) if where_clauses else "1"
+        params_tuple = tuple(params)
+
+        card_stats = mw.col.db.first(
+            f"""
+            SELECT COUNT(cards.id), COALESCE(MAX(cards.mod), 0)
+            FROM cards
+            JOIN notes ON notes.id = cards.nid
+            WHERE {where_sql}
+            """,
+            *params_tuple,
+        )
+
+        note_stats = mw.col.db.first(
+            f"""
+            SELECT COUNT(notes.id), COALESCE(MAX(notes.mod), 0)
+            FROM notes
+            WHERE {where_sql}
+            """,
+            *params_tuple,
+        )
+
+        if card_stats is None or note_stats is None:
+            continue
+
+        card_count, card_max_mod = card_stats
+        note_count, note_max_mod = note_stats
+
+        state.append(
+            {
+                "id": _get_filter_identifier(config_filter),
+                "card_count": int(card_count),
+                "card_max_mod": int(card_max_mod),
+                "note_count": int(note_count),
+                "note_max_mod": int(note_max_mod),
+            }
+        )
+
+    state.sort(key=lambda entry: entry["id"])
+    return state
+
+
+def compute_modify_filters_state() -> list[dict[str, int | str]]:
+    modify_filters = prioritysieve_config.get_modify_enabled_filters()
+    return _collect_filters_state(modify_filters)
 
 
 def recalc() -> None:
@@ -557,6 +664,14 @@ def _on_success(_start_time: float) -> None:
     # This function runs on the main thread.
     assert mw is not None
     assert mw.progress is not None
+
+    try:
+        filters_state = compute_modify_filters_state()
+        settings = PrioritySieveExtraSettings()
+        settings.set_recalc_collection_state(json.dumps(filters_state, sort_keys=True))
+        settings.sync()
+    except Exception as error:  # pylint:disable=broad-except
+        print(f'PrioritySieve: failed to cache recalc state ({error})')
 
     mw.toolbar.draw()  # updates stats
     mw.progress.finish()
