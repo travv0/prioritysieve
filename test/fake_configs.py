@@ -77,6 +77,14 @@ config_known_morphs_enabled[ConfigKeys.PREPROCESS_CUSTOM_CHARACTERS_TO_IGNORE] =
 
 
 ################################################################
+#             config_default_behavior
+################################################################
+# Mirrors the base configuration bundled with the add-on.
+################################################################
+config_default_behavior = copy.deepcopy(default_config_dict)
+
+
+################################################################
 #        config_lemma_evaluation_lemma_extra_fields
 ################################################################
 # Matches "lemma_evaluation_lemma_extra_fields_collection.anki2".
@@ -111,7 +119,6 @@ config_inflection_evaluation[ConfigKeys.EVALUATE_MORPH_LEMMA] = False
 # Evaluates morphs by lemma.
 ################################################################
 config_offset_lemma_enabled = copy.deepcopy(config_lemma_evaluation_lemma_extra_fields)
-config_offset_lemma_enabled[ConfigKeys.RECALC_OFFSET_NEW_CARDS] = True
 
 
 ################################################################
@@ -132,7 +139,6 @@ config_disabled_skip_no_unknown_morphs[ConfigKeys.SKIP_NO_UNKNOWN_MORPHS] = Fals
 ################################################################
 # fmt: off
 config_offset_inflection_enabled = copy.deepcopy(default_config_dict)
-config_offset_inflection_enabled[ConfigKeys.RECALC_OFFSET_NEW_CARDS] = True
 # fmt: on
 
 
@@ -177,23 +183,6 @@ config_max_morph_priority_filter[FilterKeys.MORPH_PRIORITY_SELECTION] = [
     "ja_core_news_sm_freq_inflection_min_occurrence.csv"
 ]
 # fmt: on
-
-################################################################
-#          config_known_entry_new_card_action_suspend
-################################################################
-# Matches `suspend_all_morphs_known.anki2` and related fixtures
-################################################################
-config_known_entry_new_card_action_suspend = copy.deepcopy(default_config_dict)
-config_known_entry_new_card_action_suspend[ConfigKeys.KNOWN_ENTRY_NEW_CARD_ACTION] = "suspend"
-
-################################################################
-#          config_known_entry_new_card_action_move
-################################################################
-# Matches `move_to_end_morphs_known_or_fresh.anki2`
-################################################################
-config_known_entry_new_card_action_move = copy.deepcopy(default_config_dict)
-config_known_entry_new_card_action_move[ConfigKeys.KNOWN_ENTRY_NEW_CARD_ACTION] = "move"
-
 
 ################################################################
 #             config_wrong_note_type

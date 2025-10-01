@@ -8,7 +8,6 @@ from aqt.qt import (  # pylint:disable=no-name-in-module
     QListWidget,
     QPushButton,
     QSpinBox,
-    Qt,
 )
 
 from .. import prioritysieve_globals as ps_globals
@@ -31,20 +30,15 @@ class CardHandlingTab(SettingsTab):
             RawConfigKeys.SKIP_NO_UNKNOWN_MORPHS: self.ui.skipNoUnKnownMorphsCheckBox,
             RawConfigKeys.SKIP_UNKNOWN_MORPH_SEEN_TODAY_CARDS: self.ui.skipAlreadySeenCheckBox,
             RawConfigKeys.SKIP_SHOW_NUM_OF_SKIPPED_CARDS: self.ui.skipNotificationsCheckBox,
-            RawConfigKeys.RECALC_OFFSET_NEW_CARDS: self.ui.shiftNewCardsCheckBox,
+            RawConfigKeys.AUTO_SUSPEND_UNLISTED_ENTRIES: self.ui.autoSuspendUnlistedEntriesCheckBox,
         }
 
-        self._raw_config_key_to_spin_box: dict[str, QSpinBox | QDoubleSpinBox] = {
-            RawConfigKeys.RECALC_DUE_OFFSET: self.ui.dueOffsetSpinBox,
-            RawConfigKeys.RECALC_NUMBER_OF_MORPHS_TO_OFFSET: self.ui.offsetFirstMorphsSpinBox,
-        }
+        self._raw_config_key_to_spin_box: dict[str, QSpinBox | QDoubleSpinBox] = {}
 
         self._priority_deck_list_widget: QListWidget = self.ui.priorityDecksListWidget
         self._priority_deck_move_up_button: QPushButton = self.ui.priorityDeckMoveUpButton
         self._priority_deck_move_down_button: QPushButton = self.ui.priorityDeckMoveDownButton
         self._priority_deck_refresh_button: QPushButton = self.ui.priorityDeckRefreshButton
-
-        self._new_card_action_buttons = {"move": self.ui.knownEntryMoveRadioButton, "suspend": self.ui.knownEntrySuspendRadioButton}
 
         self.populate()
         self.setup_buttons()
@@ -54,24 +48,15 @@ class CardHandlingTab(SettingsTab):
         super().populate(use_default_config)
 
         source = self._default_config if use_default_config else self._config
-        action = getattr(source, "known_entry_new_card_action", "move")
-        for key, button in self._new_card_action_buttons.items():
-            button.setChecked(key == action)
 
         deck_order = self._build_priority_deck_list(
             source, source.recalc_offset_priority_decks
         )
         self._set_priority_deck_items(deck_order)
 
-        self._toggle_disable_shift_cards_settings()
-
     def setup_buttons(self) -> None:
         self.ui.restoreCardHandlingPushButton.setAutoDefault(False)
         self.ui.restoreCardHandlingPushButton.clicked.connect(self.restore_defaults)
-
-        self.ui.shiftNewCardsCheckBox.stateChanged.connect(
-            self._toggle_disable_shift_cards_settings
-        )
 
         self._priority_deck_move_up_button.clicked.connect(
             self._move_priority_deck_up
@@ -86,20 +71,8 @@ class CardHandlingTab(SettingsTab):
             self._on_priority_deck_selection_changed
         )
 
-    def _toggle_disable_shift_cards_settings(self) -> None:
-        enabled = self.ui.shiftNewCardsCheckBox.checkState() != Qt.CheckState.Unchecked
-        self.ui.dueOffsetSpinBox.setEnabled(enabled)
-        self.ui.offsetFirstMorphsSpinBox.setEnabled(enabled)
-        self._update_priority_deck_controls(enabled)
-
     def settings_to_dict(self) -> dict[str, str | int | float | bool | object]:
         settings = super().settings_to_dict()
-        for action, button in self._new_card_action_buttons.items():
-            if button.isChecked():
-                settings[RawConfigKeys.KNOWN_ENTRY_NEW_CARD_ACTION] = action
-                break
-        else:
-            settings[RawConfigKeys.KNOWN_ENTRY_NEW_CARD_ACTION] = "move"
         settings[RawConfigKeys.RECALC_OFFSET_PRIORITY_DECKS] = (
             self._get_priority_decks_from_ui()
         )
@@ -110,10 +83,7 @@ class CardHandlingTab(SettingsTab):
 
     def _update_priority_deck_controls(self, enabled: bool | None = None) -> None:
         if enabled is None:
-            enabled = (
-                self.ui.shiftNewCardsCheckBox.checkState()
-                != Qt.CheckState.Unchecked
-            )
+            enabled = True
 
         self._priority_deck_list_widget.setEnabled(enabled)
         self._priority_deck_refresh_button.setEnabled(enabled)

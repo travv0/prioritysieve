@@ -724,13 +724,6 @@
              </widget>
             </item>
             <item>
-             <widget class="QCheckBox" name="preprocessIgnoreSuspendedCheckBox">
-              <property name="text">
-               <string>Ignore content in suspended cards</string>
-              </property>
-             </widget>
-            </item>
-            <item>
              <widget class="QCheckBox" name="preprocessIgnoreNamesMizerCheckBox">
               <property name="text">
                <string>Ignore names found by the parser</string></property>
@@ -876,80 +869,22 @@
            </property>
            <layout class="QVBoxLayout" name="verticalLayout_20">
             <item>
-             <layout class="QVBoxLayout" name="verticalLayout_knownEntryHandling">
-              <item>
-               <widget class="QLabel" name="label_knownEntryHandling">
-                <property name="text">
-                 <string>When a new card has no unknown entries:</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QRadioButton" name="knownEntryMoveRadioButton">
-                <property name="text">
-                 <string>Move it to the end of the new queue</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QRadioButton" name="knownEntrySuspendRadioButton">
-                <property name="text">
-                 <string>Suspend it</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
+             <widget class="QLabel" name="autoSuspendBehaviorLabel">
+              <property name="text">
+               <string>Cards without unknown entries and lower-priority duplicates are suspended automatically and tagged using the configured value.</string>
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+             </widget>
             </item>
             <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_13">
-              <item>
-               <widget class="QCheckBox" name="shiftNewCardsCheckBox">
-                <property name="text">
-                 <string>Shift new cards that are not the first with the unknown entry by</string></property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QSpinBox" name="dueOffsetSpinBox">
-                <property name="maximum">
-                 <number>500000</number>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QLabel" name="label_20">
-                <property name="text">
-                 <string>due, for the first</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QSpinBox" name="offsetFirstMorphsSpinBox">
-                <property name="maximum">
-                 <number>999999</number>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QLabel" name="label_21">
-                <property name="text">
-                 <string>entries</string></property>
-               </widget>
-              </item>
-              <item>
-               <spacer name="horizontalSpacer_10">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>40</width>
-                  <height>20</height>
-                 </size>
-                </property>
-               </spacer>
-              </item>
-            </layout>
-           </item>
+             <widget class="QCheckBox" name="autoSuspendUnlistedEntriesCheckBox">
+              <property name="text">
+               <string>Suspend cards whose entry is missing from priority files</string>
+              </property>
+             </widget>
+            </item>
           <item>
            <layout class="QVBoxLayout" name="verticalLayout_priorityDecks">
             <item>

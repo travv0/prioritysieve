@@ -83,17 +83,13 @@ class RawConfigKeys:
     PREPROCESS_IGNORE_NAMES_MORPHEMIZER = "preprocess_ignore_names_morphemizer"
     PREPROCESS_IGNORE_NAMES_TEXTFILE = "preprocess_ignore_names_textfile"
     PREPROCESS_IGNORE_NUMBERS = "preprocess_ignore_numbers"
-    PREPROCESS_IGNORE_SUSPENDED_CARDS_CONTENT = "preprocess_ignore_suspended_cards_content"
     PREPROCESS_IGNORE_CUSTOM_CHARACTERS = "preprocess_ignore_custom_characters"
     PREPROCESS_CUSTOM_CHARACTERS_TO_IGNORE = "preprocess_custom_characters_to_ignore"
     INTERVAL_FOR_KNOWN_MORPHS = "interval_for_known_morphs"
     RECALC_ON_SYNC = "recalc_on_sync"
-    RECALC_OFFSET_NEW_CARDS = "recalc_offset_new_cards"
-    RECALC_DUE_OFFSET = "recalc_due_offset"
-    RECALC_NUMBER_OF_MORPHS_TO_OFFSET = "recalc_number_of_morphs_to_offset"
+    AUTO_SUSPEND_UNLISTED_ENTRIES = "auto_suspend_unlisted_entries"
     RECALC_OFFSET_PRIORITY_DECKS = "recalc_offset_priority_decks"
     LEGACY_RECALC_OFFSET_PRIORITY_DECK = "recalc_offset_priority_deck"
-    KNOWN_ENTRY_NEW_CARD_ACTION = "known_entry_new_card_action"
     READ_KNOWN_MORPHS_FOLDER = "read_known_morphs_folder"
     TOOLBAR_STATS_USE_KNOWN = "toolbar_stats_use_known"
     TOOLBAR_STATS_USE_SEEN = "toolbar_stats_use_seen"
@@ -382,13 +378,6 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-m
                 expected_type=bool,
                 use_default=is_default,
             )
-            self.preprocess_ignore_suspended_cards_content: bool = (
-                self._get_config_item(
-                    key=RawConfigKeys.PREPROCESS_IGNORE_SUSPENDED_CARDS_CONTENT,
-                    expected_type=bool,
-                    use_default=is_default,
-                )
-            )
             self.preprocess_ignore_custom_characters: bool = self._get_config_item(
                 key=RawConfigKeys.PREPROCESS_IGNORE_CUSTOM_CHARACTERS,
                 expected_type=bool,
@@ -409,7 +398,6 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-m
                 expected_type=bool,
                 use_default=is_default,
             )
-            self.known_entry_new_card_action: str = self._get_known_entry_new_card_action(is_default)
             self.read_known_morphs_folder: bool = self._get_config_item(
                 key=RawConfigKeys.READ_KNOWN_MORPHS_FOLDER,
                 expected_type=bool,
@@ -427,23 +415,13 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-m
             )
             self.extra_fields_display_inflections = False
             self.extra_fields_display_lemmas = True
-            self.recalc_offset_new_cards: bool = self._get_config_item(
-                key=RawConfigKeys.RECALC_OFFSET_NEW_CARDS,
-                expected_type=bool,
-                use_default=is_default,
-            )
-            self.recalc_due_offset: int = self._get_config_item(
-                key=RawConfigKeys.RECALC_DUE_OFFSET,
-                expected_type=int,
-                use_default=is_default,
-            )
-            self.recalc_number_of_morphs_to_offset: int = self._get_config_item(
-                key=RawConfigKeys.RECALC_NUMBER_OF_MORPHS_TO_OFFSET,
-                expected_type=int,
-                use_default=is_default,
-            )
             self.recalc_offset_priority_decks: list[str] = self._get_priority_deck_list(
                 is_default
+            )
+            self.auto_suspend_unlisted_entries: bool = self._get_config_item(
+                key=RawConfigKeys.AUTO_SUSPEND_UNLISTED_ENTRIES,
+                expected_type=bool,
+                use_default=is_default,
             )
             self.tag_fresh: str = self._get_config_item(
                 key=RawConfigKeys.TAG_FRESH, expected_type=str, use_default=is_default
@@ -702,54 +680,6 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-m
             if not am_filter.has_error:
                 filters.append(am_filter)
         return filters
-
-    def _get_known_entry_new_card_action(self, is_default: bool) -> str:
-        source = self._default_config_dict if is_default else self._config_dict
-        key = RawConfigKeys.KNOWN_ENTRY_NEW_CARD_ACTION
-
-        if key in source:
-            value = source[key]
-        else:
-            value = self._migrate_known_entry_action(source, is_default)
-
-        if value not in ("move", "suspend"):
-            value = "move"
-            if not is_default:
-                config = get_config_dict()
-                config[key] = value
-                mw.addonManager.writeConfig(__name__, config)
-                save_config_to_am_file(config)
-
-        source[key] = value
-        return value
-
-    def _migrate_known_entry_action(self, source: dict[str, object], is_default: bool) -> str:
-        if is_default:
-            return "move"
-
-        suspend_key = "recalc_suspend_new_cards"
-        move_key = "recalc_move_new_cards_to_the_end"
-
-        suspend_value = source.get(suspend_key)
-        move_value = source.get(move_key)
-
-        if isinstance(suspend_value, str) and suspend_value != am_globals.NEVER_OPTION:
-            action = "suspend"
-        elif isinstance(move_value, str) and move_value != am_globals.NEVER_OPTION:
-            action = "move"
-        else:
-            action = "move"
-
-        config = get_config_dict()
-        config[RawConfigKeys.KNOWN_ENTRY_NEW_CARD_ACTION] = action
-        config.pop(suspend_key, None)
-        config.pop(move_key, None)
-        mw.addonManager.writeConfig(__name__, config)
-        save_config_to_am_file(config)
-
-        source.pop(suspend_key, None)
-        source.pop(move_key, None)
-        return action
 
     def _get_priority_deck_list(self, is_default: bool) -> list[str]:
         key = RawConfigKeys.RECALC_OFFSET_PRIORITY_DECKS

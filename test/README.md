@@ -81,12 +81,10 @@ Current card collections (test/data/card_collections):
   - contains one card with 7 morphs, 6 of which are found in the 'known-morphs-valid' directory
   - morphemizer: 'PrioritySieve: Language w/ Spaces'
 - `offset_new_cards_inflection_collection.anki2`
-  - Contains two cards, both with "hello".
-  - `recalc_offset_new_cards` config option enabled
+  - Contains two cards that share the same unknown morph and are used to verify automatic suspension of lower-priority duplicates.
   - morphemizer: 'PrioritySieve: Language w/ Spaces'
 - `offset_new_cards_lemma_collection.anki2`
-  - duplicate of `lemma_evaluation_lemma_extra_fields_collection.anki2`, but has uses the `recalc_offset_new_cards`
-  config option enabled
+  - Duplicate of `lemma_evaluation_lemma_extra_fields_collection.anki2`, used to confirm duplicate handling when evaluating by lemma.
   - the extra fields contain lemmas
   - morphs are evaluated based on lemma
   - morphemizer: 'spaCy: en_core_web_sm'
@@ -109,18 +107,8 @@ Current card collections (test/data/card_collections):
   - creating an evergreen collection that has fresh entries is surprisingly difficult, because the
   due date of the card actually depends on the timestamp of card creation. To make this problem go away
   you can set the date of your system back a couple of months and then create the cards.
-- `suspend_all_morphs_known.anki2`
-  - the base of this collection is `card_handling_collection.anki2`, that has been recalced with
-  the config `config_known_entry_new_card_action_suspend`
 - `suspend_morphs_known_or_fresh.anki2`
-  - the base of this collection is `card_handling_collection.anki2`, that has been recalced with
-  the config `config_known_entry_new_card_action_suspend`
-- `move_to_end_morphs_known.anki2`
-  - the base of this collection is `card_handling_collection.anki2`, that has been recalced with
-  the config `config_known_entry_new_card_action_move`
-- `move_to_end_morphs_known_or_fresh.anki2`
-  - the base of this collection is `card_handling_collection.anki2`, that has been recalced with
-  the config `config_known_entry_new_card_action_move`
+  - the base of this collection is `card_handling_collection.anki2`, recalculated with the default configuration where known-only cards and lower-priority duplicates are suspended automatically.
 
 
 ## Engineering and adding collections

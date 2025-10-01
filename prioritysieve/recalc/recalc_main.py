@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 
 from anki.cards import Card, CardId
-from anki.consts import CARD_TYPE_NEW
+from anki.consts import CARD_TYPE_NEW, CardQueue
 from anki.models import FieldDict, ModelManager, NotetypeDict
 from anki.notes import Note
 from aqt import mw
@@ -203,6 +203,8 @@ def _update_cards_and_notes(  # pylint:disable=too-many-locals, too-many-stateme
     am_db.get_morph_priorities_from_collection.cache_clear()
     Morpheme.get_learning_status.cache_clear()
 
+    auto_suspended_tag = am_config.tag_suspended_automatically
+
     for config_filter in modify_enabled_config_filters:
         note_type_dict: NotetypeDict = (
             extra_field_utils.potentially_add_extra_fields_to_note_type(
@@ -260,12 +262,20 @@ def _update_cards_and_notes(  # pylint:disable=too-many-locals, too-many-stateme
                 )
                 card.due = card_due
 
+                unknowns_amount = len(cards_morph_metrics.unknown_morphs)
+                force_auto_suspend = (
+                    am_config.auto_suspend_unlisted_entries
+                    and unknowns_amount > 0
+                    and card_due == prioritysieve_globals.DEFAULT_REVIEW_DUE
+                )
+
                 tags_and_queue_utils.update_tags_and_queue_of_new_card(
                     am_config=am_config,
                     note=note,
                     card=card,
-                    unknowns=len(cards_morph_metrics.unknown_morphs),
+                    unknowns=unknowns_amount,
                     has_learning_morphs=cards_morph_metrics.has_learning_morphs,
+                    force_auto_suspend=force_auto_suspend,
                 )
             else:
                 tags_and_queue_utils.update_tags_of_review_cards(
@@ -273,6 +283,15 @@ def _update_cards_and_notes(  # pylint:disable=too-many-locals, too-many-stateme
                     note=note,
                     has_learning_morphs=cards_morph_metrics.has_learning_morphs,
                 )
+
+            if (
+                card.queue != tags_and_queue_utils.suspended
+                and auto_suspended_tag in note.tags
+            ):
+                note.tags = [
+                    tag for tag in note.tags if tag != auto_suspended_tag and tag.strip()
+                ]
+                modified_notes.setdefault(note.id, note)
 
             if config_filter.extra_reading_field:
                 extra_field_utils.update_reading_field(
@@ -292,13 +311,14 @@ def _update_cards_and_notes(  # pylint:disable=too-many-locals, too-many-stateme
 
     am_db.con.close()
 
-    if am_config.recalc_offset_new_cards:
-        modified_cards = _add_offsets_to_new_cards(
-            am_config=am_config,
-            card_morph_map_cache=card_morph_map_cache,
-            already_modified_cards=modified_cards,
-            handled_cards=handled_cards,
-        )
+    modified_cards = _add_offsets_to_new_cards(
+        am_config=am_config,
+        card_morph_map_cache=card_morph_map_cache,
+        already_modified_cards=modified_cards,
+        handled_cards=handled_cards,
+        modified_notes=modified_notes,
+        note_original_state=note_original_state,
+    )
 
     final_modified_cards: dict[CardId, Card] = {}
     final_modified_notes: dict[int, Note] = {}
@@ -347,9 +367,9 @@ def _add_offsets_to_new_cards(
     card_morph_map_cache: dict[int, list[Morpheme]],
     already_modified_cards: dict[CardId, Card],
     handled_cards: dict[CardId, None],
+    modified_notes: dict[int, Note],
+    note_original_state: dict[int, tuple[list[str], list[str]]],
 ) -> dict[CardId, Card]:
-    # This essentially replaces the need for the "skip" options, which in turn
-    # makes reviewing cards on mobile a viable alternative.
     assert mw is not None
 
     earliest_due_card_for_unknown_morph: dict[tuple[str, str, str], Card] = {}
@@ -389,40 +409,40 @@ def _add_offsets_to_new_cards(
             card_id=card_id,
         )
 
-        # we don't want to do anything to cards that have multiple unknown morphs
-        if len(card_unknown_morphs) == 1:
-            unknown_morph = card_unknown_morphs.pop()
-            card = mw.col.get_card(card_id)
-            card_due = card.due
+        if len(card_unknown_morphs) != 1:
+            continue
 
-            lowest_due = lowest_due_for_unknown_morph.get(unknown_morph)
-            if lowest_due is None or card_due < lowest_due:
-                lowest_due_for_unknown_morph[unknown_morph] = card_due
+        unknown_morph = card_unknown_morphs.pop()
+        card = mw.col.get_card(card_id)
+        card_due = card.due
 
-            if unknown_morph not in earliest_due_card_for_unknown_morph:
+        lowest_due = lowest_due_for_unknown_morph.get(unknown_morph)
+        if lowest_due is None or card_due < lowest_due:
+            lowest_due_for_unknown_morph[unknown_morph] = card_due
+
+        if unknown_morph not in earliest_due_card_for_unknown_morph:
+            earliest_due_card_for_unknown_morph[unknown_morph] = card
+            earliest_card_priority[unknown_morph] = _get_card_priority(card)
+        else:
+            current_card = earliest_due_card_for_unknown_morph[unknown_morph]
+            current_priority = earliest_card_priority.get(
+                unknown_morph, default_priority
+            )
+            card_priority = _get_card_priority(card)
+
+            if card_priority < current_priority or (
+                card_priority == current_priority and current_card.due > card_due
+            ):
                 earliest_due_card_for_unknown_morph[unknown_morph] = card
-                earliest_card_priority[unknown_morph] = _get_card_priority(card)
-            else:
-                current_card = earliest_due_card_for_unknown_morph[unknown_morph]
-                current_priority = earliest_card_priority.get(
-                    unknown_morph, default_priority
-                )
-                card_priority = _get_card_priority(card)
+                earliest_card_priority[unknown_morph] = card_priority
 
-                if card_priority < current_priority or (
-                    card_priority == current_priority and current_card.due > card_due
-                ):
-                    earliest_due_card_for_unknown_morph[unknown_morph] = card
-                    earliest_card_priority[unknown_morph] = card_priority
-
-            if unknown_morph not in cards_with_morph:
-                cards_with_morph[unknown_morph] = {card_id}
-            else:
-                cards_with_morph[unknown_morph].add(card_id)
+        if unknown_morph not in cards_with_morph:
+            cards_with_morph[unknown_morph] = {card_id}
+        else:
+            cards_with_morph[unknown_morph].add(card_id)
 
     progress_utils.background_update_progress(label="Applying offsets")
 
-    # sort so we can limit to the top x unknown morphs
     sorted_unknown_morphs = sorted(
         earliest_due_card_for_unknown_morph.keys(),
         key=lambda morph: lowest_due_for_unknown_morph.get(morph, _MAX_SCORE),
@@ -435,6 +455,8 @@ def _add_offsets_to_new_cards(
         already_modified_cards=already_modified_cards,
         earliest_due_card_for_unknown_morph=earliest_due_card_for_unknown_morph,
         cards_with_morph=cards_with_morph,
+        modified_notes=modified_notes,
+        note_original_state=note_original_state,
     )
 
     # combine the "lists" of cards we want to modify
@@ -447,33 +469,71 @@ def _apply_offsets(
     already_modified_cards: dict[CardId, Card],
     earliest_due_card_for_unknown_morph: dict[tuple[str, str, str], Card],
     cards_with_morph: dict[tuple[str, str, str], set[CardId]],
+    modified_notes: dict[int, Note],
+    note_original_state: dict[int, tuple[list[str], list[str]]],
 ) -> dict[CardId, Card]:
     assert mw is not None
 
     modified_offset_cards: dict[CardId, Card] = {}
 
-    for counter, _unknown_morph in enumerate(earliest_due_card_for_unknown_morph):
-        if counter > am_config.recalc_number_of_morphs_to_offset:
-            break
+    auto_suspend_tag = am_config.tag_suspended_automatically
 
-        earliest_due_card = earliest_due_card_for_unknown_morph[_unknown_morph]
-        all_new_cards_with_morph = cards_with_morph[_unknown_morph]
-        all_new_cards_with_morph.remove(earliest_due_card.id)
+    def _sanitize_tags(note: Note) -> None:
+        cleaned = [tag for tag in note.tags if tag and tag.strip()]
+        if len(cleaned) != len(note.tags):
+            note.tags = cleaned
 
+    def _ensure_note(card: Card) -> Note:
+        note = modified_notes.get(card.nid)
+        if note is None:
+            note = mw.col.get_note(card.nid)
+        note_original_state.setdefault(note.id, (list(note.fields), list(note.tags)))
+        return note
+
+    for unknown_morph, earliest_due_card in earliest_due_card_for_unknown_morph.items():
         base_card = already_modified_cards.get(earliest_due_card.id, earliest_due_card)
-        base_due = base_card.due
-        target_due = min(base_due + am_config.recalc_due_offset, _MAX_SCORE)
+        base_note = _ensure_note(base_card)
 
-        for card_id in all_new_cards_with_morph:
+        tag_removed = False
+        if auto_suspend_tag in base_note.tags and base_card.due != _MAX_SCORE:
+            base_note.tags.remove(auto_suspend_tag)
+            _sanitize_tags(base_note)
+            modified_notes[base_note.id] = base_note
+            tag_removed = True
+
+        if tag_removed and base_card.queue == tags_and_queue_utils.suspended:
+            base_card.queue = CardQueue(0)
+            modified_offset_cards[base_card.id] = base_card
+
+        already_modified_cards[base_card.id] = base_card
+
+        remaining_cards = cards_with_morph[unknown_morph] - {base_card.id}
+
+        for card_id in remaining_cards:
             existing_card = already_modified_cards.get(card_id)
             if existing_card is None:
                 existing_card = mw.col.get_card(card_id)
 
-            if existing_card.due >= target_due:
-                continue
+            note = _ensure_note(existing_card)
+            if auto_suspend_tag not in note.tags:
+                note.tags.append(auto_suspend_tag)
+                _sanitize_tags(note)
+                modified_notes[note.id] = note
 
-            existing_card.due = target_due
-            modified_offset_cards[card_id] = existing_card
+            card_modified = False
+
+            if existing_card.queue != tags_and_queue_utils.suspended:
+                existing_card.queue = tags_and_queue_utils.suspended
+                card_modified = True
+
+            if existing_card.due != _MAX_SCORE:
+                existing_card.due = _MAX_SCORE
+                card_modified = True
+
+            if card_modified:
+                modified_offset_cards[card_id] = existing_card
+
+            already_modified_cards[card_id] = existing_card
 
     return modified_offset_cards
 

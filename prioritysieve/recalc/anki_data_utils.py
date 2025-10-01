@@ -220,12 +220,14 @@ def _get_anki_data(
     assert mw is not None
     assert mw.col.db is not None
 
-    ignore_suspended_cards = ""
-    if am_config.preprocess_ignore_suspended_cards_content:
-        # If this part is included, then we don't get cards that are suspended EXCEPT for
-        # the cards that were 'set known and skip' and later suspended. We want to always
-        # include those cards otherwise we can lose track of known morphs
-        ignore_suspended_cards = f" AND (cards.queue != -1 OR notes.tags LIKE '% {am_config.tag_known_manually} %')"
+    manual_known_tag = am_config.tag_known_manually
+    auto_suspended_tag = am_config.tag_suspended_automatically
+    # Always skip suspended cards, but retain the ones PrioritySieve needs to manage.
+    ignore_suspended_cards = (
+        " AND (cards.queue != -1"
+        f" OR notes.tags LIKE '% {manual_known_tag} %'"
+        f" OR notes.tags LIKE '% {auto_suspended_tag} %')"
+    )
 
     excluded_tags = tags_object["exclude"]
     included_tags = tags_object["include"]

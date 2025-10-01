@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from types import SimpleNamespace
 from test.fake_configs import (
     config_big_japanese_collection,
+    config_default_behavior,
     config_default_field,
     config_default_morph_priority,
     config_default_morphemizer,
@@ -14,9 +15,6 @@ from test.fake_configs import (
     config_lemma_evaluation_lemma_extra_fields,
     config_max_morph_priority,
     config_offset_inflection_enabled,
-    config_offset_lemma_enabled,
-    config_known_entry_new_card_action_suspend,
-    config_known_entry_new_card_action_move,
     config_wrong_field_name,
     config_wrong_morph_priority,
     config_wrong_morphemizer_description,
@@ -32,8 +30,10 @@ import pytest
 
 from prioritysieve import prioritysieve_config
 from prioritysieve import prioritysieve_globals as am_globals
+from prioritysieve import tags_and_queue_utils
 from prioritysieve import text_preprocessing
-from prioritysieve.prioritysieve_config import RawConfigFilterKeys
+from prioritysieve.prioritysieve_config import PrioritySieveConfig, RawConfigFilterKeys
+from prioritysieve.prioritysieve_db import PrioritySieveDB
 from prioritysieve.exceptions import (
     AnkiFieldNotFound,
     AnkiNoteTypeNotFound,
@@ -43,6 +43,8 @@ from prioritysieve.exceptions import (
     PriorityFileNotFoundException,
 )
 from prioritysieve.recalc import recalc_main
+from prioritysieve.recalc.card_score import _MAX_SCORE
+from prioritysieve.recalc.card_morphs_metrics import CardMorphsMetrics
 
 # these have to be placed here to avoid cyclical imports
 from anki.cards import Card, CardId  # isort:skip  pylint:disable=wrong-import-order
@@ -87,37 +89,6 @@ test_cases_with_success = [
             config=config_lemma_evaluation_lemma_extra_fields,
         ),
         id="inflections_are_known",
-    ),
-    ################################################################
-    #               CASE: OFFSET NEW CARDS INFLECTIONS
-    ################################################################
-    # Config contains ["recalc_offset_new_cards"] = True, checks
-    # if new cards that are not the first in the queue with that
-    # particular unknown morph is offset, i.e. moved back in
-    # the queue.
-    ################################################################
-    pytest.param(
-        FakeEnvironmentParams(
-            actual_col="offset_new_cards_inflection_collection",
-            expected_col="offset_new_cards_inflection_collection",
-            config=config_offset_inflection_enabled,
-        ),
-        id="offset_new_cards_inflection",
-    ),
-    ################################################################
-    #               CASE: OFFSET NEW CARDS LEMMAS
-    ################################################################
-    # Same as `CASE: OFFSET NEW CARDS INFLECTIONS` but evaluates
-    # morphs by lemmas instead, and has the `lemma_priority_collection`
-    # as the basis.
-    ################################################################
-    pytest.param(
-        FakeEnvironmentParams(
-            actual_col="offset_new_cards_lemma_collection",
-            expected_col="offset_new_cards_lemma_collection",
-            config=config_offset_lemma_enabled,
-        ),
-        id="offset_new_cards_lemma",
     ),
     ################################################################
     #               CASE: KNOWN MORPHS ENABLED
@@ -184,23 +155,9 @@ test_cases_with_success = [
         FakeEnvironmentParams(
             actual_col="card_handling_collection",
             expected_col="suspend_morphs_known_or_fresh",
-            config=config_known_entry_new_card_action_suspend,
+            config=config_default_behavior,
         ),
         id="suspend_known_entries",
-    ),
-    ################################################################
-    #          CASE: MOVE KNOWN ENTRIES TO END OF NEW QUEUE
-    ################################################################
-    # Checks if cards are correctly moved to the end of the new queue
-    # whenever all of their entries are already known
-    ################################################################
-    pytest.param(
-        FakeEnvironmentParams(
-            actual_col="card_handling_collection",
-            expected_col="move_to_end_morphs_known_or_fresh",
-            config=config_known_entry_new_card_action_move,
-        ),
-        id="move_known_entries_to_end",
     ),
 ]
 
@@ -293,6 +250,78 @@ def test_recalc(  # pylint:disable=too-many-locals
             # note.fields[pos]: the content of the field
             assert actual_note.fields[pos] == expected_note.fields[pos]
 
+
+@pytest.mark.external_morphemizers
+@pytest.mark.parametrize(
+    "fake_environment_fixture",
+    [
+        pytest.param(
+            FakeEnvironmentParams(
+                actual_col="offset_new_cards_inflection_collection",
+                config=config_offset_inflection_enabled,
+            ),
+            id="auto_suspend_duplicate_cards",
+        )
+    ],
+    indirect=True,
+)
+def test_recalc_auto_suspends_duplicate_cards(
+    fake_environment_fixture: FakeEnvironment | None,
+) -> None:
+    if fake_environment_fixture is None:
+        pytest.xfail()
+
+    text_preprocessing.update_translation_table()
+
+    read_enabled_config_filters = prioritysieve_config.get_read_enabled_filters()
+    modify_enabled_config_filters = prioritysieve_config.get_modify_enabled_filters()
+
+    recalc_main._recalc_background_op(
+        read_enabled_config_filters=read_enabled_config_filters,
+        modify_enabled_config_filters=modify_enabled_config_filters,
+    )
+
+    am_config = PrioritySieveConfig()
+    auto_tag = am_config.tag_suspended_automatically
+
+    am_db = PrioritySieveDB()
+    try:
+        card_morph_map_cache = am_db.get_card_morph_map_cache()
+    finally:
+        am_db.con.close()
+
+    assert card_morph_map_cache
+
+    collection = fake_environment_fixture.actual_collection
+
+    morph_to_cards: dict[tuple[str, str, str], list[int]] = {}
+    for card_id in card_morph_map_cache:
+        unknown_keys = CardMorphsMetrics.get_unknown_morph_keys(
+            card_morph_map_cache=card_morph_map_cache,
+            card_id=card_id,
+        )
+        if len(unknown_keys) != 1:
+            continue
+        key = next(iter(unknown_keys))
+        morph_to_cards.setdefault(key, []).append(card_id)
+
+    assert any(len(card_ids) > 1 for card_ids in morph_to_cards.values())
+
+    for card_ids in morph_to_cards.values():
+        if len(card_ids) < 2:
+            continue
+
+        active_cards: list[int] = []
+        for card_id in card_ids:
+            card = collection.get_card(card_id)
+            note = card.note()
+            if card.queue == tags_and_queue_utils.suspended:
+                assert auto_tag in note.tags
+            else:
+                active_cards.append(card_id)
+                assert auto_tag not in note.tags
+
+        assert len(active_cards) == 1
 
 test_cases_with_immediate_exceptions = [
     ################################################################
@@ -474,9 +503,14 @@ def test_recalc_with_invalid_known_morphs_file(  # pylint:disable=unused-argumen
 
 def test_add_offsets_priority_deck(monkeypatch: pytest.MonkeyPatch) -> None:
     cards = {
-        1: SimpleNamespace(id=1, did=10, due=10),
-        2: SimpleNamespace(id=2, did=20, due=50),
-        3: SimpleNamespace(id=3, did=30, due=20),
+        1: SimpleNamespace(id=1, did=10, nid=101, due=10, queue=0),
+        2: SimpleNamespace(id=2, did=20, nid=102, due=50, queue=0),
+        3: SimpleNamespace(id=3, did=30, nid=103, due=20, queue=0),
+    }
+    notes = {
+        101: SimpleNamespace(id=101, fields=[""], tags=[]),
+        102: SimpleNamespace(id=102, fields=[""], tags=[]),
+        103: SimpleNamespace(id=103, fields=[""], tags=[]),
     }
     deck_map = {
         10: {"name": "OtherDeck"},
@@ -493,6 +527,7 @@ def test_add_offsets_priority_deck(monkeypatch: pytest.MonkeyPatch) -> None:
 
     fake_col = SimpleNamespace(
         get_card=lambda card_id: cards[card_id],
+        get_note=lambda note_id: notes[note_id],
         decks=FakeDecks(deck_map),
     )
     fake_mw = SimpleNamespace(col=fake_col)
@@ -510,58 +545,60 @@ def test_add_offsets_priority_deck(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     def _fake_unknowns(_card_morph_map_cache: dict[int, object], card_id: int) -> set[str]:
-        if card_id in cards:
-            return {"shared-morph"}
-        return set()
+        return {"shared-morph"} if card_id in cards else set()
 
     monkeypatch.setattr(
         recalc_main.CardMorphsMetrics,
-        "get_unknown_inflections",
-        _fake_unknowns,
-    )
-    monkeypatch.setattr(
-        recalc_main.CardMorphsMetrics,
-        "get_unknown_lemmas",
+        "get_unknown_morph_keys",
         _fake_unknowns,
     )
 
+    auto_tag = "auto-tag"
     am_config = SimpleNamespace(
-        evaluate_morph_inflection=True,
         recalc_offset_priority_decks=["PriorityDeck"],
-        recalc_number_of_morphs_to_offset=10,
-        recalc_due_offset=100,
+        tag_suspended_automatically=auto_tag,
     )
 
     handled_cards = OrderedDict((card_id, None) for card_id in cards)
-    already_modified_cards: dict[int, object] = {}
+    modified_notes: dict[int, object] = {}
+    note_original_state: dict[int, tuple[list[str], list[str]]] = {}
 
-    result = recalc_main._add_offsets_to_new_cards(
+    recalc_main._add_offsets_to_new_cards(
         am_config=am_config,
         card_morph_map_cache={},
-        already_modified_cards=already_modified_cards,
+        already_modified_cards={},
         handled_cards=handled_cards,
+        modified_notes=modified_notes,
+        note_original_state=note_original_state,
     )
 
-    assert set(result.keys()) == {1, 3}
-    assert cards[1].due == 150
-    assert cards[2].due == 50
-    assert cards[3].due == 150
+    assert cards[2].queue != tags_and_queue_utils.suspended
+    assert notes[102].tags == []
+
+    for loser_id in (1, 3):
+        card = cards[loser_id]
+        note = notes[card.nid]
+        assert card.queue == tags_and_queue_utils.suspended
+        assert auto_tag in note.tags
+        assert card.due == _MAX_SCORE
 
 
 def test_add_offsets_idempotent(monkeypatch: pytest.MonkeyPatch) -> None:
     cards = {
-        1: SimpleNamespace(id=1, did=10, due=0),
-        2: SimpleNamespace(id=2, did=10, due=0),
-        3: SimpleNamespace(id=3, did=10, due=0),
+        1: SimpleNamespace(id=1, did=10, nid=101, due=0, queue=0),
+        2: SimpleNamespace(id=2, did=10, nid=102, due=0, queue=0),
+        3: SimpleNamespace(id=3, did=10, nid=103, due=0, queue=0),
     }
-
-    class FakeDecks:
-        def get(self, did: int, default: dict[str, str] | None = None) -> dict[str, str] | None:
-            return default
+    notes = {
+        101: SimpleNamespace(id=101, fields=[""], tags=[]),
+        102: SimpleNamespace(id=102, fields=[""], tags=[]),
+        103: SimpleNamespace(id=103, fields=[""], tags=[]),
+    }
 
     fake_col = SimpleNamespace(
         get_card=lambda card_id: cards[card_id],
-        decks=FakeDecks(),
+        get_note=lambda note_id: notes[note_id],
+        decks=SimpleNamespace(get=lambda *_args, **_kwargs: None),
     )
     fake_mw = SimpleNamespace(col=fake_col)
 
@@ -577,52 +614,151 @@ def test_add_offsets_idempotent(monkeypatch: pytest.MonkeyPatch) -> None:
         lambda *args, **kwargs: None,
     )
 
-    def _fake_unknowns(_card_morph_map_cache: dict[int, object], card_id: int) -> set[str]:
-        if card_id in cards:
-            return {"shared-morph"}
-        return set()
-
     monkeypatch.setattr(
         recalc_main.CardMorphsMetrics,
-        "get_unknown_inflections",
-        _fake_unknowns,
-    )
-    monkeypatch.setattr(
-        recalc_main.CardMorphsMetrics,
-        "get_unknown_lemmas",
-        _fake_unknowns,
+        "get_unknown_morph_keys",
+        lambda _cache, card_id: {"shared-morph"} if card_id in cards else set(),
     )
 
+    auto_tag = "auto-tag"
     am_config = SimpleNamespace(
-        evaluate_morph_inflection=True,
         recalc_offset_priority_decks=[],
-        recalc_number_of_morphs_to_offset=10,
-        recalc_due_offset=100,
+        tag_suspended_automatically=auto_tag,
     )
 
     handled_cards = OrderedDict((card_id, None) for card_id in cards)
+    modified_notes: dict[int, object] = {}
+    note_original_state: dict[int, tuple[list[str], list[str]]] = {}
 
-    result_first = recalc_main._add_offsets_to_new_cards(
+    recalc_main._add_offsets_to_new_cards(
         am_config=am_config,
         card_morph_map_cache={},
         already_modified_cards={},
         handled_cards=handled_cards,
+        modified_notes=modified_notes,
+        note_original_state=note_original_state,
     )
 
-    assert set(result_first.keys()) == {2, 3}
-    assert cards[1].due == 0
-    assert cards[2].due == 100
-    assert cards[3].due == 100
+    for card_id in (2, 3):
+        card = cards[card_id]
+        note = notes[card.nid]
+        assert card.queue == tags_and_queue_utils.suspended
+        assert auto_tag in note.tags
+        assert card.due == _MAX_SCORE
 
     handled_cards_second = OrderedDict((card_id, None) for card_id in cards)
+    modified_notes_second: dict[int, object] = {}
+    note_original_state_second: dict[int, tuple[list[str], list[str]]] = {}
+
     result_second = recalc_main._add_offsets_to_new_cards(
         am_config=am_config,
         card_morph_map_cache={},
         already_modified_cards={},
         handled_cards=handled_cards_second,
+        modified_notes=modified_notes_second,
+        note_original_state=note_original_state_second,
     )
 
     assert result_second == {}
-    assert cards[1].due == 0
-    assert cards[2].due == 100
-    assert cards[3].due == 100
+    assert modified_notes_second == {}
+
+
+def test_update_tags_auto_suspend_override() -> None:
+    am_config = SimpleNamespace(
+        tag_ready="ready",
+        tag_not_ready="not-ready",
+        tag_known_automatically="known-auto",
+        tag_known_manually="known-manual",
+        tag_fresh="fresh",
+        tag_suspended_automatically="auto-tag",
+    )
+
+    note = SimpleNamespace(id=1, tags=["ready"])
+    card = SimpleNamespace(queue=0, nid=note.id, due=42)
+
+    tags_and_queue_utils.update_tags_and_queue_of_new_card(
+        am_config=am_config,
+        note=note,
+        card=card,
+        unknowns=1,
+        has_learning_morphs=False,
+        force_auto_suspend=True,
+    )
+
+    assert card.queue == tags_and_queue_utils.suspended
+    assert "auto-tag" in note.tags
+    assert "ready" not in note.tags
+    assert "not-ready" in note.tags
+    assert card.due == _MAX_SCORE
+
+
+def test_force_auto_suspend_survives_offset(monkeypatch: pytest.MonkeyPatch) -> None:
+    auto_tag = "auto-tag"
+    card = SimpleNamespace(
+        id=1,
+        nid=1,
+        did=10,
+        due=_MAX_SCORE,
+        queue=tags_and_queue_utils.suspended,
+    )
+    note = SimpleNamespace(id=1, tags=[auto_tag], fields=[])
+
+    class FakeCol:
+        @staticmethod
+        def get_card(card_id: int) -> SimpleNamespace:
+            assert card_id == card.id
+            return card
+
+        @staticmethod
+        def get_note(note_id: int) -> SimpleNamespace:
+            assert note_id == note.id
+            return note
+
+        class Decks:
+            @staticmethod
+            def get(_did: int, default=None):
+                return default
+
+        decks = Decks()
+
+    monkeypatch.setattr(recalc_main, "mw", SimpleNamespace(col=FakeCol()))
+
+    am_config = SimpleNamespace(tag_suspended_automatically=auto_tag)
+    already_modified = {card.id: card}
+    earliest = {("m", "m", ""): card}
+    cards_with = {("m", "m", ""): {card.id}}
+    modified_notes = {note.id: note}
+    note_original_state = {note.id: (list(note.fields), list(note.tags))}
+
+    recalc_main._apply_offsets(
+        am_config=am_config,
+        already_modified_cards=already_modified,
+        earliest_due_card_for_unknown_morph=earliest,
+        cards_with_morph=cards_with,
+        modified_notes=modified_notes,
+        note_original_state=note_original_state,
+    )
+
+    assert card.queue == tags_and_queue_utils.suspended
+    assert card.due == _MAX_SCORE
+    assert auto_tag in note.tags
+
+
+def test_update_tags_of_review_cards_removes_auto_tag() -> None:
+    am_config = SimpleNamespace(
+        tag_ready="ready",
+        tag_not_ready="not-ready",
+        tag_fresh="fresh",
+        tag_suspended_automatically="auto-tag",
+    )
+
+    note = SimpleNamespace(tags=["auto-tag", "ready"], id=1)
+
+    tags_and_queue_utils.update_tags_of_review_cards(
+        am_config=am_config,
+        note=note,
+        has_learning_morphs=False,
+    )
+
+    assert "auto-tag" not in note.tags
+    assert "ready" not in note.tags

@@ -11,10 +11,7 @@ from aqt.utils import tooltip
 from . import prioritysieve_globals as am_globals
 from . import progress_utils
 from .prioritysieve_config import PrioritySieveConfig
-
-QUEUE_END_BASE_DUE = 2_000_000_000
-QUEUE_END_LIMIT = 2_047_000_000
-QUEUE_END_SPREAD = 10_000
+from .recalc.card_score import _MAX_SCORE
 
 suspended = CardQueue(-1)
 
@@ -25,6 +22,7 @@ def update_tags_and_queue_of_new_card(
     card: Card,
     unknowns: int,
     has_learning_morphs: bool,
+    force_auto_suspend: bool = False,
 ) -> None:
     # There are 3 different tags that we want recalc to update:
     # - am-ready
@@ -54,40 +52,43 @@ def update_tags_and_queue_of_new_card(
         if am_config.tag_fresh in note.tags:
             note.tags.remove(am_config.tag_fresh)
 
-    if unknowns == 0:
-        if am_config.known_entry_new_card_action == 'suspend':
-            card.queue = suspended
-            note.tags.append(am_config.tag_suspended_automatically)
-        else:
-            _move_new_card_to_end(card)
+    auto_suspended_tag = am_config.tag_suspended_automatically
 
+    should_auto_suspend = force_auto_suspend or unknowns == 0
+
+    if should_auto_suspend:
+        if auto_suspended_tag not in note.tags:
+            note.tags.append(auto_suspended_tag)
+        if card.queue != suspended:
+            card.queue = suspended
+        if card.due != _MAX_SCORE:
+            card.due = _MAX_SCORE
+    elif auto_suspended_tag in note.tags:
+        note.tags.remove(auto_suspended_tag)
+        if card.queue == suspended:
+            card.queue = CardQueue(0)
+
+    if unknowns == 0:
         if am_config.tag_known_manually in note.tags:
             _remove_exclusive_tags(note, mutually_exclusive_tags)
         elif am_config.tag_known_automatically not in note.tags:
             _remove_exclusive_tags(note, mutually_exclusive_tags)
             note.tags.append(am_config.tag_known_automatically)
     elif unknowns == 1:
-        if am_config.tag_ready not in note.tags:
+        if should_auto_suspend:
             _remove_exclusive_tags(note, mutually_exclusive_tags)
-            note.tags.append(am_config.tag_ready)
+            if am_config.tag_not_ready not in note.tags:
+                note.tags.append(am_config.tag_not_ready)
+        else:
+            if am_config.tag_ready not in note.tags:
+                _remove_exclusive_tags(note, mutually_exclusive_tags)
+                note.tags.append(am_config.tag_ready)
     else:
         if am_config.tag_not_ready not in note.tags:
             _remove_exclusive_tags(note, mutually_exclusive_tags)
             note.tags.append(am_config.tag_not_ready)
 
     _sanitize_tags(note)
-
-
-def _move_new_card_to_end(card: Card) -> None:
-    if card.queue == suspended:
-        return
-
-    offset = card.id % QUEUE_END_SPREAD
-    due_value = QUEUE_END_BASE_DUE + offset
-    if due_value > QUEUE_END_LIMIT:
-        due_value = QUEUE_END_LIMIT
-
-    card.due = due_value
 
 
 def _remove_exclusive_tags(note: Note, mutually_exclusive_tags: list[str]) -> None:
@@ -111,6 +112,9 @@ def update_tags_of_review_cards(
         note.tags.remove(am_config.tag_ready)
     elif am_config.tag_not_ready in note.tags:
         note.tags.remove(am_config.tag_not_ready)
+
+    if am_config.tag_suspended_automatically in note.tags:
+        note.tags.remove(am_config.tag_suspended_automatically)
 
     if has_learning_morphs:
         if am_config.tag_fresh not in note.tags:
