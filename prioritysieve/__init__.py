@@ -340,6 +340,8 @@ def recalc_on_sync() -> None:
 
     am_config = PrioritySieveConfig()
 
+    extra_settings = PrioritySieveExtraSettings()
+
     current_state_json: str | None = None
     try:
         current_state = recalc_main.compute_modify_filters_state()
@@ -348,8 +350,7 @@ def recalc_on_sync() -> None:
         print(
             f"PrioritySieve: running pre-sync recalc (state snapshot failed: {error})"
         )
-
-    extra_settings = PrioritySieveExtraSettings()
+        current_state_json = extra_settings.get_recalc_collection_state()
 
     if not am_config.recalc_on_sync:
         _state_before_sync_recalc = current_state_json
@@ -391,6 +392,8 @@ def recalc_on_sync() -> None:
 def recalc_after_sync(success: bool | None = None) -> None:
     global _state_before_sync_recalc
 
+    extra_settings = PrioritySieveExtraSettings()
+
     if success is False:
         _state_before_sync_recalc = None
         return
@@ -417,11 +420,26 @@ def recalc_after_sync(success: bool | None = None) -> None:
             _state_before_sync_recalc = None
         return
 
+    baseline_state = _state_before_sync_recalc
+    if baseline_state is None:
+        baseline_state = extra_settings.get_recalc_collection_state()
+
     if not am_config.recalc_after_sync:
+        if post_state_json is not None:
+            extra_settings.set_recalc_collection_state(post_state_json)
         _state_before_sync_recalc = post_state_json
         return
 
-    if _state_before_sync_recalc == post_state_json:
+    if baseline_state is None:
+        print(
+            "PrioritySieve: skipping post-sync recalc (no baseline state available)"
+        )
+        if post_state_json is not None:
+            extra_settings.set_recalc_collection_state(post_state_json)
+        _state_before_sync_recalc = post_state_json
+        return
+
+    if baseline_state == post_state_json:
         print(
             "PrioritySieve: skipping post-sync recalc (no changes downloaded)"
         )
@@ -434,7 +452,6 @@ def recalc_after_sync(success: bool | None = None) -> None:
     recalc_main.recalc()
 
     try:
-        extra_settings = PrioritySieveExtraSettings()
         updated_state = extra_settings.get_recalc_collection_state()
         if updated_state is None:
             updated_state = json.dumps(
