@@ -209,7 +209,7 @@
               <item>
                <widget class="QCheckBox" name="hideInflectionCheckBox">
                 <property name="text">
-                 <string>I</string>
+                 <string>V</string>
                 </property>
                </widget>
               </item>
@@ -238,7 +238,7 @@
                  </font>
                 </property>
                 <property name="text">
-                 <string>Toolbar counters (‘L’ and ‘I’) show:</string>
+                 <string>Toolbar counters (‘L’ and ‘V’) show:</string>
                 </property>
                </widget>
               </item>
