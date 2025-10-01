@@ -77,6 +77,12 @@ _updated_seen_morphs_for_profile: bool = False
 _state_before_sync_recalc: str | None = None
 
 
+def _schedule_followup_sync() -> None:
+    assert mw is not None
+    print("PrioritySieve: running follow-up sync after auto recalc")
+    mw.onSync()
+
+
 def main() -> None:
     # Support anki version 25.07.3 and above
     # Place hooks in the order they are executed
@@ -352,6 +358,8 @@ def recalc_on_sync() -> None:
         )
         current_state_json = extra_settings.get_recalc_collection_state()
 
+    recalc_main.set_followup_sync_callback(None)
+
     if not am_config.recalc_on_sync:
         _state_before_sync_recalc = current_state_json
         return
@@ -394,8 +402,11 @@ def recalc_after_sync(success: bool | None = None) -> None:
 
     extra_settings = PrioritySieveExtraSettings()
 
+    recalc_main.set_followup_sync_callback(None)
+
     if success is False:
         _state_before_sync_recalc = None
+        recalc_main.set_followup_sync_callback(None)
         return
 
     am_config = PrioritySieveConfig()
@@ -408,16 +419,18 @@ def recalc_after_sync(success: bool | None = None) -> None:
             print(
                 f"PrioritySieve: running post-sync recalc (state snapshot failed: {error})"
             )
+            recalc_main.set_followup_sync_callback(_schedule_followup_sync)
             recalc_main.recalc()
             try:
-                extra_settings = PrioritySieveExtraSettings()
                 _state_before_sync_recalc = (
                     extra_settings.get_recalc_collection_state()
                 )
             except Exception:  # pylint:disable=broad-except
                 _state_before_sync_recalc = None
+            return
         else:
             _state_before_sync_recalc = None
+            recalc_main.set_followup_sync_callback(None)
         return
 
     baseline_state = _state_before_sync_recalc
@@ -428,6 +441,7 @@ def recalc_after_sync(success: bool | None = None) -> None:
         if post_state_json is not None:
             extra_settings.set_recalc_collection_state(post_state_json)
         _state_before_sync_recalc = post_state_json
+        recalc_main.set_followup_sync_callback(None)
         return
 
     if baseline_state is None:
@@ -437,6 +451,7 @@ def recalc_after_sync(success: bool | None = None) -> None:
         if post_state_json is not None:
             extra_settings.set_recalc_collection_state(post_state_json)
         _state_before_sync_recalc = post_state_json
+        recalc_main.set_followup_sync_callback(None)
         return
 
     if baseline_state == post_state_json:
@@ -444,11 +459,13 @@ def recalc_after_sync(success: bool | None = None) -> None:
             "PrioritySieve: skipping post-sync recalc (no changes downloaded)"
         )
         _state_before_sync_recalc = post_state_json
+        recalc_main.set_followup_sync_callback(None)
         return
 
     print(
         "PrioritySieve: running post-sync recalc (sync changed relevant cards)"
     )
+    recalc_main.set_followup_sync_callback(_schedule_followup_sync)
     recalc_main.recalc()
 
     try:

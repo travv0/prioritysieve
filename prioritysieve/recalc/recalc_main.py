@@ -46,6 +46,12 @@ _last_modified_cards_count: int = 0
 _last_modified_notes_count: int = 0
 _recent_card_diffs: list[str] = []
 _recent_note_diffs: list[str] = []
+_followup_sync_callback: Callable[[], None] | None = None
+
+
+def set_followup_sync_callback(callback: Callable[[], None] | None) -> None:
+    global _followup_sync_callback
+    _followup_sync_callback = callback
 
 
 def _get_filter_identifier(config_filter: PrioritySieveConfigFilter) -> str:
@@ -676,6 +682,14 @@ def _on_success(_start_time: float) -> None:
     mw.toolbar.draw()  # updates stats
     mw.progress.finish()
 
+    if _followup_sync_callback is not None:
+        callback = _followup_sync_callback
+        set_followup_sync_callback(None)
+        try:
+            callback()
+        except Exception as error:  # pylint:disable=broad-except
+            print(f"PrioritySieve: follow-up sync callback failed ({error})")
+
     if _last_modified_cards_count or _last_modified_notes_count:
         message = (
             "Finished Recalc – updated "
@@ -716,6 +730,8 @@ def _on_failure(  # pylint:disable=too-many-branches
     # This function runs on the main thread.
     assert mw is not None
     assert mw.progress is not None
+
+    set_followup_sync_callback(None)
 
     if not before_query_op:
         mw.progress.finish()
