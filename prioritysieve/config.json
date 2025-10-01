@@ -68,7 +68,7 @@
   "read_known_morphs_folder": false,
   "recalc_due_offset": 500000,
   "recalc_number_of_morphs_to_offset": 100,
-  "recalc_offset_priority_deck": "",
+  "recalc_offset_priority_decks": [],
   "known_entry_new_card_action": "move",
   "recalc_offset_new_cards": false,
   "recalc_on_sync": false,

@@ -23,9 +23,6 @@ def compute_due_from_priorities(
         key = (lemma, lemma, reading)
         value = morph_priorities.get(key)
 
-        if value is None and reading:
-            value = morph_priorities.get((lemma, lemma, ""))
-
         if value is not None:
             priorities.append(value)
 

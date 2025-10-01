@@ -950,37 +950,93 @@
               </item>
             </layout>
            </item>
-           <item>
-            <layout class="QHBoxLayout" name="horizontalLayout_priorityDeck">
-             <item>
-              <widget class="QLabel" name="label_priorityDeck">
-               <property name="text">
-                <string>Prefer deck for unshifted card:</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QLineEdit" name="priorityDeckLineEdit">
-               <property name="placeholderText">
-                <string>Exact deck name (leave blank to disable)</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <spacer name="horizontalSpacer_priorityDeck">
-               <property name="orientation">
-                <enum>Qt::Horizontal</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>40</width>
-                 <height>20</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
-            </layout>
-           </item>
+          <item>
+           <layout class="QVBoxLayout" name="verticalLayout_priorityDecks">
+            <item>
+             <widget class="QLabel" name="label_priorityDeck">
+              <property name="text">
+               <string>Deck priority for unshifted card:</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="priorityDecksHintLabel">
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+              <property name="text">
+               <string>Decks shown here currently contain cards from the configured note types. Higher items are preferred when preventing due date shifts.</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_priorityDecks">
+              <item>
+               <widget class="QListWidget" name="priorityDecksListWidget">
+                <property name="selectionMode">
+                 <enum>QAbstractItemView::SingleSelection</enum>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <layout class="QVBoxLayout" name="verticalLayout_priorityDeckButtons">
+                <item>
+                 <widget class="QPushButton" name="priorityDeckMoveUpButton">
+                  <property name="text">
+                   <string>Move Up</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QPushButton" name="priorityDeckMoveDownButton">
+                  <property name="text">
+                   <string>Move Down</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <spacer name="verticalSpacer_priorityDeckButtons">
+                  <property name="orientation">
+                   <enum>Qt::Vertical</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>20</width>
+                    <height>40</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+               </layout>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_priorityDeckActions">
+              <item>
+               <widget class="QPushButton" name="priorityDeckRefreshButton">
+                <property name="text">
+                 <string>Refresh Deck List</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="horizontalSpacer_priorityDeck">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </item>
           </layout>
          </widget>
          </item>

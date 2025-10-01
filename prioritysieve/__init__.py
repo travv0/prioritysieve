@@ -60,6 +60,7 @@ from .highlighting.highlight_just_in_time import highlight_morphs_jit
 from .known_morphs_exporter import KnownMorphsExporterDialog
 from .morphemizers import spacy_wrapper
 from .progression.progression_window import ProgressionWindow
+from .reading_utils import normalize_reading
 from .recalc import recalc_main
 from .settings import settings_dialog
 from .settings.settings_dialog import SettingsDialog
@@ -621,11 +622,15 @@ def find_entries_missing_priority_lists() -> None:
             continue
 
         lemma, reading = entry_key
-        normalized_reading = reading or ""
+        normalized_reading = normalize_reading(reading)
         key_exact = (lemma, lemma, normalized_reading)
-        key_fallback = (lemma, lemma, "")
+        has_priority = key_exact in priority_keys
 
-        if key_exact in priority_keys or key_fallback in priority_keys:
+        if not normalized_reading:
+            key_fallback = (lemma, lemma, "")
+            has_priority = has_priority or key_fallback in priority_keys
+
+        if has_priority:
             continue
 
         missing_entries[entry_key] = active_cards

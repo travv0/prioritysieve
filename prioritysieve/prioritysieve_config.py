@@ -91,7 +91,8 @@ class RawConfigKeys:
     RECALC_OFFSET_NEW_CARDS = "recalc_offset_new_cards"
     RECALC_DUE_OFFSET = "recalc_due_offset"
     RECALC_NUMBER_OF_MORPHS_TO_OFFSET = "recalc_number_of_morphs_to_offset"
-    RECALC_OFFSET_PRIORITY_DECK = "recalc_offset_priority_deck"
+    RECALC_OFFSET_PRIORITY_DECKS = "recalc_offset_priority_decks"
+    LEGACY_RECALC_OFFSET_PRIORITY_DECK = "recalc_offset_priority_deck"
     KNOWN_ENTRY_NEW_CARD_ACTION = "known_entry_new_card_action"
     READ_KNOWN_MORPHS_FOLDER = "read_known_morphs_folder"
     TOOLBAR_STATS_USE_KNOWN = "toolbar_stats_use_known"
@@ -441,10 +442,8 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-m
                 expected_type=int,
                 use_default=is_default,
             )
-            self.recalc_offset_priority_deck: str = self._get_config_item(
-                key=RawConfigKeys.RECALC_OFFSET_PRIORITY_DECK,
-                expected_type=str,
-                use_default=is_default,
+            self.recalc_offset_priority_decks: list[str] = self._get_priority_deck_list(
+                is_default
             )
             self.tag_fresh: str = self._get_config_item(
                 key=RawConfigKeys.TAG_FRESH, expected_type=str, use_default=is_default
@@ -751,6 +750,62 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-m
         source.pop(suspend_key, None)
         source.pop(move_key, None)
         return action
+
+    def _get_priority_deck_list(self, is_default: bool) -> list[str]:
+        key = RawConfigKeys.RECALC_OFFSET_PRIORITY_DECKS
+        legacy_key = RawConfigKeys.LEGACY_RECALC_OFFSET_PRIORITY_DECK
+        source = self._default_config_dict if is_default else self._config_dict
+
+        def sanitize(decks: list[object]) -> list[str]:
+            sanitized: list[str] = []
+            seen: set[str] = set()
+            for deck in decks:
+                if not isinstance(deck, str):
+                    continue
+                trimmed = deck.strip()
+                if not trimmed or trimmed in seen:
+                    continue
+                sanitized.append(trimmed)
+                seen.add(trimmed)
+            return sanitized
+
+        if key in source:
+            decks = source[key]
+            assert isinstance(decks, list)
+            sanitized = sanitize(decks)
+            if not is_default and sanitized != decks:
+                self._persist_priority_decks(sanitized)
+                source[key] = sanitized
+            return sanitized
+
+        if not is_default and legacy_key in source:
+            legacy_value = source.get(legacy_key)
+            legacy_list: list[object] = []
+            if isinstance(legacy_value, str):
+                trimmed = legacy_value.strip()
+                if trimmed:
+                    legacy_list = [trimmed]
+            sanitized_legacy = sanitize(legacy_list)
+            self._persist_priority_decks(sanitized_legacy)
+            source[key] = sanitized_legacy
+            source.pop(legacy_key, None)
+            return sanitized_legacy
+
+        default_value = self._default_config_dict.get(key, [])
+        assert isinstance(default_value, list)
+        sanitized_default = sanitize(default_value)
+        if not is_default:
+            self._persist_priority_decks(sanitized_default)
+            source[key] = sanitized_default
+        return sanitized_default
+
+    def _persist_priority_decks(self, decks: list[str]) -> None:
+        assert mw is not None
+        config = get_config_dict()
+        config[RawConfigKeys.RECALC_OFFSET_PRIORITY_DECKS] = decks
+        config.pop(RawConfigKeys.LEGACY_RECALC_OFFSET_PRIORITY_DECK, None)
+        mw.addonManager.writeConfig(__name__, config)
+        save_config_to_am_file(config)
 
     def _get_config_item(
         self,

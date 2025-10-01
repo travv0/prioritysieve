@@ -527,7 +527,7 @@ def test_add_offsets_priority_deck(monkeypatch: pytest.MonkeyPatch) -> None:
 
     am_config = SimpleNamespace(
         evaluate_morph_inflection=True,
-        recalc_offset_priority_deck="PriorityDeck",
+        recalc_offset_priority_decks=["PriorityDeck"],
         recalc_number_of_morphs_to_offset=10,
         recalc_due_offset=100,
     )
