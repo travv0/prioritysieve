@@ -543,6 +543,86 @@ def test_add_offsets_priority_deck(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     assert set(result.keys()) == {1, 3}
-    assert cards[1].due == 110
+    assert cards[1].due == 150
     assert cards[2].due == 50
-    assert cards[3].due == 120
+    assert cards[3].due == 150
+
+
+def test_add_offsets_idempotent(monkeypatch: pytest.MonkeyPatch) -> None:
+    cards = {
+        1: SimpleNamespace(id=1, did=10, due=0),
+        2: SimpleNamespace(id=2, did=10, due=0),
+        3: SimpleNamespace(id=3, did=10, due=0),
+    }
+
+    class FakeDecks:
+        def get(self, did: int, default: dict[str, str] | None = None) -> dict[str, str] | None:
+            return default
+
+    fake_col = SimpleNamespace(
+        get_card=lambda card_id: cards[card_id],
+        decks=FakeDecks(),
+    )
+    fake_mw = SimpleNamespace(col=fake_col)
+
+    monkeypatch.setattr(recalc_main, "mw", fake_mw)
+    monkeypatch.setattr(
+        recalc_main.progress_utils,
+        "background_update_progress_potentially_cancel",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        recalc_main.progress_utils,
+        "background_update_progress",
+        lambda *args, **kwargs: None,
+    )
+
+    def _fake_unknowns(_card_morph_map_cache: dict[int, object], card_id: int) -> set[str]:
+        if card_id in cards:
+            return {"shared-morph"}
+        return set()
+
+    monkeypatch.setattr(
+        recalc_main.CardMorphsMetrics,
+        "get_unknown_inflections",
+        _fake_unknowns,
+    )
+    monkeypatch.setattr(
+        recalc_main.CardMorphsMetrics,
+        "get_unknown_lemmas",
+        _fake_unknowns,
+    )
+
+    am_config = SimpleNamespace(
+        evaluate_morph_inflection=True,
+        recalc_offset_priority_decks=[],
+        recalc_number_of_morphs_to_offset=10,
+        recalc_due_offset=100,
+    )
+
+    handled_cards = OrderedDict((card_id, None) for card_id in cards)
+
+    result_first = recalc_main._add_offsets_to_new_cards(
+        am_config=am_config,
+        card_morph_map_cache={},
+        already_modified_cards={},
+        handled_cards=handled_cards,
+    )
+
+    assert set(result_first.keys()) == {2, 3}
+    assert cards[1].due == 0
+    assert cards[2].due == 100
+    assert cards[3].due == 100
+
+    handled_cards_second = OrderedDict((card_id, None) for card_id in cards)
+    result_second = recalc_main._add_offsets_to_new_cards(
+        am_config=am_config,
+        card_morph_map_cache={},
+        already_modified_cards={},
+        handled_cards=handled_cards_second,
+    )
+
+    assert result_second == {}
+    assert cards[1].due == 0
+    assert cards[2].due == 100
+    assert cards[3].due == 100

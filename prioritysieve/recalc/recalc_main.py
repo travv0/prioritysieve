@@ -407,29 +407,20 @@ def _apply_offsets(
         all_new_cards_with_morph = cards_with_morph[_unknown_morph]
         all_new_cards_with_morph.remove(earliest_due_card.id)
 
+        base_card = already_modified_cards.get(earliest_due_card.id, earliest_due_card)
+        base_due = base_card.due
+        target_due = min(base_due + am_config.recalc_due_offset, _MAX_SCORE)
+
         for card_id in all_new_cards_with_morph:
-            _card = mw.col.get_card(card_id)
-            score_and_offset: int | None = None
+            existing_card = already_modified_cards.get(card_id)
+            if existing_card is None:
+                existing_card = mw.col.get_card(card_id)
 
-            # we don't want to offset the card due if it has already been offset previously
-            if card_id in already_modified_cards:
-                # limit to _MAX_SCORE to prevent integer overflow
-                score_and_offset = min(
-                    already_modified_cards[card_id].due + am_config.recalc_due_offset,
-                    _MAX_SCORE,
-                )
-                if _card.due == score_and_offset:
-                    del already_modified_cards[card_id]
-                    continue
+            if existing_card.due >= target_due:
+                continue
 
-            if score_and_offset is None:
-                score_and_offset = min(
-                    _card.due + am_config.recalc_due_offset,
-                    _MAX_SCORE,
-                )
-
-            _card.due = score_and_offset
-            modified_offset_cards[card_id] = _card
+            existing_card.due = target_due
+            modified_offset_cards[card_id] = existing_card
 
     return modified_offset_cards
 
