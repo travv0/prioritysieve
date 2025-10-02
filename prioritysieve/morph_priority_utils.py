@@ -4,6 +4,8 @@ import csv
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
+from types import MappingProxyType
+import threading
 
 from aqt import mw
 
@@ -75,6 +77,9 @@ def _normalize_priority_selections(
 
     return normalized
 
+_PRIORITY_FILE_CACHE: dict[str, tuple[int, dict[tuple[str, str, str], int]]] = {}
+_PRIORITY_CACHE_LOCK = threading.Lock()
+
 
 def _load_morph_priorities_from_file(
     priority_file_name: str,
@@ -87,13 +92,31 @@ def _load_morph_priorities_from_file(
     )
 
     try:
+        mtime_ns = priority_file_path.stat().st_mtime_ns
+    except FileNotFoundError as exc:
+        raise PriorityFileNotFoundException(str(priority_file_path)) from exc
+
+    with _PRIORITY_CACHE_LOCK:
+        cached = _PRIORITY_FILE_CACHE.get(priority_file_name)
+        if cached is not None and cached[0] == mtime_ns:
+            return cached[1]
+
+    try:
         with open(priority_file_path, encoding='utf-8') as csvfile:
             morph_reader = csv.reader(csvfile, delimiter=',')
             headers = next(morph_reader, None)
             meta = _parse_headers(priority_file_path, headers)
-            return _extract_priorities(priority_file_path, morph_reader, meta)
+            priorities = _extract_priorities(priority_file_path, morph_reader, meta)
     except FileNotFoundError as exc:
         raise PriorityFileNotFoundException(str(priority_file_path)) from exc
+
+    with _PRIORITY_CACHE_LOCK:
+        _PRIORITY_FILE_CACHE[priority_file_name] = (
+            mtime_ns,
+            MappingProxyType(priorities),
+        )
+
+    return priorities
 
 
 def _parse_headers(

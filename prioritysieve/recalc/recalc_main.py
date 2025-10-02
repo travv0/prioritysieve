@@ -294,11 +294,12 @@ def _update_cards_and_notes(  # pylint:disable=too-many-locals, too-many-stateme
     am_db = PrioritySieveDB()
     model_manager: ModelManager = mw.col.models
     card_morph_map_cache: dict[int, list[Morpheme]] = am_db.get_card_morph_map_cache()
-    handled_cards: dict[CardId, None] = {}  # we only care about the key lookup
+    handled_cards: dict[CardId, Card] = {}  # reuse card objects across passes
     modified_cards: dict[CardId, Card] = {}
     modified_notes: dict[int, Note] = {}
     card_original_state: dict[CardId, tuple[int, int]] = {}
     note_original_state: dict[int, tuple[list[str], list[str]]] = {}
+    notes_cache: dict[int, Note] = {}
 
     global _recent_card_diffs
     global _recent_note_diffs
@@ -345,16 +346,24 @@ def _update_cards_and_notes(  # pylint:disable=too-many-locals, too-many-stateme
                 continue
 
             card: Card = mw.col.get_card(card_id)
-            note: Note = card.note()
+            note_id = card.nid
+            note: Note | None = notes_cache.get(note_id)
+            if note is None:
+                note = card.note()
+                notes_cache[note_id] = note
 
             # make sure to get the values and not references
             original_due: int = int(card.due)
             original_queue: int = int(card.queue)  # queue: suspended, buried, etc.
-            original_fields: list[str] = note.fields.copy()
-            original_tags: list[str] = note.tags.copy()
 
             card_original_state.setdefault(card_id, (original_due, original_queue))
-            note_original_state.setdefault(note.id, (original_fields, original_tags))
+
+            if note.id not in note_original_state:
+                note_original_state[note.id] = (
+                    note.fields.copy(),
+                    note.tags.copy(),
+                )
+            original_fields, original_tags = note_original_state[note.id]
 
             cards_morph_metrics = CardMorphsMetrics(
                 am_config,
@@ -413,7 +422,7 @@ def _update_cards_and_notes(  # pylint:disable=too-many-locals, too-many-stateme
             if original_fields != note.fields or original_tags != note.tags:
                 modified_notes.setdefault(note.id, note)
 
-            handled_cards[card_id] = None  # this marks the card as handled
+            handled_cards[card_id] = card  # this marks the card as handled
 
     am_db.con.close()
 
@@ -424,6 +433,7 @@ def _update_cards_and_notes(  # pylint:disable=too-many-locals, too-many-stateme
         handled_cards=handled_cards,
         modified_notes=modified_notes,
         note_original_state=note_original_state,
+        notes_cache=notes_cache,
     )
 
     final_modified_cards: dict[CardId, Card] = {}
@@ -471,9 +481,10 @@ def _add_offsets_to_new_cards(
     am_config: PrioritySieveConfig,
     card_morph_map_cache: dict[int, list[Morpheme]],
     already_modified_cards: dict[CardId, Card],
-    handled_cards: dict[CardId, None],
+    handled_cards: dict[CardId, Card],
     modified_notes: dict[int, Note],
     note_original_state: dict[int, tuple[list[str], list[str]]],
+    notes_cache: dict[int, Note],
 ) -> dict[CardId, Card]:
     assert mw is not None
 
@@ -502,7 +513,7 @@ def _add_offsets_to_new_cards(
         return deck_priority_lookup.get(deck_name, default_priority)
 
     card_amount = len(handled_cards)
-    for counter, card_id in enumerate(handled_cards):
+    for counter, (card_id, card) in enumerate(handled_cards.items()):
         progress_utils.background_update_progress_potentially_cancel(
             label=f"Potentially offsetting cards<br>card: {counter} of {card_amount}",
             counter=counter,
@@ -518,7 +529,6 @@ def _add_offsets_to_new_cards(
             continue
 
         unknown_morph = card_unknown_morphs.pop()
-        card = mw.col.get_card(card_id)
         card_due = card.due
 
         lowest_due = lowest_due_for_unknown_morph.get(unknown_morph)
@@ -562,6 +572,8 @@ def _add_offsets_to_new_cards(
         cards_with_morph=cards_with_morph,
         modified_notes=modified_notes,
         note_original_state=note_original_state,
+        handled_cards=handled_cards,
+        notes_cache=notes_cache,
     )
 
     # combine the "lists" of cards we want to modify
@@ -575,6 +587,8 @@ def _apply_offsets(
     cards_with_morph: dict[tuple[str, str, str], set[CardId]],
     modified_notes: dict[int, Note],
     note_original_state: dict[int, tuple[list[str], list[str]]],
+    handled_cards: dict[CardId, Card],
+    notes_cache: dict[int, Note],
 ) -> dict[CardId, Card]:
     assert mw is not None
 
@@ -590,7 +604,10 @@ def _apply_offsets(
     def _ensure_note(card: Card) -> Note:
         note = modified_notes.get(card.nid)
         if note is None:
+            note = notes_cache.get(card.nid)
+        if note is None:
             note = mw.col.get_note(card.nid)
+            notes_cache[card.nid] = note
         note_original_state.setdefault(note.id, (list(note.fields), list(note.tags)))
         return note
 
@@ -630,6 +647,8 @@ def _apply_offsets(
 
         for card_id in remaining_cards:
             existing_card = already_modified_cards.get(card_id)
+            if existing_card is None:
+                existing_card = handled_cards.get(card_id)
             if existing_card is None:
                 existing_card = mw.col.get_card(card_id)
 
