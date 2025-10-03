@@ -114,7 +114,10 @@ def _collect_filters_state(
 
         card_stats = mw.col.db.first(
             f"""
-            SELECT COUNT(cards.id), COALESCE(MAX(cards.mod), 0)
+            SELECT
+                COUNT(cards.id),
+                COALESCE(MAX(cards.mod), 0),
+                COALESCE(MAX(cards.id), 0)
             FROM cards
             JOIN notes ON notes.id = cards.nid
             WHERE {where_sql}
@@ -124,7 +127,10 @@ def _collect_filters_state(
 
         note_stats = mw.col.db.first(
             f"""
-            SELECT COUNT(notes.id), COALESCE(MAX(notes.mod), 0)
+            SELECT
+                COUNT(notes.id),
+                COALESCE(MAX(notes.mod), 0),
+                COALESCE(MAX(notes.id), 0)
             FROM notes
             WHERE {where_sql}
             """,
@@ -134,25 +140,52 @@ def _collect_filters_state(
         if card_stats is None or note_stats is None:
             continue
 
-        card_count, card_max_mod = card_stats
-        note_count, note_max_mod = note_stats
+        card_count, card_max_mod, card_max_id = card_stats
+        note_count, note_max_mod, note_max_id = note_stats
 
         state.append(
             {
                 "id": _get_filter_identifier(config_filter),
                 "card_count": int(card_count),
                 "card_max_mod": int(card_max_mod),
+                "card_max_id": int(card_max_id),
                 "note_count": int(note_count),
                 "note_max_mod": int(note_max_mod),
+                "note_max_id": int(note_max_id),
             }
         )
 
     state.sort(key=lambda entry: entry["id"])
     return state
 
+def _filters_requiring_state_snapshot() -> list[PrioritySieveConfigFilter]:
+    """Return unique filters whose cards/notes affect recalc state checks."""
+
+    # Filters with 'modify' enabled always participate because recalc may
+    # mutate their cards. We also include 'read'-only filters so changes in the
+    # underlying collection trigger cache rebuilds for users that disabled the
+    # modify option (e.g., to avoid extra-field writes).
+    combined_filters = (
+        prioritysieve_config.get_modify_enabled_filters()
+        + prioritysieve_config.get_read_enabled_filters()
+    )
+
+    unique_filters: list[PrioritySieveConfigFilter] = []
+    seen_ids: set[str] = set()
+
+    for config_filter in combined_filters:
+        identifier = _get_filter_identifier(config_filter)
+        if identifier in seen_ids:
+            continue
+        seen_ids.add(identifier)
+        unique_filters.append(config_filter)
+
+    return unique_filters
+
+
 def compute_modify_filters_state() -> list[dict[str, int | str]]:
-    modify_filters = prioritysieve_config.get_modify_enabled_filters()
-    return _collect_filters_state(modify_filters)
+    filters = _filters_requiring_state_snapshot()
+    return _collect_filters_state(filters)
 
 def recalc() -> None:
     ################################################################
