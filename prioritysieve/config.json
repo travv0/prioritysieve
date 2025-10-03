@@ -40,6 +40,7 @@
       "field": "(none)",
       "furigana_field": "(none)",
       "reading_field": "(none)",
+      "reading_priority": "Furigana first",
       "modify": true,
       "morph_priority_selection": [],
       "morphemizer_description": "(none)",

@@ -87,6 +87,7 @@ def cache_anki_data(  # pylint:disable=too-many-locals, too-many-branches, too-m
                 am_config=am_config,
                 card_data=cards_data_dict[key],
                 processed_morphs=processed_morphs,
+                reading_priority=config_filter.reading_priority,
             )
             cards_data_dict[key].morphs = set(morphs_with_readings)
 
@@ -158,6 +159,7 @@ def _assign_readings_to_morphs(
     am_config: PrioritySieveConfig,
     card_data: AnkiCardData,
     processed_morphs: list[Morpheme],
+    reading_priority: str,
 ) -> list[Morpheme]:
     if not processed_morphs:
         return processed_morphs
@@ -190,7 +192,17 @@ def _assign_readings_to_morphs(
             raw_reading_tokens = [normalize_reading(token) for token in raw_reading_tokens]
             raw_reading_tokens = [token for token in raw_reading_tokens if token]
 
-    tokens = furigana_tokens if furigana_tokens else raw_reading_tokens
+    ordered_sources = (
+        [raw_reading_tokens, furigana_tokens]
+        if reading_priority == am_globals.READING_PRIORITY_READING_FIRST
+        else [furigana_tokens, raw_reading_tokens]
+    )
+
+    tokens: list[str] = []
+    for source in ordered_sources:
+        if source:
+            tokens = source
+            break
 
     if not tokens:
         if len(processed_morphs) == 1 and card_data.expression:

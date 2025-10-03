@@ -27,6 +27,10 @@ EXTRA_FIELD_READING: str = "ps-reading"
 NONE_OPTION = "(none)"
 COLLECTION_FREQUENCY_OPTION = "Collection frequency"
 
+# Reading source priority options in the note filter settings
+READING_PRIORITY_FURIGANA_FIRST = "Furigana first"
+READING_PRIORITY_READING_FIRST = "Reading first"
+
 # Combobox options for 'on recalc' in card-handling settings
 NEVER_OPTION = "Never"
 ONLY_KNOWN_OPTION = "If all entries are known"

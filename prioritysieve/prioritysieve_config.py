@@ -52,6 +52,7 @@ class RawConfigFilterKeys:
     FIELD = "field"
     FURIGANA_FIELD = "furigana_field"
     READING_FIELD = "reading_field"
+    READING_PRIORITY = "reading_priority"
     MORPHEMIZER_DESCRIPTION = "morphemizer_description"
     MORPH_PRIORITY_SELECTION = "morph_priority_selection"
     READ = "read"
@@ -152,6 +153,7 @@ class PrioritySieveConfigFilter:  # pylint:disable=too-many-instance-attributes
             self.reading_field: str = self._get_filter_item(
                 key=RawConfigFilterKeys.READING_FIELD, expected_type=str
             )
+            self.reading_priority: str = self._get_reading_priority()
             self.morphemizer_description: str = self._get_filter_item(
                 key=RawConfigFilterKeys.MORPHEMIZER_DESCRIPTION, expected_type=str
             )
@@ -240,6 +242,34 @@ class PrioritySieveConfigFilter:  # pylint:disable=too-many-instance-attributes
             prioritysieve_globals.new_config_found = True
 
         assert isinstance(value, bool)
+        return value
+
+
+    def _get_reading_priority(self) -> str:
+        default_value = self._default_config_dict[RawConfigKeys.FILTERS][0][
+            RawConfigFilterKeys.READING_PRIORITY
+        ]
+
+        if RawConfigFilterKeys.READING_PRIORITY in self._filter:
+            value = self._filter[RawConfigFilterKeys.READING_PRIORITY]
+        else:
+            value = default_value
+            self._filter[RawConfigFilterKeys.READING_PRIORITY] = value
+            prioritysieve_globals.new_config_found = True
+
+        if not isinstance(value, str):
+            value = default_value
+            self._filter[RawConfigFilterKeys.READING_PRIORITY] = value
+            prioritysieve_globals.new_config_found = True
+
+        if value not in (
+            prioritysieve_globals.READING_PRIORITY_FURIGANA_FIRST,
+            prioritysieve_globals.READING_PRIORITY_READING_FIRST,
+        ):
+            value = default_value
+            self._filter[RawConfigFilterKeys.READING_PRIORITY] = value
+            prioritysieve_globals.new_config_found = True
+
         return value
 
 

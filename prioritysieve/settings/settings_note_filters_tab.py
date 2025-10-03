@@ -169,9 +169,10 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
         self._note_filter_field_column: int = 2
         self._note_filter_furigana_field_column: int = 3
         self._note_filter_reading_field_column: int = 4
-        self._note_filter_morph_priority_column: int = 5
-        self._note_filter_read_column: int = 6
-        self._note_filter_modify_column: int = 7
+        self._note_filter_reading_priority_column: int = 5
+        self._note_filter_morph_priority_column: int = 6
+        self._note_filter_read_column: int = 7
+        self._note_filter_modify_column: int = 8
 
         headers = [
             "Note Type",
@@ -179,6 +180,7 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
             "Field",
             "Furigana Field",
             "Reading Field",
+            "Reading Priority",
             "Priority",
             "Read",
             "Modify",
@@ -258,6 +260,9 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
         )
         self.ui.note_filters_table.setColumnWidth(
             self._note_filter_reading_field_column, 150
+        )
+        self.ui.note_filters_table.setColumnWidth(
+            self._note_filter_reading_priority_column, 150
         )
         self.ui.note_filters_table.setColumnWidth(
             self._note_filter_morph_priority_column, 150
@@ -356,6 +361,11 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
                     row, self._note_filter_reading_field_column
                 )
             )
+            reading_priority_cbox: QComboBox = table_utils.get_combobox_widget(
+                self.ui.note_filters_table.cellWidget(
+                    row, self._note_filter_reading_priority_column
+                )
+            )
             priority_item: QTableWidgetItem | None = self.ui.note_filters_table.item(
                 row, self._note_filter_morph_priority_column
             )
@@ -396,6 +406,9 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
                 ),
                 RawConfigFilterKeys.READING_FIELD: reading_field_cbox.itemText(
                     reading_field_cbox.currentIndex()
+                ),
+                RawConfigFilterKeys.READING_PRIORITY: reading_priority_cbox.itemText(
+                    reading_priority_cbox.currentIndex()
                 ),
                 RawConfigFilterKeys.MORPHEMIZER_DESCRIPTION: prioritysieve_globals.NONE_OPTION,
                 RawConfigFilterKeys.MORPH_PRIORITY_SELECTION: morph_priority_selections,
@@ -479,6 +492,10 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
             selected_value=config_filter.reading_field,
         )
 
+        reading_priority_cbox = self._setup_reading_priority_cbox(
+            selected_value=config_filter.reading_priority
+        )
+
         # Fields are dependent on note-type
         note_type_cbox.currentIndexChanged.connect(
             lambda _: self._update_fields_cbox(field_cbox, note_type_cbox)
@@ -528,6 +545,9 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
             row, self._note_filter_reading_field_column, reading_field_cbox
         )
         self.ui.note_filters_table.setCellWidget(
+            row, self._note_filter_reading_priority_column, reading_priority_cbox
+        )
+        self.ui.note_filters_table.setCellWidget(
             row, self._note_filter_read_column, read_checkbox
         )
         self.ui.note_filters_table.setCellWidget(
@@ -542,6 +562,7 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
                 field_cbox,
                 furigana_field_cbox,
                 reading_field_cbox,
+                reading_priority_cbox,
                 None,
                 read_checkbox,
                 modify_checkbox,
@@ -665,6 +686,19 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
         if field_cbox_index is not None:
             field_cbox.setCurrentIndex(field_cbox_index)
         return field_cbox
+
+    def _setup_reading_priority_cbox(self, selected_value: str) -> QComboBox:
+        options = [
+            prioritysieve_globals.READING_PRIORITY_FURIGANA_FIRST,
+            prioritysieve_globals.READING_PRIORITY_READING_FIRST,
+        ]
+
+        priority_cbox = QComboBox(self.ui.note_filters_table)
+        priority_cbox.addItems(options)
+        selected_index = table_utils.get_combobox_index(options, selected_value)
+        if selected_index is not None:
+            priority_cbox.setCurrentIndex(selected_index)
+        return priority_cbox
 
     def _update_fields_cbox(
         self, field_cbox: QComboBox, note_type_cbox: QComboBox
