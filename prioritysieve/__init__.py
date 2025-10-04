@@ -29,11 +29,12 @@ from aqt.qt import (  # pylint:disable=no-name-in-module
     QDesktopServices,
     QDialog,
     QDialogButtonBox,
-    QInputDialog,
+    QFormLayout,
     QLabel,
     QKeySequence,
     QMenu,
     QPlainTextEdit,
+    QSpinBox,
     QWidget,
     QUrl,
     QVBoxLayout,
@@ -741,6 +742,12 @@ def show_missing_priority_cards() -> None:
     assert mw.col is not None
     assert mw.col.db is not None
 
+    range_dialog = PriorityRangeDialog(parent=mw)
+    if range_dialog.exec() != 1:
+        return
+
+    min_priority, max_priority = range_dialog.get_range()
+
     am_config = PrioritySieveConfig()
 
     selections: set[str] = set()
@@ -771,27 +778,23 @@ def show_missing_priority_cards() -> None:
         tooltip("Every configured priority entry already has a corresponding card.")
         return
 
-    total_missing = len(missing_entries)
-    default_limit = min(100, total_missing)
-    max_limit = max(total_missing, 1)
+    filtered_entries = [
+        entry
+        for entry in missing_entries
+        if min_priority <= entry[2] <= max_priority
+    ]
 
-    limit, ok = QInputDialog.getInt(
-        mw,
-        "Missing Priority Cards",
-        f"How many entries should be shown? (1-{max_limit})",
-        default_limit,
-        1,
-        max_limit,
-    )
-    if not ok:
+    if not filtered_entries:
+        tooltip(
+            f"No missing priority entries between {min_priority} and {max_priority}."
+        )
         return
-
-    entries_to_show = missing_entries[:limit]
 
     dialog = MissingPriorityEntriesDialog(
         parent=mw,
-        entries=entries_to_show,
-        total_missing=total_missing,
+        entries=filtered_entries,
+        total_missing=len(missing_entries),
+        priority_range=(min_priority, max_priority),
     )
     dialog.exec()
 
@@ -802,6 +805,7 @@ class MissingPriorityEntriesDialog(QDialog):
         parent: QWidget | None,
         entries: list[tuple[str, str, int]],
         total_missing: int,
+        priority_range: tuple[int, int],
     ) -> None:
         super().__init__(parent)
 
@@ -810,8 +814,12 @@ class MissingPriorityEntriesDialog(QDialog):
 
         layout = QVBoxLayout(self)
 
+        min_priority, max_priority = priority_range
         summary = QLabel(
-            f"Showing {len(entries)} of {total_missing} priority entries without matching cards."
+            (
+                f"Showing {len(entries)} missing priority entries with priority between {min_priority} and {max_priority}."
+                f"<br/>Total missing entries: {total_missing}."
+            )
         )
         summary.setWordWrap(True)
         layout.addWidget(summary)
@@ -836,6 +844,57 @@ class MissingPriorityEntriesDialog(QDialog):
             reading_suffix = f" [{reading}]" if reading else ""
             lines.append(f"{index}. {lemma}{reading_suffix} — priority {priority}")
         return "\n".join(lines)
+
+
+class PriorityRangeDialog(QDialog):
+    def __init__(
+        self,
+        parent: QWidget | None,
+        default_min: int = 0,
+        default_max: int = 1000,
+    ) -> None:
+        super().__init__(parent)
+
+        self.setWindowTitle("Missing Priority Cards – Range")
+        self.resize(320, 160)
+
+        layout = QVBoxLayout(self)
+
+        instructions = QLabel("Show entries whose computed priority falls within this inclusive range:")
+        instructions.setWordWrap(True)
+        layout.addWidget(instructions)
+
+        form_layout = QFormLayout()
+        self.min_spin = QSpinBox(self)
+        self.min_spin.setMinimum(0)
+        self.min_spin.setMaximum(2_147_483_647)
+        self.min_spin.setValue(default_min)
+
+        self.max_spin = QSpinBox(self)
+        self.max_spin.setMinimum(0)
+        self.max_spin.setMaximum(2_147_483_647)
+        self.max_spin.setValue(default_max)
+
+        form_layout.addRow("Minimum priority", self.min_spin)
+        form_layout.addRow("Maximum priority", self.max_spin)
+        layout.addLayout(form_layout)
+
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok
+            | QDialogButtonBox.StandardButton.Cancel,
+            self,
+        )
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
+    def accept(self) -> None:  # type: ignore[override]
+        if self.min_spin.value() > self.max_spin.value():
+            self.max_spin.setValue(self.min_spin.value())
+        super().accept()
+
+    def get_range(self) -> tuple[int, int]:
+        return self.min_spin.value(), self.max_spin.value()
 
 
 def find_entries_missing_priority_lists() -> None:
