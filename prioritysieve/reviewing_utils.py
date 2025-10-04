@@ -15,6 +15,7 @@ from aqt.reviewer import Reviewer
 from aqt.utils import tooltip
 
 from . import prioritysieve_config
+from .anki_op_utils import notify_op_execution
 from .prioritysieve_config import PrioritySieveConfig
 from .prioritysieve_db import PrioritySieveDB
 from .browser_utils import browse_same_morphs
@@ -125,10 +126,12 @@ def _get_next_card_background(
         ):
             break
 
-        mw.col.sched.buryCards([reviewer.card.id], manual=False)
+        bury_changes = mw.col.sched.bury_cards([reviewer.card.id], manual=False)
+        notify_op_execution(bury_changes)
 
         try:
-            mw.col.merge_undo_entries(undo_status.last_step)
+            merge_changes = mw.col.merge_undo_entries(undo_status.last_step)
+            notify_op_execution(merge_changes)
         except anki_errors.InvalidInput:
             # if we can't merge into the undo stack due to unusual entries
             # (e.g. unbury all cards button pressed), then we create
@@ -264,12 +267,15 @@ def _set_card_as_known_and_skip(am_config: PrioritySieveConfig) -> None:
     mw.col.add_custom_undo_entry(SET_KNOWN_AND_SKIP_UNDO_STRING)
     set_known_and_skip_undo_status = mw.col.undo_status()
 
-    mw.col.sched.buryCards([card.id], manual=False)
+    bury_changes = mw.col.sched.bury_cards([card.id], manual=False)
+    notify_op_execution(bury_changes)
 
     note.add_tag(am_config.tag_known_manually)
-    mw.col.update_note(note)
+    note_changes = mw.col.update_note(note)
+    notify_op_execution(note_changes)
 
-    mw.col.merge_undo_entries(set_known_and_skip_undo_status.last_step)
+    merge_changes = mw.col.merge_undo_entries(set_known_and_skip_undo_status.last_step)
+    notify_op_execution(merge_changes)
 
     with PrioritySieveDB() as am_db:
         am_db.update_seen_morphs_today_single_card(card.id)

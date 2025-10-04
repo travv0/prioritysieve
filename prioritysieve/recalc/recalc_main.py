@@ -12,6 +12,7 @@ from anki.notes import Note
 from aqt import mw
 from aqt.operations import QueryOp
 from aqt.utils import tooltip
+from ..anki_op_utils import notify_op_execution
 
 from .. import (
     prioritysieve_config,
@@ -502,8 +503,14 @@ def _update_cards_and_notes(  # pylint:disable=too-many-locals, too-many-stateme
         final_modified_notes[note_id] = note
 
     progress_utils.background_update_progress(label="Inserting into Anki collection")
-    mw.col.update_cards(list(final_modified_cards.values()))
-    mw.col.update_notes(list(final_modified_notes.values()))
+
+    if final_modified_cards:
+        card_changes = mw.col.update_cards(list(final_modified_cards.values()))
+        notify_op_execution(card_changes)
+
+    if final_modified_notes:
+        note_changes = mw.col.update_notes(list(final_modified_notes.values()))
+        notify_op_execution(note_changes)
 
     global _last_modified_cards_count
     global _last_modified_notes_count

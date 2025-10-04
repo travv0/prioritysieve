@@ -12,6 +12,7 @@ from . import prioritysieve_globals as am_globals
 from . import progress_utils
 from .prioritysieve_config import PrioritySieveConfig
 from .recalc.card_score import _MAX_SCORE
+from .anki_op_utils import notify_op_execution
 
 suspended = CardQueue(-1)
 
@@ -179,4 +180,6 @@ def _reset_am_tags_background_op() -> None:
             note.tags.remove(tag)
             modified_notes[note_id] = note
 
-    mw.col.update_notes(list(modified_notes.values()))
+    if modified_notes:
+        note_changes = mw.col.update_notes(list(modified_notes.values()))
+        notify_op_execution(note_changes)

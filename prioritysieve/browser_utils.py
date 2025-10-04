@@ -20,6 +20,7 @@ from aqt.utils import tooltip
 from . import prioritysieve_config, prioritysieve_globals
 from .prioritysieve_config import PrioritySieveConfig, PrioritySieveConfigFilter
 from .prioritysieve_db import PrioritySieveDB
+from .anki_op_utils import notify_op_execution
 from .ui.view_morphs_dialog_ui import Ui_ViewMorphsDialog
 
 browser: Browser | None = None
@@ -164,7 +165,8 @@ def run_already_known_tagger() -> None:
         card = mw.col.get_card(card_id)
         note = card.note()
         note.add_tag(known_tag)
-        mw.col.update_note(note)
+        note_changes = mw.col.update_note(note)
+        notify_op_execution(note_changes)
 
     tooltip(f"{len(selected_cards)} note(s) given the {known_tag} tag")
 
@@ -184,15 +186,17 @@ def run_learn_card_now() -> None:
     # We give the cards the 'learn-now' tag to make sure that they are
     # not skipped, even if other skip conditions are met.
     # Note: this is done in SkippedCards.process_skip_conditions_of_card()
-    mw.col.tags.bulk_add(note_ids, am_config.tag_learn_card_now)
+    tag_changes = mw.col.tags.bulk_add(note_ids, am_config.tag_learn_card_now)
+    notify_op_execution(tag_changes)
 
-    mw.col.sched.reposition_new_cards(
+    reposition_changes = mw.col.sched.reposition_new_cards(
         selected_cards,
         starting_from=0,
         step_size=0,  # we want all the selected cards to be placed in the same position
         randomize=False,
         shift_existing=False,  # shifting exiting causes a full sync, which is terrible
     )
+    notify_op_execution(reposition_changes)
 
     mw.moveToState("review")
     mw.activateWindow()
