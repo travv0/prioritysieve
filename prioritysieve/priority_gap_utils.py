@@ -41,7 +41,7 @@ def find_missing_priority_entries(
     card_morph_map_cache = am_db.get_card_morph_map_cache()
     exact_keys, lemma_only = _build_existing_priority_keys(card_morph_map_cache)
 
-    missing_entries: list[tuple[str, str, int]] = []
+    aggregated: dict[tuple[str, str], int] = {}
 
     for key, priority in priority_map.items():
         if key in exact_keys:
@@ -51,7 +51,16 @@ def find_missing_priority_entries(
         if not reading and lemma in lemma_only:
             continue
 
-        missing_entries.append((lemma, reading, priority))
+        display_reading = reading if reading and reading != lemma else ""
+        dedup_key = (lemma, display_reading)
+        existing_priority = aggregated.get(dedup_key)
+        if existing_priority is None or priority < existing_priority:
+            aggregated[dedup_key] = priority
+
+    missing_entries = [
+        (lemma, display_reading, priority)
+        for (lemma, display_reading), priority in aggregated.items()
+    ]
 
     missing_entries.sort(key=lambda entry: (entry[2], entry[0], entry[1]))
     return missing_entries
