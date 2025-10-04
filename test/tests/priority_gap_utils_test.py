@@ -31,6 +31,8 @@ def test_find_missing_priority_entries_respects_priority_order(monkeypatch: pyte
         ("lemmaOnly", "lemmaOnly", ""): 3,
         ("kana", "kana", ""): 4,
         ("kana", "kana", "kana"): 4,
+        ("kanji", "kanji", ""): 6,
+        ("kanji", "kanji", "かな"): 3,
     }
 
     monkeypatch.setattr(
@@ -47,6 +49,7 @@ def test_find_missing_priority_entries_respects_priority_order(monkeypatch: pyte
 
     assert missing == [
         ("missingExact", "abc", 2),
+        ("kanji", "かな", 3),
         ("kana", "", 4),
         ("missing", "", 5),
     ]
