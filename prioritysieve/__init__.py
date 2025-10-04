@@ -27,9 +27,16 @@ from aqt.overview import Overview
 from aqt.qt import (  # pylint:disable=no-name-in-module
     QAction,
     QDesktopServices,
+    QDialog,
+    QDialogButtonBox,
+    QInputDialog,
+    QLabel,
     QKeySequence,
     QMenu,
+    QPlainTextEdit,
+    QWidget,
     QUrl,
+    QVBoxLayout,
 )
 from aqt.reviewer import Reviewer
 from aqt.toolbar import Toolbar
@@ -44,6 +51,7 @@ from . import (
     browser_utils,
     debug_utils,
     message_box_utils,
+    priority_gap_utils,
     morph_priority_utils,
     name_file_utils,
     reviewing_utils,
@@ -259,6 +267,7 @@ def init_tool_menu_and_actions() -> None:
     known_morphs_exporter_action = create_known_morphs_exporter_action(am_config)
     reset_tags_action = create_tag_reset_action()
     duplicate_entries_action = create_duplicate_entries_action()
+    missing_priority_cards_action = create_missing_priority_cards_action()
     missing_priority_entries_action = create_missing_priority_entries_action()
     guide_action = create_guide_action()
     changelog_action = create_changelog_action()
@@ -271,6 +280,7 @@ def init_tool_menu_and_actions() -> None:
     am_tool_menu.addAction(known_morphs_exporter_action)
     am_tool_menu.addAction(reset_tags_action)
     am_tool_menu.addAction(duplicate_entries_action)
+    am_tool_menu.addAction(missing_priority_cards_action)
     am_tool_menu.addAction(missing_priority_entries_action)
     am_tool_menu.addAction(guide_action)
     am_tool_menu.addAction(changelog_action)
@@ -726,6 +736,107 @@ def find_duplicate_non_new_entry_cards() -> None:
 
 
 
+def show_missing_priority_cards() -> None:
+    assert mw is not None
+    assert mw.col is not None
+    assert mw.col.db is not None
+
+    am_config = PrioritySieveConfig()
+
+    selections: set[str] = set()
+    for config_filter in am_config.filters:
+        selections.update(config_filter.morph_priority_selections)
+
+    normalized_selections = [
+        selection
+        for selection in selections
+        if selection and selection != ps_globals.NONE_OPTION
+    ]
+
+    if not normalized_selections:
+        tooltip("No priority lists configured in PrioritySieve settings.")
+        return
+
+    try:
+        with PrioritySieveDB() as am_db:
+            missing_entries = priority_gap_utils.find_missing_priority_entries(
+                am_db=am_db,
+                morph_priority_selection=normalized_selections,
+            )
+    except sqlite3.OperationalError:
+        tooltip("Run Recalc before searching for missing priority cards.")
+        return
+
+    if not missing_entries:
+        tooltip("Every configured priority entry already has a corresponding card.")
+        return
+
+    total_missing = len(missing_entries)
+    default_limit = min(100, total_missing)
+    max_limit = max(total_missing, 1)
+
+    limit, ok = QInputDialog.getInt(
+        mw,
+        "Missing Priority Cards",
+        f"How many entries should be shown? (1-{max_limit})",
+        default_limit,
+        1,
+        max_limit,
+    )
+    if not ok:
+        return
+
+    entries_to_show = missing_entries[:limit]
+
+    dialog = MissingPriorityEntriesDialog(
+        parent=mw,
+        entries=entries_to_show,
+        total_missing=total_missing,
+    )
+    dialog.exec()
+
+
+class MissingPriorityEntriesDialog(QDialog):
+    def __init__(
+        self,
+        parent: QWidget | None,
+        entries: list[tuple[str, str, int]],
+        total_missing: int,
+    ) -> None:
+        super().__init__(parent)
+
+        self.setWindowTitle("Missing Priority Cards")
+        self.resize(520, 460)
+
+        layout = QVBoxLayout(self)
+
+        summary = QLabel(
+            f"Showing {len(entries)} of {total_missing} priority entries without matching cards."
+        )
+        summary.setWordWrap(True)
+        layout.addWidget(summary)
+
+        entries_view = QPlainTextEdit(self)
+        entries_view.setReadOnly(True)
+        entries_view.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
+        entries_view.setPlainText(self._format_entries(entries))
+        layout.addWidget(entries_view)
+
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, self)
+        button_box.rejected.connect(self.reject)
+        close_button = button_box.button(QDialogButtonBox.StandardButton.Close)
+        if close_button is not None:
+            close_button.setDefault(True)
+        layout.addWidget(button_box)
+
+    @staticmethod
+    def _format_entries(entries: list[tuple[str, str, int]]) -> str:
+        lines: list[str] = []
+        for index, (lemma, reading, priority) in enumerate(entries, start=1):
+            reading_suffix = f" [{reading}]" if reading else ""
+            lines.append(f"{index}. {lemma}{reading_suffix} — priority {priority}")
+        return "\n".join(lines)
+
 
 def find_entries_missing_priority_lists() -> None:
     assert mw is not None
@@ -861,6 +972,12 @@ def create_duplicate_entries_action() -> QAction:
     action.triggered.connect(find_duplicate_non_new_entry_cards)
     return action
 
+
+
+def create_missing_priority_cards_action() -> QAction:
+    action = QAction("&Show Missing Priority Cards", mw)
+    action.triggered.connect(show_missing_priority_cards)
+    return action
 
 
 
