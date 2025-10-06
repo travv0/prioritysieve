@@ -12,7 +12,7 @@ from aqt import mw
 from . import prioritysieve_globals as ps_globals
 from .exceptions import PriorityFileMalformedException, PriorityFileNotFoundException
 from .prioritysieve_db import PrioritySieveDB
-from .reading_utils import normalize_reading
+from .reading_utils import expand_long_vowel_variants, normalize_reading
 
 
 @dataclass
@@ -193,10 +193,16 @@ def _extract_priorities(
         else:
             priority = index
 
-        key = (lemma, lemma, reading)
-        existing = priorities.get(key)
-        if existing is None or priority < existing:
-            priorities[key] = priority
+        if reading:
+            reading_variants = expand_long_vowel_variants(reading)
+        else:
+            reading_variants = {''}
+
+        for variant in reading_variants:
+            key = (lemma, lemma, variant)
+            existing = priorities.get(key)
+            if existing is None or priority < existing:
+                priorities[key] = priority
 
         if reading:
             fallback_key = (lemma, lemma, '')

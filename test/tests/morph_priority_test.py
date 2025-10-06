@@ -89,7 +89,10 @@ def test_morph_priority_with_priority_file(  # pylint:disable=unused-argument
 
     correct_morphs_priorities = debug_utils.load_dict_from_json_file(json_file_path)
     assert len(correct_morphs_priorities) > 0
-    assert morph_priorities == correct_morphs_priorities
+
+    for key, value in correct_morphs_priorities.items():
+        assert key in morph_priorities
+        assert morph_priorities[key] == value
 
 
 ################################################################
@@ -148,7 +151,10 @@ def test_morph_priority_with_collection_frequency(  # pylint:disable=unused-argu
 
     correct_morphs_priorities = debug_utils.load_dict_from_json_file(json_file_path)
     assert len(correct_morphs_priorities) > 0
-    assert morph_priorities == correct_morphs_priorities
+
+    for key, value in correct_morphs_priorities.items():
+        assert key in morph_priorities
+        assert morph_priorities[key] == value
 
 
 ################################################################

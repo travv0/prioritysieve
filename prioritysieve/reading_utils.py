@@ -8,6 +8,48 @@ _KATAKANA_TO_HIRAGANA = str.maketrans(
 
 _WHITESPACE_RE = re.compile(r"\s+")
 
+_HIRAGANA_VOWEL_MAP: dict[str, str] = {}
+
+
+def _register_vowels(chars: str, vowel: str) -> None:
+    for char in chars:
+        _HIRAGANA_VOWEL_MAP[char] = vowel
+
+
+_register_vowels("あかがさざただなはばぱまやゃらわぁゃゎゕゎ", "a")
+_register_vowels("いきぎしじちぢにひびぴみりぃゐ", "i")
+_register_vowels("うくぐすずつづぬふぶぷむゆゅるぅゔ", "u")
+_register_vowels("えけげせぜてでねへべぺめれぇゑゖ", "e")
+_register_vowels("おこごそぞとどのほぼぽもよょろをぉ", "o")
+
+
+def _long_vowel_replacements_for_prefix(prefix: str) -> tuple[str, ...]:
+    if not prefix:
+        return ("ー",)
+
+    vowel: str | None = None
+    for char in reversed(prefix):
+        vowel = _HIRAGANA_VOWEL_MAP.get(char)
+        if vowel is not None:
+            break
+    if vowel is None:
+        return ("ー",)
+
+    replacements: list[str] = ["ー"]
+    if vowel == "a":
+        replacements.append("あ")
+    elif vowel == "i":
+        replacements.append("い")
+    elif vowel == "u":
+        replacements.append("う")
+    elif vowel == "e":
+        replacements.extend(["い", "え"])
+    elif vowel == "o":
+        replacements.extend(["う", "お"])
+
+    # remove duplicates while keeping order
+    return tuple(dict.fromkeys(replacements))
+
 
 def _is_hiragana(char: str) -> bool:
     return "\u3041" <= char <= "\u309f"
@@ -33,6 +75,36 @@ def normalize_reading(reading: str | None) -> str:
     if reading is None:
         return ""
     return reading.translate(_KATAKANA_TO_HIRAGANA)
+
+
+def expand_long_vowel_variants(reading: str) -> set[str]:
+    """Return variants where long vowels may be written with kana instead of ー."""
+
+    if not reading:
+        return {""}
+
+    variants: set[str] = {""}
+    for char in reading:
+        if char == "ー":
+            replacement_options = None
+        else:
+            replacement_options = (char,)
+
+        if replacement_options is None:
+            replacements = []
+            for prefix in variants:
+                for repl in _long_vowel_replacements_for_prefix(prefix):
+                    replacements.append(prefix + repl)
+            variants = set(replacements)
+            continue
+
+        new_variants: set[str] = set()
+        for prefix in variants:
+            for replacement in replacement_options:
+                new_variants.add(prefix + replacement)
+        variants = new_variants
+
+    return variants
 
 
 def _extract_trailing_kana(text: str) -> str:
