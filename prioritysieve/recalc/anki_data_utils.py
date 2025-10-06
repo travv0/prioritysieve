@@ -222,11 +222,17 @@ def _get_anki_data(
 
     manual_known_tag = am_config.tag_known_manually
     auto_suspended_tag = am_config.tag_suspended_automatically
+    suspended_exception_tags = am_config.get_preprocess_ignore_suspended_unless_tag_list()
+    sanitized_exception_tags = [tag.replace("'", "''") for tag in suspended_exception_tags]
+    suspended_exception_clause = "".join(
+        f" OR notes.tags LIKE '% {tag} %'" for tag in sanitized_exception_tags
+    )
     # Always skip suspended cards, but retain the ones PrioritySieve needs to manage.
     ignore_suspended_cards = (
         " AND (cards.queue != -1"
         f" OR notes.tags LIKE '% {manual_known_tag} %'"
-        f" OR notes.tags LIKE '% {auto_suspended_tag} %')"
+        f" OR notes.tags LIKE '% {auto_suspended_tag} %'"
+        f"{suspended_exception_clause})"
     )
 
     excluded_tags = tags_object["exclude"]

@@ -777,6 +777,23 @@
               </item>
              </layout>
             </item>
+            <item>
+             <layout class="QVBoxLayout" name="verticalLayout_ignoreSuspendedTags">
+              <item>
+               <widget class="QLabel" name="preprocessIgnoreSuspendedUnlessTagsLabel">
+                <property name="text">
+                 <string>Ignore suspended cards unless they contain one of the following tags:</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLineEdit" name="preprocessIgnoreSuspendedUnlessTagsLineEdit" />
+              </item>
+             </layout>
+            </item>
            </layout>
           </widget>
          </item>

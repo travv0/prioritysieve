@@ -32,6 +32,7 @@ class PreprocessTab(SettingsTab):
 
         self._raw_config_key_to_line_edit: dict[str, QLineEdit] = {
             RawConfigKeys.PREPROCESS_CUSTOM_CHARACTERS_TO_IGNORE: self.ui.preprocessCustomCharactersLineEdit,
+            RawConfigKeys.PREPROCESS_IGNORE_SUSPENDED_UNLESS_TAGS: self.ui.preprocessIgnoreSuspendedUnlessTagsLineEdit,
         }
 
         self.populate()
