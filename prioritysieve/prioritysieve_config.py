@@ -86,6 +86,7 @@ class RawConfigKeys:
     PREPROCESS_IGNORE_NUMBERS = "preprocess_ignore_numbers"
     PREPROCESS_IGNORE_CUSTOM_CHARACTERS = "preprocess_ignore_custom_characters"
     PREPROCESS_CUSTOM_CHARACTERS_TO_IGNORE = "preprocess_custom_characters_to_ignore"
+    PREPROCESS_IGNORE_SUSPENDED_UNLESS_TAGS = "preprocess_ignore_suspended_unless_tags"
     INTERVAL_FOR_KNOWN_MORPHS = "interval_for_known_morphs"
     RECALC_ON_SYNC = "recalc_on_sync"
     RECALC_AFTER_SYNC = "recalc_after_sync"
@@ -188,6 +189,10 @@ class PrioritySieveConfigFilter:  # pylint:disable=too-many-instance-attributes
             if not prioritysieve_globals.config_broken:
                 show_critical_config_error()
                 prioritysieve_globals.config_broken = True
+
+    @property
+    def expression_field(self) -> str:
+        return getattr(self, "field", "(none)")
 
     def _get_morph_priority_selections(self) -> list[str]:
         try:
@@ -416,6 +421,11 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-m
             )
             self.preprocess_custom_characters_to_ignore: str = self._get_config_item(
                 key=RawConfigKeys.PREPROCESS_CUSTOM_CHARACTERS_TO_IGNORE,
+                expected_type=str,
+                use_default=is_default,
+            )
+            self.preprocess_ignore_suspended_unless_tags: str = self._get_config_item(
+                key=RawConfigKeys.PREPROCESS_IGNORE_SUSPENDED_UNLESS_TAGS,
                 expected_type=str,
                 use_default=is_default,
             )
@@ -676,6 +686,10 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-m
                 show_critical_config_error()
                 prioritysieve_globals.config_broken = True
 
+    @property
+    def expression_field(self) -> str:
+        return getattr(self, "field", "(none)")
+
         if (
             prioritysieve_globals.new_config_found
             and not prioritysieve_globals.shown_config_warning
@@ -764,6 +778,24 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-m
             self._persist_priority_decks(sanitized_default)
             source[key] = sanitized_default
         return sanitized_default
+
+    def get_preprocess_ignore_suspended_unless_tag_list(self) -> list[str]:
+        """Return sanitized tag names that allow suspended cards to be considered."""
+
+        tags_value = self.preprocess_ignore_suspended_unless_tags
+        if not isinstance(tags_value, str):
+            return []
+
+        seen: set[str] = set()
+        sanitized: list[str] = []
+        for raw_tag in tags_value.split(","):
+            tag = raw_tag.strip()
+            if not tag or tag in seen:
+                continue
+            sanitized.append(tag)
+            seen.add(tag)
+
+        return sanitized
 
     def _persist_priority_decks(self, decks: list[str]) -> None:
         assert mw is not None

@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 
 from anki.cards import Card
-from anki.consts import CardQueue
+from anki.consts import QUEUE_TYPE_NEW, QUEUE_TYPE_SUSPENDED
 from anki.notes import Note, NoteId
 from aqt import mw
 from aqt.operations import QueryOp
@@ -11,140 +11,64 @@ from aqt.utils import tooltip
 from . import prioritysieve_globals as am_globals
 from . import progress_utils
 from .prioritysieve_config import PrioritySieveConfig
-from .recalc.card_score import _MAX_SCORE
 from .anki_op_utils import notify_op_execution
 
-suspended = CardQueue(-1)
+suspended_queue = QUEUE_TYPE_SUSPENDED
 
 
-def update_tags_and_queue_of_new_card(
+def apply_entry_tags(
     am_config: PrioritySieveConfig,
     note: Note,
-    card: Card,
-    unknowns: int,
-    has_learning_morphs: bool,
-    force_auto_suspend: bool = False,
+    reviewed: bool,
+    auto_suspend: bool,
 ) -> None:
-    # There are 3 different tags that we want recalc to update:
-    # - am-ready
-    # - am-not-ready
-    # - am-known-automatically
-    #
-    # These tags should be mutually exclusive, and there are many
-    # complicated scenarios where a normal tag progression might
-    # not occur, so we have to make sure that we remove all the
-    # tags that shouldn't be there for each case, even if it seems
-    # redundant.
-    #
-    # Note: only new cards are handled in this function!
+    """Apply tags for a single entry-based note."""
 
-    mutually_exclusive_tags: list[str] = [
+    tags = list(tag for tag in note.tags if tag and tag.strip())
+    for tag in (
         am_config.tag_ready,
         am_config.tag_not_ready,
-        am_config.tag_known_automatically,
-    ]
+        am_config.tag_fresh,
+    ):
+        while tag in tags:
+            tags.remove(tag)
 
-    tracked_tags = set(mutually_exclusive_tags)
-    tracked_tags.add(am_config.tag_suspended_automatically)
-    original_positions: dict[str, int] = {}
-    for index, tag in enumerate(note.tags):
-        if tag in tracked_tags and tag not in original_positions:
-            original_positions[tag] = index
+    if auto_suspend:
+        if am_config.tag_suspended_automatically not in tags:
+            tags.append(am_config.tag_suspended_automatically)
+    else:
+        while am_config.tag_suspended_automatically in tags:
+            tags.remove(am_config.tag_suspended_automatically)
 
-    def _insert_tag(tag: str) -> None:
-        position = original_positions.get(tag)
-        if position is None or position >= len(note.tags):
-            note.tags.append(tag)
+    if reviewed:
+        if am_config.tag_known_automatically not in tags:
+            tags.append(am_config.tag_known_automatically)
+    else:
+        while am_config.tag_known_automatically in tags:
+            tags.remove(am_config.tag_known_automatically)
+        if auto_suspend:
+            if am_config.tag_not_ready not in tags:
+                tags.append(am_config.tag_not_ready)
         else:
-            note.tags.insert(position, tag)
+            if am_config.tag_ready not in tags:
+                tags.append(am_config.tag_ready)
 
-    has_learning_for_tag = has_learning_morphs and unknowns > 0
-
-    if has_learning_for_tag:
-        if am_config.tag_fresh not in note.tags:
-            note.tags.append(am_config.tag_fresh)
-    else:
-        if am_config.tag_fresh in note.tags:
-            note.tags.remove(am_config.tag_fresh)
-
-    auto_suspended_tag = am_config.tag_suspended_automatically
-
-    should_auto_suspend = force_auto_suspend or unknowns == 0
-
-    if should_auto_suspend:
-        if auto_suspended_tag not in note.tags:
-            _insert_tag(auto_suspended_tag)
-        if card.queue != suspended:
-            card.queue = suspended
-        if card.due != _MAX_SCORE:
-            card.due = _MAX_SCORE
-    elif auto_suspended_tag in note.tags:
-        note.tags.remove(auto_suspended_tag)
-        if card.queue == suspended:
-            card.queue = CardQueue(0)
-
-    if unknowns == 0:
-        if am_config.tag_known_manually in note.tags:
-            _remove_exclusive_tags(note, mutually_exclusive_tags)
-        elif am_config.tag_known_automatically not in note.tags:
-            _remove_exclusive_tags(note, mutually_exclusive_tags)
-            _insert_tag(am_config.tag_known_automatically)
-    elif unknowns == 1:
-        if should_auto_suspend:
-            _remove_exclusive_tags(note, mutually_exclusive_tags)
-            if am_config.tag_not_ready not in note.tags:
-                _insert_tag(am_config.tag_not_ready)
-        else:
-            if am_config.tag_ready not in note.tags:
-                _remove_exclusive_tags(note, mutually_exclusive_tags)
-                _insert_tag(am_config.tag_ready)
-    else:
-        if am_config.tag_not_ready not in note.tags:
-            _remove_exclusive_tags(note, mutually_exclusive_tags)
-            _insert_tag(am_config.tag_not_ready)
-
-    _sanitize_tags(note)
+    note.tags = tags
 
 
-def _remove_exclusive_tags(note: Note, mutually_exclusive_tags: list[str]) -> None:
-    for tag in mutually_exclusive_tags:
-        if tag in note.tags:
-            note.tags.remove(tag)
-
-
-def _sanitize_tags(note: Note) -> None:
-    cleaned = [tag for tag in note.tags if tag and tag.strip()]
-    if len(cleaned) != len(note.tags):
-        note.tags = cleaned
-
-
-def update_tags_of_review_cards(
-    am_config: PrioritySieveConfig,
-    note: Note,
-    has_learning_morphs: bool,
-) -> None:
-    if am_config.tag_ready in note.tags:
-        note.tags.remove(am_config.tag_ready)
-    elif am_config.tag_not_ready in note.tags:
-        note.tags.remove(am_config.tag_not_ready)
-
-    if am_config.tag_suspended_automatically in note.tags:
-        note.tags.remove(am_config.tag_suspended_automatically)
-
-    if has_learning_morphs:
-        if am_config.tag_fresh not in note.tags:
-            note.tags.append(am_config.tag_fresh)
-    else:
-        if am_config.tag_fresh in note.tags:
-            note.tags.remove(am_config.tag_fresh)
-
-    _sanitize_tags(note)
+def update_entry_reading_field(note: Note, reading: str) -> None:
+    mapping = note._field_map()
+    field_info = mapping.get(am_globals.EXTRA_FIELD_READING)
+    if not field_info:
+        return
+    index = field_info[0]
+    if note.fields[index] != reading:
+        note.fields[index] = reading
 
 
 def reset_am_tags(parent: QWidget) -> None:
     assert mw is not None
 
-    # lambda is used to ignore the irrelevant arguments given by QueryOp
     operation = QueryOp(
         parent=parent,
         op=lambda _: _reset_am_tags_background_op(),
@@ -164,6 +88,7 @@ def _reset_am_tags_background_op() -> None:
         am_config.tag_ready,
         am_config.tag_not_ready,
         am_config.tag_fresh,
+        am_config.tag_suspended_automatically,
     ]
     for tag in tags_to_remove:
         note_ids: Sequence[NoteId] = mw.col.find_notes(f"tag:{tag}")
@@ -177,9 +102,36 @@ def _reset_am_tags_background_op() -> None:
                 increment=100,
             )
             note: Note = modified_notes.get(note_id, mw.col.get_note(note_id))
-            note.tags.remove(tag)
+            while tag in note.tags:
+                note.tags.remove(tag)
             modified_notes[note_id] = note
 
     if modified_notes:
         note_changes = mw.col.update_notes(list(modified_notes.values()))
         notify_op_execution(note_changes)
+
+
+# Backwards compatibility wrappers for older code paths.
+def update_tags_and_queue_of_new_card(
+    am_config: PrioritySieveConfig,
+    note: Note,
+    card: Card,
+    unknowns: int,
+    has_learning_morphs: bool,
+    force_auto_suspend: bool = False,
+) -> None:
+    auto_suspend = force_auto_suspend or unknowns == 0
+    reviewed = unknowns == 0 and has_learning_morphs
+    apply_entry_tags(am_config, note, reviewed=reviewed, auto_suspend=auto_suspend)
+    if auto_suspend:
+        card.queue = QUEUE_TYPE_SUSPENDED
+    elif card.queue == QUEUE_TYPE_SUSPENDED:
+        card.queue = QUEUE_TYPE_NEW
+
+
+def update_tags_of_review_cards(
+    am_config: PrioritySieveConfig,
+    note: Note,
+    has_learning_morphs: bool,
+) -> None:
+    apply_entry_tags(am_config, note, reviewed=not has_learning_morphs, auto_suspend=False)

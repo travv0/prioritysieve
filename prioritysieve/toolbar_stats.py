@@ -1,10 +1,10 @@
-import sqlite3
+from __future__ import annotations
 
+from .entry_db import EntryDB
 from .prioritysieve_config import PrioritySieveConfig
-from .prioritysieve_db import PrioritySieveDB
 
 
-class MorphToolbarStats:
+class EntryToolbarStats:
     def __init__(self) -> None:
         self.lemmas = "L: ?"
         self.variants = "V: ?"
@@ -12,43 +12,24 @@ class MorphToolbarStats:
 
     def update_stats(self) -> None:
         try:
-            am_db = PrioritySieveDB()
+            with EntryDB() as db:
+                entries = db.get_entries()
         except TypeError:
-            # The toolbar initiates before the profile,
-            # when this happens, the path to the db can't
-            # be found, and we get a type error.
+            # Toolbar initialises before profile opens; db path is unknown.
+            return
+        except Exception:  # pragma: no cover - safeguard
             return
 
-        # this is only reached after the profile is loaded
-        am_db.create_morph_table()
-        am_config = PrioritySieveConfig()
-        learning_interval: int = 1  # seen morphs
+        config = PrioritySieveConfig()
+        reviewed_count = sum(1 for entry in entries if entry.reviewed)
+        if config.toolbar_stats_use_seen:
+            total_variants = len(entries)
+        else:
+            total_variants = reviewed_count
 
-        if am_config.toolbar_stats_use_known:
-            learning_interval = am_config.interval_for_known_morphs
+        if config.toolbar_stats_use_known:
+            self.lemmas = f"L: {reviewed_count}"
+        else:
+            self.lemmas = f"L: {len(entries)}"
 
-        try:
-            known_lemmas = am_db.con.execute(
-                """
-                SELECT COUNT(DISTINCT lemma)
-                FROM Morphs
-                WHERE highest_inflection_learning_interval >= ?
-                """,
-                (learning_interval,),
-            ).fetchone()[0]
-
-            known_variants = am_db.con.execute(
-                """
-                SELECT COUNT(*)
-                FROM Morphs
-                WHERE highest_inflection_learning_interval >= ?
-                """,
-                (learning_interval,),
-            ).fetchone()[0]
-            am_db.con.close()
-        except sqlite3.OperationalError:
-            # database schema has changed
-            return
-
-        self.lemmas = f"L: {known_lemmas}"
-        self.variants = f"V: {known_variants}"
+        self.variants = f"V: {total_variants}"

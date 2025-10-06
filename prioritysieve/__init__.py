@@ -74,7 +74,7 @@ from .recalc import recalc_main
 from .settings import settings_dialog
 from .settings.settings_dialog import SettingsDialog
 from .tag_selection_dialog import TagSelectionDialog
-from .toolbar_stats import MorphToolbarStats
+from .toolbar_stats import EntryToolbarStats
 
 _TOOL_MENU: str = "ps_tool_menu"
 _BROWSE_MENU: str = "ps_browse_menu"
@@ -130,7 +130,7 @@ def main() -> None:
 def init_toolbar_items(links: list[str], toolbar: Toolbar) -> None:
     # Adds the 'L: V:' and 'Recalc' to the toolbar
 
-    morph_toolbar_stats = MorphToolbarStats()
+    morph_toolbar_stats = EntryToolbarStats()
     am_config = PrioritySieveConfig()
 
     known_entries_tooltip_message = (

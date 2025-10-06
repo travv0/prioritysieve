@@ -57,6 +57,7 @@
   "hide_recalc_toolbar": false,
   "interval_for_known_morphs": 21,
   "preprocess_custom_characters_to_ignore": "",
+  "preprocess_ignore_suspended_unless_tags": "kanjicards_unreviewed",
   "preprocess_ignore_bracket_contents": false,
   "preprocess_ignore_custom_characters": false,
   "preprocess_ignore_names_morphemizer": false,
