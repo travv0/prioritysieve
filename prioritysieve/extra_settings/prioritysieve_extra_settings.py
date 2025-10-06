@@ -87,6 +87,15 @@ class PrioritySieveExtraSettings(QSettings):
         else:
             self.setValue(keys.General.RECALC_COLLECTION_STATE, state)
 
+    def get_recalc_settings_state(self) -> str | None:
+        return self.value(keys.General.RECALC_SETTINGS_STATE, None, type=str)
+
+    def set_recalc_settings_state(self, state: str | None) -> None:
+        if state is None:
+            self.remove(keys.General.RECALC_SETTINGS_STATE)
+        else:
+            self.setValue(keys.General.RECALC_SETTINGS_STATE, state)
+
 
     def spacy_manager_window_settings(self, geometry: QByteArray) -> None:
         # fmt: off

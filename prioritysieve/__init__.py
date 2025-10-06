@@ -372,25 +372,57 @@ def recalc_on_sync() -> None:
     recalc_main.set_followup_sync_callback(None)
 
     print("PrioritySieve pre-sync snapshot state:", current_state_json)
+
+    current_settings_state_json: str | None = None
+    try:
+        current_settings_state_json = json.dumps(
+            prioritysieve_config.get_config_dict(), sort_keys=True
+        )
+    except Exception as error:  # pylint:disable=broad-except
+        print(
+            "PrioritySieve: falling back to cached settings state"
+            f" (snapshot failed: {error})"
+        )
+        current_settings_state_json = extra_settings.get_recalc_settings_state()
+
+    print(
+        "PrioritySieve pre-sync settings snapshot state:",
+        current_settings_state_json,
+    )
     if not am_config.recalc_on_sync:
         _state_before_sync_recalc = current_state_json
         return
 
-    if current_state_json is not None:
-        previous_state = extra_settings.get_recalc_collection_state()
-        print("PrioritySieve cached snapshot state:", previous_state)
-        if previous_state == current_state_json:
-            print(
-                "PrioritySieve: skipping pre-sync recalc (collection unchanged)"
-            )
-            _state_before_sync_recalc = current_state_json
-            return
+    previous_state = extra_settings.get_recalc_collection_state()
+    previous_settings_state = extra_settings.get_recalc_settings_state()
 
-        if previous_state is None:
-            reason = "no cached state"
-        else:
-            reason = "collection metrics changed"
-        print(f"PrioritySieve: running pre-sync recalc ({reason})")
+    print("PrioritySieve cached snapshot state:", previous_state)
+    print("PrioritySieve cached settings state:", previous_settings_state)
+
+    collection_state_changed = previous_state != current_state_json
+    settings_state_changed = (
+        current_settings_state_json is None
+        or current_settings_state_json != previous_settings_state
+    )
+
+    if not collection_state_changed and not settings_state_changed:
+        print(
+            "PrioritySieve: skipping pre-sync recalc"
+            " (collection and settings unchanged)"
+        )
+        _state_before_sync_recalc = current_state_json
+        return
+
+    if settings_state_changed and collection_state_changed:
+        reason = "settings and collection changed"
+    elif settings_state_changed:
+        reason = "settings changed"
+    elif previous_state is None:
+        reason = "no cached state"
+    else:
+        reason = "collection metrics changed"
+
+    print(f"PrioritySieve: running pre-sync recalc ({reason})")
 
     def _cache_post_recalc_state() -> None:
         global _state_before_sync_recalc

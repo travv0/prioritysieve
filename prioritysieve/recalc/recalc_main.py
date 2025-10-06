@@ -724,6 +724,14 @@ def _on_success(_start_time: float) -> None:
         filters_state = compute_modify_filters_state()
         settings = PrioritySieveExtraSettings()
         settings.set_recalc_collection_state(json.dumps(filters_state, sort_keys=True))
+        try:
+            settings.set_recalc_settings_state(
+                json.dumps(prioritysieve_config.get_config_dict(), sort_keys=True)
+            )
+        except Exception as error:  # pylint:disable=broad-except
+            print(
+                f"PrioritySieve: failed to cache recalc settings state ({error})"
+            )
         settings.sync()
     except Exception as error:  # pylint:disable=broad-except
         print(f'PrioritySieve: failed to cache recalc state ({error})')
