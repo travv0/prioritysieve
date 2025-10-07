@@ -62,19 +62,16 @@ from . import (
 )
 from .prioritysieve_config import PrioritySieveConfig, PrioritySieveConfigFilter
 from .prioritysieve_db import PrioritySieveDB
+from .entry_db import EntryDB
 from .extra_settings import prioritysieve_extra_settings, extra_settings_keys
 from .extra_settings.prioritysieve_extra_settings import PrioritySieveExtraSettings
-from .generators.generators_window import GeneratorWindow
-from .highlighting.highlight_just_in_time import highlight_morphs_jit
-from .known_morphs_exporter import KnownMorphsExporterDialog
-from .morphemizers import spacy_wrapper
-from .progression.progression_window import ProgressionWindow
 from .reading_utils import normalize_reading
 from .recalc import recalc_main
 from .settings import settings_dialog
 from .settings.settings_dialog import SettingsDialog
 from .tag_selection_dialog import TagSelectionDialog
 from .toolbar_stats import EntryToolbarStats
+from .priority_files import load_priority_map
 
 _TOOL_MENU: str = "ps_tool_menu"
 _BROWSE_MENU: str = "ps_browse_menu"
@@ -84,6 +81,14 @@ _startup_sync: bool = True
 _showed_update_warning: bool = False
 _updated_seen_morphs_for_profile: bool = False
 _state_before_sync_recalc: str | None = None
+
+
+def _maybe_delete_spacy_venv() -> None:
+    try:
+        from .morphemizers import spacy_wrapper
+    except Exception:  # pragma: no cover - best effort in headless envs
+        return
+    spacy_wrapper.maybe_delete_spacy_venv()
 
 
 def _schedule_followup_sync() -> None:
@@ -108,13 +113,11 @@ def main() -> None:
     gui_hooks.profile_did_open.append(init_browser_menus_and_actions)
     gui_hooks.profile_did_open.append(replace_card_reviewer)
     gui_hooks.profile_did_open.append(text_preprocessing.update_translation_table)
-    gui_hooks.profile_did_open.append(spacy_wrapper.maybe_delete_spacy_venv)
+    gui_hooks.profile_did_open.append(_maybe_delete_spacy_venv)
     gui_hooks.profile_did_open.append(maybe_show_version_warning_wrapper)
 
     gui_hooks.sync_will_start.append(recalc_on_sync)
     gui_hooks.sync_did_finish.append(recalc_after_sync)
-
-    hooks.field_filter.append(highlight_morphs_jit)
 
     gui_hooks.webview_will_show_context_menu.append(add_text_as_name_action)
 
@@ -226,6 +229,10 @@ def create_am_directories_and_files() -> None:
 
 def register_addon_dialogs() -> None:
     # We use the Anki dialog manager to handle our dialogs
+
+    from .generators.generators_window import GeneratorWindow
+    from .progression.progression_window import ProgressionWindow
+    from .known_morphs_exporter import KnownMorphsExporterDialog
 
     aqt.dialogs.register_dialog(
         name=ps_globals.SETTINGS_DIALOG_NAME,
@@ -718,8 +725,8 @@ def find_duplicate_non_new_entry_cards() -> None:
     assert mw.col.db is not None
 
     try:
-        with PrioritySieveDB() as am_db:
-            entry_map = am_db.get_non_new_card_ids_grouped_by_entry()
+        with EntryDB() as entry_db:
+            entry_map = entry_db.get_non_new_card_ids_grouped_by_entry()
     except sqlite3.OperationalError:
         tooltip("Run Recalc before searching for duplicate entries.")
         return
@@ -784,7 +791,7 @@ def show_missing_priority_cards() -> None:
 
     selections: set[str] = set()
     for config_filter in am_config.filters:
-        selections.update(config_filter.morph_priority_selections)
+        selections.update(config_filter.priority_files)
 
     normalized_selections = [
         selection
@@ -797,14 +804,17 @@ def show_missing_priority_cards() -> None:
         return
 
     try:
-        with PrioritySieveDB() as am_db:
-            missing_entries = priority_gap_utils.find_missing_priority_entries(
-                am_db=am_db,
-                morph_priority_selection=normalized_selections,
-            )
+        with EntryDB() as entry_db:
+            stored_entries = entry_db.get_entries()
     except sqlite3.OperationalError:
         tooltip("Run Recalc before searching for missing priority cards.")
         return
+
+    entries = [stored.to_entry() for stored in stored_entries]
+    missing_entries = priority_gap_utils.find_missing_priority_entries(
+        entries=entries,
+        priority_files=normalized_selections,
+    )
 
     if not missing_entries:
         tooltip("Every configured priority entry already has a corresponding card.")
@@ -937,7 +947,7 @@ def find_entries_missing_priority_lists() -> None:
     am_config = PrioritySieveConfig()
     selections: set[str] = set()
     for config_filter in am_config.filters:
-        selections.update(config_filter.morph_priority_selections)
+        selections.update(config_filter.priority_files)
 
     normalized_selections = [
         selection
@@ -946,16 +956,15 @@ def find_entries_missing_priority_lists() -> None:
     ]
 
     try:
-        with PrioritySieveDB() as am_db:
-            entry_map = am_db.get_non_new_card_ids_grouped_by_entry()
-            priority_map = (
-                morph_priority_utils.get_morph_priority(am_db, normalized_selections)
-                if normalized_selections
-                else {}
-            )
+        with EntryDB() as entry_db:
+            entry_map = entry_db.get_non_new_card_ids_grouped_by_entry()
     except sqlite3.OperationalError:
         tooltip("Run Recalc before searching for missing priorities.")
         return
+
+    priority_map = (
+        load_priority_map(normalized_selections) if normalized_selections else {}
+    )
 
     if not entry_map:
         tooltip("No cached entries found. Run Recalc first.")
@@ -977,7 +986,10 @@ def find_entries_missing_priority_lists() -> None:
 
     missing_entries: dict[tuple[str, str], list[int]] = {}
 
-    priority_keys = set(priority_map.keys())
+    priority_keys = {
+        (text, normalize_reading(reading))
+        for text, reading in priority_map.keys()
+    }
 
     for entry_key, card_ids in entry_map.items():
         active_cards: list[int] = []
@@ -993,13 +1005,13 @@ def find_entries_missing_priority_lists() -> None:
         if not active_cards:
             continue
 
-        lemma, reading = entry_key
+        text, reading = entry_key
         normalized_reading = normalize_reading(reading)
-        key_exact = (lemma, lemma, normalized_reading)
+        key_exact = (text, normalized_reading)
         has_priority = key_exact in priority_keys
 
         if not normalized_reading:
-            key_fallback = (lemma, lemma, "")
+            key_fallback = (text, "")
             has_priority = has_priority or key_fallback in priority_keys
 
         if has_priority:

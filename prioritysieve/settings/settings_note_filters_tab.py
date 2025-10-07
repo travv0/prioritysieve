@@ -170,7 +170,7 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
         self._note_filter_furigana_field_column: int = 3
         self._note_filter_reading_field_column: int = 4
         self._note_filter_reading_priority_column: int = 5
-        self._note_filter_morph_priority_column: int = 6
+        self._note_filter_priority_files_column: int = 6
         self._note_filter_read_column: int = 7
         self._note_filter_modify_column: int = 8
 
@@ -181,7 +181,7 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
             "Furigana Field",
             "Reading Field",
             "Reading Priority",
-            "Priority",
+            "Priority Files",
             "Read",
             "Modify",
         ]
@@ -265,7 +265,7 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
             self._note_filter_reading_priority_column, 150
         )
         self.ui.note_filters_table.setColumnWidth(
-            self._note_filter_morph_priority_column, 150
+            self._note_filter_priority_files_column, 150
         )
         self.ui.note_filters_table.setRowCount(len(config_filters))
         self.ui.note_filters_table.setAlternatingRowColors(True)
@@ -367,21 +367,22 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
                 )
             )
             priority_item: QTableWidgetItem | None = self.ui.note_filters_table.item(
-                row, self._note_filter_morph_priority_column
+                row, self._note_filter_priority_files_column
             )
             raw_priority_data = (
                 priority_item.data(Qt.ItemDataRole.UserRole)
                 if priority_item is not None
                 else None
             )
+            priority_file_selections: list[str]
             try:
-                morph_priority_selections: list[str] = (
+                priority_file_selections: list[str] = (
                     json.loads(raw_priority_data)
                     if isinstance(raw_priority_data, str)
                     else []
                 )
             except json.JSONDecodeError:
-                morph_priority_selections = []
+                priority_file_selections = []
             read_widget: QCheckBox = table_utils.get_checkbox_widget(
                 self.ui.note_filters_table.cellWidget(
                     row, self._note_filter_read_column
@@ -411,7 +412,7 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
                     reading_priority_cbox.currentIndex()
                 ),
                 RawConfigFilterKeys.MORPHEMIZER_DESCRIPTION: prioritysieve_globals.NONE_OPTION,
-                RawConfigFilterKeys.MORPH_PRIORITY_SELECTION: morph_priority_selections,
+                RawConfigFilterKeys.PRIORITY_FILES: priority_file_selections,
                 RawConfigFilterKeys.READ: read_widget.isChecked(),
                 RawConfigFilterKeys.MODIFY: modify_widget.isChecked(),
             }
@@ -517,7 +518,7 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
         )
         note_type_cbox.currentIndexChanged.connect(self.notify_subscribers)
 
-        self._set_priority_item(row, config_filter.morph_priority_selections)
+        self._set_priority_item(row, config_filter.priority_files)
 
         read_checkbox = QCheckBox()
         read_checkbox.setChecked(config_filter.read)
@@ -581,12 +582,12 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
 
     def _set_priority_item(self, row: int, selections: list[str]) -> None:
         item = self.ui.note_filters_table.item(
-            row, self._note_filter_morph_priority_column
+            row, self._note_filter_priority_files_column
         )
         if item is None:
             item = QTableWidgetItem()
             self.ui.note_filters_table.setItem(
-                row, self._note_filter_morph_priority_column, item
+                row, self._note_filter_priority_files_column, item
             )
 
         item.setText(self._format_priority_summary(selections))
@@ -599,7 +600,7 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
 
     def _open_priority_selection_dialog(self, row: int) -> None:
         current_item = self.ui.note_filters_table.item(
-            row, self._note_filter_morph_priority_column
+            row, self._note_filter_priority_files_column
         )
         raw_data = (
             current_item.data(Qt.ItemDataRole.UserRole)
@@ -740,7 +741,7 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
             )
             return
 
-        if column == self._note_filter_morph_priority_column:
+        if column == self._note_filter_priority_files_column:
             self._open_priority_selection_dialog(row)
 
     def _update_note_filter_tags(self) -> None:

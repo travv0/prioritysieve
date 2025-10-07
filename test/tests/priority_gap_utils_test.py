@@ -2,49 +2,39 @@ from __future__ import annotations
 
 import pytest
 
-from prioritysieve import priority_gap_utils
-from prioritysieve.morpheme import Morpheme
+import importlib
+
+priority_gap_utils = importlib.import_module("prioritysieve.priority_gap_utils")
+Entry = importlib.import_module("prioritysieve.entry").Entry
 
 
-class DummyDB:
-    def __init__(self, morphs: dict[int, list[Morpheme]]) -> None:
-        self._morphs = morphs
+def test_find_missing_priority_entries_respects_priority_order(monkeypatch: pytest.MonkeyPatch) -> None:
+    entries = [
+        Entry(text="known", reading="", reviewed=True),
+        Entry(text="lemmaOnly", reading="テスト", reviewed=False),
+    ]
 
-    def get_card_morph_map_cache(self) -> dict[int, list[Morpheme]]:
-        return self._morphs
-
-
-@pytest.fixture
-def dummy_db() -> DummyDB:
-    card_morphs = {
-        1: [Morpheme(lemma="known", inflection="known", reading=None)],
-        2: [Morpheme(lemma="lemmaOnly", inflection="lemmaOnly", reading="テスト")],
-    }
-    return DummyDB(card_morphs)
-
-
-def test_find_missing_priority_entries_respects_priority_order(monkeypatch: pytest.MonkeyPatch, dummy_db: DummyDB) -> None:
-    priorities: dict[tuple[str, str, str], int] = {
-        ("known", "known", ""): 1,
-        ("missing", "missing", ""): 5,
-        ("missingExact", "missingExact", "abc"): 2,
-        ("lemmaOnly", "lemmaOnly", ""): 3,
-        ("kana", "kana", ""): 4,
-        ("kana", "kana", "kana"): 4,
-        ("kanji", "kanji", ""): 6,
-        ("kanji", "kanji", "かな"): 3,
+    priorities: dict[tuple[str, str], int] = {
+        ("known", ""): 1,
+        ("missing", ""): 5,
+        ("missingExact", "abc"): 2,
+        ("lemmaOnly", ""): 3,
+        ("kana", ""): 4,
+        ("kana", "kana"): 4,
+        ("kanji", ""): 6,
+        ("kanji", "かな"): 3,
     }
 
     monkeypatch.setattr(
         priority_gap_utils,
-        "get_morph_priority",
-        lambda am_db, morph_priority_selection: priorities,
+        "load_priority_map",
+        lambda files: priorities,
         raising=False,
     )
 
     missing = priority_gap_utils.find_missing_priority_entries(
-        am_db=dummy_db,
-        morph_priority_selection=["ignored"],
+        entries=entries,
+        priority_files=["ignored"],
     )
 
     assert missing == [
@@ -53,3 +43,47 @@ def test_find_missing_priority_entries_respects_priority_order(monkeypatch: pyte
         ("kana", "", 4),
         ("missing", "", 5),
     ]
+
+
+def test_find_missing_priority_entries_suppresses_fallback_when_readings_present(monkeypatch: pytest.MonkeyPatch) -> None:
+    entries: list[Entry] = []
+    priorities: dict[tuple[str, str], int] = {
+        ("word", ""): 10,
+        ("word", "かな"): 5,
+    }
+
+    monkeypatch.setattr(
+        priority_gap_utils,
+        "load_priority_map",
+        lambda files: priorities,
+        raising=False,
+    )
+
+    missing = priority_gap_utils.find_missing_priority_entries(
+        entries=entries,
+        priority_files=["ignored"],
+    )
+
+    assert missing == [("word", "かな", 5)]
+
+
+def test_find_missing_priority_entries_includes_fallback_when_no_readings(monkeypatch: pytest.MonkeyPatch) -> None:
+    entries = [Entry(text="covered", reading="", reviewed=False)]
+    priorities: dict[tuple[str, str], int] = {
+        ("covered", ""): 3,
+        ("unused", ""): 4,
+    }
+
+    monkeypatch.setattr(
+        priority_gap_utils,
+        "load_priority_map",
+        lambda files: priorities,
+        raising=False,
+    )
+
+    missing = priority_gap_utils.find_missing_priority_entries(
+        entries=entries,
+        priority_files=["ignored"],
+    )
+
+    assert missing == [("unused", "", 4)]

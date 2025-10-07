@@ -225,7 +225,7 @@ def _validate_filters(filters: list[PrioritySieveConfigFilter]) -> None:
         ):
             raise AnkiFieldNotFound()
 
-        for selection in config_filter.morph_priority_selections:
+        for selection in config_filter.priority_files:
             if selection in (prioritysieve_globals.NONE_OPTION, prioritysieve_globals.COLLECTION_FREQUENCY_OPTION):
                 continue
             path = (
@@ -268,7 +268,7 @@ def _apply_priorities(
     ] = defaultdict(list)
 
     for config_filter in modify_filters:
-        priority_map = load_priority_map(config_filter.morph_priority_selections)
+        priority_map = load_priority_map(config_filter.priority_files)
         card_data_dict = create_card_data_dict(am_config, config_filter)
 
         total_cards = len(card_data_dict)
@@ -381,4 +381,3 @@ def _on_failure(error: Exception | PriorityFileMalformedException) -> None:
         return
 
     message_box_utils.show_critical_error_box("PrioritySieve recalc failed", str(error))
-

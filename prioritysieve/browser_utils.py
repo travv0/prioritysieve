@@ -20,6 +20,7 @@ from aqt.utils import tooltip
 from . import prioritysieve_config, prioritysieve_globals
 from .prioritysieve_config import PrioritySieveConfig, PrioritySieveConfigFilter
 from .prioritysieve_db import PrioritySieveDB
+from .entry_db import EntryDB
 from .anki_op_utils import notify_op_execution
 from .ui.view_morphs_dialog_ui import Ui_ViewMorphsDialog
 
@@ -77,7 +78,6 @@ def browse_same_morphs(  # pylint:disable=too-many-arguments
         assert mw.reviewer.card is not None
         note = mw.reviewer.card.note()
 
-    am_db = PrioritySieveDB()
     am_filter = prioritysieve_config.get_matching_read_filter(note)
 
     if am_filter is None:
@@ -86,35 +86,24 @@ def browse_same_morphs(  # pylint:disable=too-many-arguments
         )
         return
 
-    card_ids: set[CardId] | None
+    include_reviewed = not search_unknowns
+    lookup_text_only = search_lemma_only
 
-    # These branches are simplified by the fact that we have not exhaustively
-    # added all combinations of known/unknown and inflection/lemma.
-    # If someone searched for lemma only, then they also are only searching
-    # through unknowns.
-    #
-    # It's implemented in a non-exhaustive manner like this mainly because
-    # the menus get cluttered and the modifier keys combinations get unwieldy.
+    with EntryDB() as entry_db:
+        entry = entry_db.get_entry_for_card(card_id)
+        if entry is None:
+            tooltip("Run PrioritySieve → Recalc before browsing matching entries.")
+            return
 
-    if search_lemma_only:
-        card_ids = am_db.get_ids_of_cards_with_same_morphs(
-            card_id,
-            search_unknowns=True,
-            search_lemma_only=True,
+        matching_ids = entry_db.get_card_ids_for_entry(
+            entry,
+            include_reviewed=include_reviewed,
+            text_only=lookup_text_only,
         )
-        error_text = "No unknown entries"
-    elif search_unknowns:
-        # only matches morph inflections
-        card_ids = am_db.get_ids_of_cards_with_same_morphs(
-            card_id, search_unknowns=True
-        )
-        error_text = "No unknown entries"
-    else:
-        # only matches morph inflections
-        card_ids = am_db.get_ids_of_cards_with_same_morphs(card_id)
-        error_text = "No entries"
 
-    if card_ids is None:
+    card_ids: set[CardId] = {CardId(cid) for cid in matching_ids}
+    if not card_ids:
+        error_text = "No entries" if include_reviewed else "No unknown entries"
         tooltip(error_text)
         return
 

@@ -55,6 +55,7 @@ class RawConfigFilterKeys:
     READING_PRIORITY = "reading_priority"
     MORPHEMIZER_DESCRIPTION = "morphemizer_description"
     MORPH_PRIORITY_SELECTION = "morph_priority_selection"
+    PRIORITY_FILES = "priority_files"
     READ = "read"
     MODIFY = "modify"
     EXTRA_READING_FIELD = "extra_reading_field"
@@ -155,17 +156,9 @@ class PrioritySieveConfigFilter:  # pylint:disable=too-many-instance-attributes
                 key=RawConfigFilterKeys.READING_FIELD, expected_type=str
             )
             self.reading_priority: str = self._get_reading_priority()
-            self.morphemizer_description: str = self._get_filter_item(
-                key=RawConfigFilterKeys.MORPHEMIZER_DESCRIPTION, expected_type=str
-            )
-            self.morph_priority_selections: list[str] = (
-                self._get_morph_priority_selections()
-            )
-            self.morph_priority_selection: str = (
-                self.morph_priority_selections[0]
-                if self.morph_priority_selections
-                else prioritysieve_globals.NONE_OPTION
-            )
+            self.morphemizer_description: str = prioritysieve_globals.NONE_OPTION
+            self._filter.pop(RawConfigFilterKeys.MORPHEMIZER_DESCRIPTION, None)
+            self._priority_files: list[str] = self._get_priority_files()
             self.read: bool = self._get_filter_item(
                 key=RawConfigFilterKeys.READ, expected_type=bool
             )
@@ -173,16 +166,6 @@ class PrioritySieveConfigFilter:  # pylint:disable=too-many-instance-attributes
                 key=RawConfigFilterKeys.MODIFY, expected_type=bool
             )
             self.extra_reading_field: bool = self._get_extra_reading_field()
-            # legacy extra field flags remain for compatibility but are immutable
-            self.extra_all_morphs = False
-            self.extra_all_morphs_count = False
-            self.extra_unknown_morphs = False
-            self.extra_unknown_morphs_count = False
-            self.extra_highlighted = False
-            self.extra_score = False
-            self.extra_score_terms = False
-            self.extra_study_morphs = False
-            self.extra_morph_readings = self.extra_reading_field
 
         except AssertionError:
             self.has_error = True
@@ -194,21 +177,32 @@ class PrioritySieveConfigFilter:  # pylint:disable=too-many-instance-attributes
     def expression_field(self) -> str:
         return getattr(self, "field", "(none)")
 
-    def _get_morph_priority_selections(self) -> list[str]:
-        try:
-            raw_value = self._filter[RawConfigFilterKeys.MORPH_PRIORITY_SELECTION]
-        except KeyError:
-            raw_value = self._default_config_dict[RawConfigKeys.FILTERS][0][
-                RawConfigFilterKeys.MORPH_PRIORITY_SELECTION
-            ]
-            prioritysieve_globals.new_config_found = True
+    @property
+    def priority_files(self) -> list[str]:
+        return getattr(self, "_priority_files", [])
 
-        selections = self._normalize_priority_selections(raw_value)
-        self._filter[RawConfigFilterKeys.MORPH_PRIORITY_SELECTION] = selections
+    def _get_priority_files(self) -> list[str]:
+        try:
+            raw_value = self._filter[RawConfigFilterKeys.PRIORITY_FILES]
+        except KeyError:
+            try:
+                raw_value = self._filter[RawConfigFilterKeys.MORPH_PRIORITY_SELECTION]
+            except KeyError:
+                defaults = self._default_config_dict[RawConfigKeys.FILTERS][0]
+                raw_value = defaults.get(
+                    RawConfigFilterKeys.PRIORITY_FILES,
+                    defaults.get(RawConfigFilterKeys.MORPH_PRIORITY_SELECTION, []),
+                )
+            else:
+                prioritysieve_globals.new_config_found = True
+
+        selections = self._normalize_priority_files(raw_value)
+        self._filter[RawConfigFilterKeys.PRIORITY_FILES] = selections
+        self._filter.pop(RawConfigFilterKeys.MORPH_PRIORITY_SELECTION, None)
         return selections
 
     @staticmethod
-    def _normalize_priority_selections(value: Any) -> list[str]:
+    def _normalize_priority_files(value: Any) -> list[str]:
         normalized: list[str] = []
 
         if isinstance(value, list):
