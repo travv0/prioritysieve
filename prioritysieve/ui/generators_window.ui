@@ -54,13 +54,6 @@
             <widget class="QLineEdit" name="inputDirLineEdit"/>
            </item>
            <item>
-            <layout class="QHBoxLayout" name="horizontalLayout_2">
-             <item>
-              <widget class="QComboBox" name="morphemizerComboBox"/>
-             </item>
-            </layout>
-           </item>
-           <item>
             <layout class="QHBoxLayout" name="horizontalLayout">
              <item>
               <widget class="QCheckBox" name="assFilesCheckBox">
