@@ -6,7 +6,7 @@ class General:
 
 class Dialogs:
     GENERATORS_WINDOW = "generators_window"
-    KNOWN_MORPHS_EXPORTER = "known_morphs_exporter"
+    KNOWN_ENTRIES_EXPORTER = "known_entries_exporter"
     PROGRESSION_WINDOW = "progression_window"
     GENERATOR_OUTPUT_PRIORITY_FILE = "generator_output_priority_file"
     GENERATOR_OUTPUT_STUDY_PLAN = "generator_output_study_plan"
@@ -18,7 +18,7 @@ class GeneratorsWindowKeys:
     INPUT_DIR = "input_dir"
 
 
-class KnownMorphsExporterKeys:
+class KnownEntriesExporterKeys:
     WINDOW_GEOMETRY = "window_geometry"
     OUTPUT_DIR = "output_dir"
     INCLUDE_READING = "include_reading"

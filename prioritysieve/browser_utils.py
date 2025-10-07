@@ -20,7 +20,7 @@ from .anki_op_utils import notify_op_execution
 browser: Browser | None = None
 
 
-def run_browse_morph(
+def run_browse_entry(
     search_unknowns: bool = False,
     search_lemma_only: bool = False,
 ) -> None:
@@ -34,7 +34,7 @@ def run_browse_morph(
 
     card = mw.col.get_card(card_id)
     note = card.note()
-    browse_same_morphs(
+    browse_same_entries(
         am_config,
         card_id=card_id,
         note=note,
@@ -43,7 +43,7 @@ def run_browse_morph(
     )
 
 
-def browse_same_morphs(  # pylint:disable=too-many-arguments
+def browse_same_entries(  # pylint:disable=too-many-arguments
     am_config: PrioritySieveConfig,
     card_id: CardId | None = None,
     note: Note | None = None,
@@ -51,7 +51,7 @@ def browse_same_morphs(  # pylint:disable=too-many-arguments
     search_ready_tag: bool = False,
     search_lemma_only: bool = False,
 ) -> None:
-    # Opens browser and displays all notes with the same focus morph.
+    # Opens browser and displays all notes with the same focus entry.
     # Useful to quickly find alternative notes to learn focus from.
     #
     # The query is a list of card ids. This might seem unnecessarily complicated, but

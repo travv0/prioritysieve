@@ -20,19 +20,21 @@ class ShortcutTab(SettingsTab):
         self._raw_config_key_to_key_sequence: dict[str, QKeySequenceEdit] = {
             RawConfigKeys.SHORTCUT_RECALC: self.ui.shortcutRecalcKeySequenceEdit,
             RawConfigKeys.SHORTCUT_SETTINGS: self.ui.shortcutSettingsKeySequenceEdit,
-            RawConfigKeys.SHORTCUT_BROWSE_READY_SAME_UNKNOWN: self.ui.shortcutBrowseReadyKeySequenceEdit,
-            RawConfigKeys.SHORTCUT_BROWSE_ALL_SAME_UNKNOWN: self.ui.shortcutBrowseAllKeySequenceEdit,
-            RawConfigKeys.SHORTCUT_BROWSE_READY_SAME_UNKNOWN_LEMMA: self.ui.shortcutBrowseReadyLemmaKeySequenceEdit,
+            RawConfigKeys.SHORTCUT_BROWSE_SAME_UNKNOWN: self.ui.shortcutBrowseReadyKeySequenceEdit,
+            RawConfigKeys.SHORTCUT_BROWSE_SAME_UNKNOWN_BROAD: self.ui.shortcutBrowseReadyLemmaKeySequenceEdit,
             RawConfigKeys.SHORTCUT_SET_KNOWN_AND_SKIP: self.ui.shortcutKnownAndSkipKeySequenceEdit,
             RawConfigKeys.SHORTCUT_LEARN_NOW: self.ui.shortcutLearnNowKeySequenceEdit,
             RawConfigKeys.SHORTCUT_GENERATORS: self.ui.shortcutGeneratorsKeySequenceEdit,
             RawConfigKeys.SHORTCUT_PROGRESSION: self.ui.shortcutProgressionKeySequenceEdit,
-            RawConfigKeys.SHORTCUT_KNOWN_MORPHS_EXPORTER: self.ui.shortcutKnownMorphsExporterKeySequenceEdit,
+            RawConfigKeys.SHORTCUT_KNOWN_ENTRIES_EXPORTER: self.ui.shortcutKnownMorphsExporterKeySequenceEdit,
         }
 
         self.ui.label_12.hide()
         self.ui.shortcutViewMorphsKeySequenceEdit.hide()
         self.ui.shortcutViewMorphsDisablePushButton.hide()
+        self.ui.label_9.hide()
+        self.ui.shortcutBrowseAllKeySequenceEdit.hide()
+        self.ui.shortcutBrowseAllDisablePushButton.hide()
 
         self.populate()
         self.setup_buttons()
@@ -48,7 +50,6 @@ class ShortcutTab(SettingsTab):
         self.ui.shortcutProgressionDisablePushButton.setAutoDefault(False)
         self.ui.shortcutKnownMorphsExporterDisablePushButton.setAutoDefault(False)
         self.ui.shortcutBrowseReadyDisablePushButton.setAutoDefault(False)
-        self.ui.shortcutBrowseAllDisablePushButton.setAutoDefault(False)
         self.ui.shortcutBrowseReadyLemmaDisablePushButton.setAutoDefault(False)
 
         self.ui.restoreShortcutsPushButton.clicked.connect(self.restore_defaults)
@@ -76,9 +77,6 @@ class ShortcutTab(SettingsTab):
         )
         self.ui.shortcutBrowseReadyDisablePushButton.clicked.connect(
             self.ui.shortcutBrowseReadyKeySequenceEdit.clear
-        )
-        self.ui.shortcutBrowseAllDisablePushButton.clicked.connect(
-            self.ui.shortcutBrowseAllKeySequenceEdit.clear
         )
         self.ui.shortcutBrowseReadyLemmaDisablePushButton.clicked.connect(
             self.ui.shortcutBrowseReadyLemmaKeySequenceEdit.clear

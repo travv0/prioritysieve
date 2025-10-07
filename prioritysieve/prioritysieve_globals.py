@@ -11,14 +11,14 @@ DEV_MODE: bool = False
 
 PROFILE_SETTINGS_FILE_NAME = "prioritysieve_profile_settings.json"
 NAMES_TXT_FILE_NAME = "prioritysieve_names.txt"
-KNOWN_MORPHS_DIR_NAME = "prioritysieve-known-morphs"
+KNOWN_ENTRIES_DIR_NAME = "prioritysieve-known-entries"
 PRIORITY_FILES_DIR_NAME = "prioritysieve-priority-files"
 
 SETTINGS_DIALOG_NAME: str = "ps_settings_dialog"
 TAG_SELECTOR_DIALOG_NAME: str = "ps_tag_selector_dialog"
 GENERATOR_DIALOG_NAME: str = "ps_generator_dialog"
 PROGRESSION_DIALOG_NAME: str = "ps_progression_dialog"
-KNOWN_MORPHS_EXPORTER_DIALOG_NAME: str = "ps_known_morphs_exporter_dialog"
+KNOWN_ENTRIES_EXPORTER_DIALOG_NAME: str = "ps_known_entries_exporter_dialog"
 
 # The static name of the extra reading field
 EXTRA_FIELD_READING: str = "ps-reading"
@@ -37,9 +37,6 @@ ONLY_KNOWN_OPTION = "If all entries are known"
 ONLY_KNOWN_OR_FRESH_OPTION = "If all entries are known or fresh"
 
 # Priority file/study plan headers
-LEMMA_HEADER = "Morph-Lemma"
-INFLECTION_HEADER = "Morph-Inflection"
-READING_HEADER = "Morph-Reading"
 LEMMA_PRIORITY_HEADER = "Lemma-Priority"
 INFLECTION_PRIORITY_HEADER = "Inflection-Priority"
 OCCURRENCES_HEADER = "Occurrences"

@@ -21,7 +21,7 @@ from .extra_settings.prioritysieve_extra_settings import PrioritySieveExtraSetti
 from .ui.known_morphs_exporter_dialog_ui import Ui_KnownMorphsExporterDialog
 
 
-class KnownMorphsExporterDialog(QDialog):
+class KnownEntriesExporterDialog(QDialog):
     def __init__(
         self,
     ) -> None:
@@ -33,7 +33,7 @@ class KnownMorphsExporterDialog(QDialog):
 
         self.am_extra_settings = PrioritySieveExtraSettings()
         self.am_extra_settings.beginGroup(
-            extra_settings_keys.Dialogs.KNOWN_MORPHS_EXPORTER
+            extra_settings_keys.Dialogs.KNOWN_ENTRIES_EXPORTER
         )
 
         self._default_output_dir = os.path.join(
@@ -50,7 +50,7 @@ class KnownMorphsExporterDialog(QDialog):
 
     def _setup_output_path(self) -> None:
         stored_output_dir: str = self.am_extra_settings.value(
-            extra_settings_keys.KnownMorphsExporterKeys.OUTPUT_DIR,
+            extra_settings_keys.KnownEntriesExporterKeys.OUTPUT_DIR,
             defaultValue=self._default_output_dir,
             type=str,
         )
@@ -64,17 +64,17 @@ class KnownMorphsExporterDialog(QDialog):
         self.ui.exportKnownMorphsPushButton.setAutoDefault(False)
 
         self.ui.selectOutputPushButton.clicked.connect(self._on_output_button_clicked)
-        self.ui.exportKnownMorphsPushButton.clicked.connect(self._export_known_morphs)
+        self.ui.exportKnownMorphsPushButton.clicked.connect(self._export_known_entries)
 
         stored_include_reading: bool | None = self.am_extra_settings.value(
-            extra_settings_keys.KnownMorphsExporterKeys.INCLUDE_READING,
+            extra_settings_keys.KnownEntriesExporterKeys.INCLUDE_READING,
             type=bool,
         )
         if stored_include_reading is not None:
             self.ui.includeReadingCheckBox.setChecked(stored_include_reading)
 
         stored_reviewed_only: bool | None = self.am_extra_settings.value(
-            extra_settings_keys.KnownMorphsExporterKeys.REVIEWED_ONLY,
+            extra_settings_keys.KnownEntriesExporterKeys.REVIEWED_ONLY,
             type=bool,
         )
         if stored_reviewed_only is not None:
@@ -82,7 +82,7 @@ class KnownMorphsExporterDialog(QDialog):
 
     def _setup_checkboxes(self) -> None:
         stored_occurrences_selection: bool = self.am_extra_settings.value(
-            extra_settings_keys.KnownMorphsExporterKeys.OCCURRENCES,
+            extra_settings_keys.KnownEntriesExporterKeys.OCCURRENCES,
             defaultValue=False,
             type=bool,
         )
@@ -90,7 +90,7 @@ class KnownMorphsExporterDialog(QDialog):
 
     def _setup_geometry(self) -> None:
         stored_geometry = self.am_extra_settings.value(
-            extra_settings_keys.KnownMorphsExporterKeys.WINDOW_GEOMETRY
+            extra_settings_keys.KnownEntriesExporterKeys.WINDOW_GEOMETRY
         )
         if stored_geometry is not None:
             self.restoreGeometry(stored_geometry)
@@ -104,19 +104,19 @@ class KnownMorphsExporterDialog(QDialog):
 
         self.ui.outputLineEdit.setText(output_dir)
 
-    def _export_known_morphs(self) -> None:
+    def _export_known_entries(self) -> None:
         assert mw is not None
 
         mw.progress.start(label="Exporting Known Entries")
         operation = QueryOp(
             parent=mw,
-            op=lambda _: self._background_export_known_morphs(),
+            op=lambda _: self._background_export_known_entries(),
             success=lambda _: self._on_success(),
         )
         operation.failure(self._on_failure)
         operation.with_progress().run_in_background()
 
-    def _background_export_known_morphs(self) -> None:
+    def _background_export_known_entries(self) -> None:
         assert mw is not None
 
         output_dir = self.ui.outputLineEdit.text()
@@ -128,21 +128,21 @@ class KnownMorphsExporterDialog(QDialog):
         include_occurrences = self.ui.addOccurrencesColumnCheckBox.isChecked()
 
         self.am_extra_settings.beginGroup(
-            extra_settings_keys.Dialogs.KNOWN_MORPHS_EXPORTER
+            extra_settings_keys.Dialogs.KNOWN_ENTRIES_EXPORTER
         )
         self.am_extra_settings.setValue(
-            extra_settings_keys.KnownMorphsExporterKeys.OUTPUT_DIR, output_dir
+            extra_settings_keys.KnownEntriesExporterKeys.OUTPUT_DIR, output_dir
         )
         self.am_extra_settings.setValue(
-            extra_settings_keys.KnownMorphsExporterKeys.INCLUDE_READING,
+            extra_settings_keys.KnownEntriesExporterKeys.INCLUDE_READING,
             include_reading,
         )
         self.am_extra_settings.setValue(
-            extra_settings_keys.KnownMorphsExporterKeys.REVIEWED_ONLY,
+            extra_settings_keys.KnownEntriesExporterKeys.REVIEWED_ONLY,
             reviewed_only,
         )
         self.am_extra_settings.setValue(
-            extra_settings_keys.KnownMorphsExporterKeys.OCCURRENCES,
+            extra_settings_keys.KnownEntriesExporterKeys.OCCURRENCES,
             include_occurrences,
         )
         self.am_extra_settings.endGroup()
@@ -177,11 +177,11 @@ class KnownMorphsExporterDialog(QDialog):
         self, callback: Callable[[], None]
     ) -> None:
         # This is used by the Anki dialog manager
-        self.am_extra_settings.save_known_morphs_exporter_settings(
+        self.am_extra_settings.save_known_entries_exporter_settings(
             ui=self.ui, geometry=self.saveGeometry()
         )
         self.close()
-        aqt.dialogs.markClosed(am_globals.KNOWN_MORPHS_EXPORTER_DIALOG_NAME)
+        aqt.dialogs.markClosed(am_globals.KNOWN_ENTRIES_EXPORTER_DIALOG_NAME)
         callback()
 
     def reopen(self) -> None:

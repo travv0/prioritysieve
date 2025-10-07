@@ -105,7 +105,7 @@ def main() -> None:
 def init_toolbar_items(links: list[str], toolbar: Toolbar) -> None:
     # Adds the 'L: V:' and 'Recalc' to the toolbar
 
-    morph_toolbar_stats = EntryToolbarStats()
+    entry_toolbar_stats = EntryToolbarStats()
     am_config = PrioritySieveConfig()
 
     known_entries_tooltip_message = (
@@ -127,7 +127,7 @@ def init_toolbar_items(links: list[str], toolbar: Toolbar) -> None:
         links.append(
             toolbar.create_link(
                 cmd="known_lemmas",
-                label=morph_toolbar_stats.lemmas,
+                label=entry_toolbar_stats.lemmas,
                 func=lambda: tooltip(known_entries_tooltip_message),
                 tip="L = Known entry base forms",
                 id="known_lemmas",
@@ -138,7 +138,7 @@ def init_toolbar_items(links: list[str], toolbar: Toolbar) -> None:
         links.append(
             toolbar.create_link(
                 cmd="known_variants",
-                label=morph_toolbar_stats.variants,
+                label=entry_toolbar_stats.variants,
                 func=lambda: tooltip(known_entries_tooltip_message),
                 tip="V = Known entry variants",
                 id="known_variants",
@@ -204,7 +204,7 @@ def register_addon_dialogs() -> None:
 
     from .generators.generators_window import GeneratorWindow
     from .progression.progression_window import ProgressionWindow
-    from .known_morphs_exporter import KnownMorphsExporterDialog
+    from .known_entries_exporter import KnownEntriesExporterDialog
 
     aqt.dialogs.register_dialog(
         name=ps_globals.SETTINGS_DIALOG_NAME,
@@ -219,8 +219,8 @@ def register_addon_dialogs() -> None:
         creator=ProgressionWindow,
     )
     aqt.dialogs.register_dialog(
-        name=ps_globals.KNOWN_MORPHS_EXPORTER_DIALOG_NAME,
-        creator=KnownMorphsExporterDialog,
+        name=ps_globals.KNOWN_ENTRIES_EXPORTER_DIALOG_NAME,
+        creator=KnownEntriesExporterDialog,
     )
 
 
@@ -244,7 +244,6 @@ def init_tool_menu_and_actions() -> None:
     recalc_action = create_recalc_action(am_config)
     generators_action = create_generators_dialog_action(am_config)
     progression_action = create_progression_dialog_action(am_config)
-    known_morphs_exporter_action = create_known_morphs_exporter_action(am_config)
     reset_tags_action = create_tag_reset_action()
     duplicate_entries_action = create_duplicate_entries_action()
     missing_priority_cards_action = create_missing_priority_cards_action()
@@ -257,7 +256,8 @@ def init_tool_menu_and_actions() -> None:
     am_tool_menu.addAction(recalc_action)
     am_tool_menu.addAction(generators_action)
     am_tool_menu.addAction(progression_action)
-    am_tool_menu.addAction(known_morphs_exporter_action)
+    known_entries_exporter_action = create_known_entries_exporter_action(am_config)
+    am_tool_menu.addAction(known_entries_exporter_action)
     am_tool_menu.addAction(reset_tags_action)
     am_tool_menu.addAction(duplicate_entries_action)
     am_tool_menu.addAction(missing_priority_cards_action)
@@ -274,9 +274,9 @@ def init_browser_menus_and_actions() -> None:
     am_config = PrioritySieveConfig()
 
     learn_now_action = create_learn_now_action(am_config)
-    browse_morph_action = create_browse_same_morph_action()
-    browse_morph_unknowns_action = create_browse_same_morph_unknowns_action(am_config)
-    browse_morph_unknowns_lemma_action = create_browse_same_morph_unknowns_lemma_action(
+    browse_entry_action = create_browse_same_entry_action()
+    browse_entry_unknowns_action = create_browse_same_entry_unknowns_action(am_config)
+    browse_entry_unknowns_broad_action = create_browse_same_entry_unknowns_broad_action(
         am_config
     )
     already_known_tagger_action = create_already_known_tagger_action(am_config)
@@ -296,9 +296,9 @@ def init_browser_menus_and_actions() -> None:
         am_browse_menu_creation_action.setObjectName(_BROWSE_MENU)
 
         am_browse_menu.addAction(learn_now_action)
-        am_browse_menu.addAction(browse_morph_action)
-        am_browse_menu.addAction(browse_morph_unknowns_action)
-        am_browse_menu.addAction(browse_morph_unknowns_lemma_action)
+        am_browse_menu.addAction(browse_entry_action)
+        am_browse_menu.addAction(browse_entry_unknowns_action)
+        am_browse_menu.addAction(browse_entry_unknowns_broad_action)
         am_browse_menu.addAction(already_known_tagger_action)
 
     def setup_context_menu(_browser: Browser, context_menu: QMenu) -> None:
@@ -310,9 +310,9 @@ def init_browser_menus_and_actions() -> None:
         assert context_menu_creation_action is not None
 
         context_menu.addAction(learn_now_action)
-        context_menu.addAction(browse_morph_action)
-        context_menu.addAction(browse_morph_unknowns_action)
-        context_menu.addAction(browse_morph_unknowns_lemma_action)
+        context_menu.addAction(browse_entry_action)
+        context_menu.addAction(browse_entry_unknowns_action)
+        context_menu.addAction(browse_entry_unknowns_broad_action)
         context_menu.addAction(already_known_tagger_action)
         context_menu_creation_action.setObjectName(_CONTEXT_MENU)
 
@@ -1005,29 +1005,29 @@ def create_learn_now_action(am_config: PrioritySieveConfig) -> QAction:
     return action
 
 
-def create_browse_same_morph_action() -> QAction:
+def create_browse_same_entry_action() -> QAction:
     action = QAction("&Browse Same Entries", mw)
-    action.triggered.connect(browser_utils.run_browse_morph)
+    action.triggered.connect(browser_utils.run_browse_entry)
     return action
 
 
-def create_browse_same_morph_unknowns_action(am_config: PrioritySieveConfig) -> QAction:
+def create_browse_same_entry_unknowns_action(am_config: PrioritySieveConfig) -> QAction:
     action = QAction("&Browse Same Unknown Entries", mw)
-    action.setShortcut(am_config.shortcut_browse_ready_same_unknown)
+    action.setShortcut(am_config.shortcut_browse_same_unknown)
     action.triggered.connect(
-        partial(browser_utils.run_browse_morph, search_unknowns=True)
+        partial(browser_utils.run_browse_entry, search_unknowns=True)
     )
     return action
 
 
-def create_browse_same_morph_unknowns_lemma_action(
+def create_browse_same_entry_unknowns_broad_action(
     am_config: PrioritySieveConfig,
 ) -> QAction:
     action = QAction("&Browse Same Unknown Entries (broad match)", mw)
-    action.setShortcut(am_config.shortcut_browse_ready_same_unknown_lemma)
+    action.setShortcut(am_config.shortcut_browse_same_unknown_broad)
     action.triggered.connect(
         partial(
-            browser_utils.run_browse_morph, search_unknowns=True, search_lemma_only=True
+            browser_utils.run_browse_entry, search_unknowns=True, search_lemma_only=True
         )
     )
     return action
@@ -1078,13 +1078,13 @@ def create_progression_dialog_action(am_config: PrioritySieveConfig) -> QAction:
     return action
 
 
-def create_known_morphs_exporter_action(am_config: PrioritySieveConfig) -> QAction:
+def create_known_entries_exporter_action(am_config: PrioritySieveConfig) -> QAction:
     action = QAction("&Known Entries Exporter", mw)
-    action.setShortcut(am_config.shortcut_known_morphs_exporter)
+    action.setShortcut(am_config.shortcut_known_entries_exporter)
     action.triggered.connect(
         partial(
             aqt.dialogs.open,
-            name=ps_globals.KNOWN_MORPHS_EXPORTER_DIALOG_NAME,
+            name=ps_globals.KNOWN_ENTRIES_EXPORTER_DIALOG_NAME,
         )
     )
     return action

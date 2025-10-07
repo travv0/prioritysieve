@@ -25,8 +25,9 @@ class GeneralTab(SettingsTab):
     ) -> None:
         super().__init__(parent, ui, config, default_config)
 
-        # Hide the deprecated morph evaluation controls.
+        # Hide deprecated morph evaluation controls and retired recalc options.
         self.ui.groupBox_4.hide()
+        self.ui.groupBox_3.hide()
 
         self._raw_config_key_to_radio_button: dict[str, QRadioButton] = {
             RawConfigKeys.TOOLBAR_STATS_USE_SEEN: self.ui.toolbarStatsUseSeenRadioButton,
@@ -36,15 +37,12 @@ class GeneralTab(SettingsTab):
         self._raw_config_key_to_check_box: dict[str, QCheckBox] = {
             RawConfigKeys.RECALC_ON_SYNC: self.ui.recalcBeforeSyncCheckBox,
             RawConfigKeys.RECALC_AFTER_SYNC: self.ui.recalcAfterSyncCheckBox,
-            RawConfigKeys.READ_KNOWN_MORPHS_FOLDER: self.ui.recalcReadKnownMorphsFolderCheckBox,
             RawConfigKeys.HIDE_RECALC_TOOLBAR: self.ui.hideRecalcCheckBox,
             RawConfigKeys.HIDE_LEMMA_TOOLBAR: self.ui.hideLemmaCheckBox,
             RawConfigKeys.HIDE_INFLECTION_TOOLBAR: self.ui.hideInflectionCheckBox,
         }
 
-        self._raw_config_key_to_spin_box: dict[str, QSpinBox | QDoubleSpinBox] = {
-            RawConfigKeys.INTERVAL_FOR_KNOWN_MORPHS: self.ui.recalcIntervalSpinBox,
-        }
+        self._raw_config_key_to_spin_box = {}
 
         self.populate()
         self.setup_buttons()

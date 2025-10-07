@@ -7,7 +7,7 @@ from pytest import MonkeyPatch
 from unittest.mock import MagicMock
 
 from prioritysieve.entry import Entry
-from prioritysieve.known_morphs_exporter import KnownMorphsExporterDialog
+from prioritysieve.known_entries_exporter import KnownEntriesExporterDialog
 
 
 def _collect_exported_rows(output_dir: Path) -> list[list[str]]:
@@ -32,11 +32,11 @@ def test_known_entries_exporter_writes_expected_columns(
     fake_db.get_entries_with_counts.return_value = entries
 
     monkeypatch.setattr(
-        "prioritysieve.known_morphs_exporter.EntryDB",
+        "prioritysieve.known_entries_exporter.EntryDB",
         lambda: fake_db,
     )
 
-    dialog = KnownMorphsExporterDialog()
+    dialog = KnownEntriesExporterDialog()
     qtbot.addWidget(dialog)
 
     output_dir = tmp_path / "exports"
@@ -47,7 +47,7 @@ def test_known_entries_exporter_writes_expected_columns(
     dialog.ui.includeReviewedOnlyCheckBox.setChecked(True)
     dialog.ui.addOccurrencesColumnCheckBox.setChecked(True)
 
-    dialog._background_export_known_morphs()
+    dialog._background_export_known_entries()
 
     rows = _collect_exported_rows(output_dir)
     assert rows[0] == ["Entry", "Reading", "Occurrences"]

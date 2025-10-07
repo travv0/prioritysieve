@@ -12,7 +12,7 @@ from . import extra_settings_keys as keys  # pylint:disable=no-name-in-module
 from .extra_settings_keys import (
     GeneratorsOutputKeys,
     GeneratorsWindowKeys,
-    KnownMorphsExporterKeys,
+    KnownEntriesExporterKeys,
     ProgressionWindowKeys,
 )
 
@@ -36,16 +36,16 @@ class PrioritySieveExtraSettings(QSettings):
         self.setValue(GeneratorsWindowKeys.INPUT_DIR, ui.inputDirLineEdit.text())
         self.endGroup()
 
-    def save_known_morphs_exporter_settings(
+    def save_known_entries_exporter_settings(
         self, ui: Ui_KnownMorphsExporterDialog, geometry: QByteArray
     ) -> None:
         # fmt: off
-        self.beginGroup(keys.Dialogs.KNOWN_MORPHS_EXPORTER)
-        self.setValue(KnownMorphsExporterKeys.WINDOW_GEOMETRY, geometry)
-        self.setValue(KnownMorphsExporterKeys.OUTPUT_DIR, ui.outputLineEdit.text())
-        self.setValue(KnownMorphsExporterKeys.INCLUDE_READING, ui.includeReadingCheckBox.isChecked())
-        self.setValue(KnownMorphsExporterKeys.REVIEWED_ONLY, ui.includeReviewedOnlyCheckBox.isChecked())
-        self.setValue(KnownMorphsExporterKeys.OCCURRENCES, ui.addOccurrencesColumnCheckBox.isChecked())
+        self.beginGroup(keys.Dialogs.KNOWN_ENTRIES_EXPORTER)
+        self.setValue(KnownEntriesExporterKeys.WINDOW_GEOMETRY, geometry)
+        self.setValue(KnownEntriesExporterKeys.OUTPUT_DIR, ui.outputLineEdit.text())
+        self.setValue(KnownEntriesExporterKeys.INCLUDE_READING, ui.includeReadingCheckBox.isChecked())
+        self.setValue(KnownEntriesExporterKeys.REVIEWED_ONLY, ui.includeReviewedOnlyCheckBox.isChecked())
+        self.setValue(KnownEntriesExporterKeys.OCCURRENCES, ui.addOccurrencesColumnCheckBox.isChecked())
         self.endGroup()
         # fmt: on
 
@@ -71,7 +71,7 @@ class PrioritySieveExtraSettings(QSettings):
     ) -> None:
         # fmt: off
         self.beginGroup(keys.Dialogs.PROGRESSION_WINDOW)
-        self.setValue(KnownMorphsExporterKeys.WINDOW_GEOMETRY, geometry)
+        self.setValue(ProgressionWindowKeys.WINDOW_GEOMETRY, geometry)
         self.setValue(ProgressionWindowKeys.PRIORITY_FILE, ui.morphPriorityCBox.currentText())
         self.setValue(ProgressionWindowKeys.LEMMA_EVALUATION, ui.lemmaRadioButton.isChecked())
         self.setValue(ProgressionWindowKeys.INFLECTION_EVALUATION, ui.inflectionRadioButton.isChecked())

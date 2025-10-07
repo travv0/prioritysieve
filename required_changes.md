@@ -1,0 +1,10 @@
+- all morphemizer stuff needs to be gutted from the codebase. the addon now has nothing to do with morphs.
+- as there's no morphemizing, each field has exactly ONE entry. the code should be updated to reflect this.
+- there doesn't need to be any concept of fresh/learning cards. either an entry has been reviewed, or it hasn't.
+- the highlighting stuff needs to be gutted.
+- the inflection stuff in priority files is unused and shouldn't be parsed or stored anywhere. priority files without these fields should be supported. the morph-lemma and morph-reading columns should also support them just being named lemma and reading without the morph- prefix.
+- the generator stuff should be updated to reflect all these changes. generated priority files should not have the morph- prefix in column names.
+- i believe ps-reading is the only extra field currently supported, and if not it needs to be. references to other fields should not be in the code or in the readme.
+- the stuff that buries new cards with matching entries as your reviewing needs to be removed, as the recalc step already suspends all but one new card with the same entry.
+- reading the old config format needs to be supported for people updating from older versions of the addon. it should be converted to the new format on load.
+- the config UI should be updated to reflect all these changes.

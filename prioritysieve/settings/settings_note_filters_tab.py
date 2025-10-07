@@ -411,7 +411,6 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
                 RawConfigFilterKeys.READING_PRIORITY: reading_priority_cbox.itemText(
                     reading_priority_cbox.currentIndex()
                 ),
-                RawConfigFilterKeys.MORPHEMIZER_DESCRIPTION: prioritysieve_globals.NONE_OPTION,
                 RawConfigFilterKeys.PRIORITY_FILES: priority_file_selections,
                 RawConfigFilterKeys.READ: read_widget.isChecked(),
                 RawConfigFilterKeys.MODIFY: modify_widget.isChecked(),
