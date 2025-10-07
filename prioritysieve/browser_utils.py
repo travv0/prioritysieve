@@ -8,21 +8,14 @@ from anki.notes import Note
 from anki.utils import ids2str
 from aqt import dialogs, mw
 from aqt.browser.browser import Browser
-from aqt.qt import (  # pylint:disable=no-name-in-module
-    QAbstractItemView,
-    QDialog,
-    QLineEdit,
-    QTableWidgetItem,
-)
+from aqt.qt import QLineEdit  # pylint:disable=no-name-in-module
 from aqt.reviewer import RefreshNeeded
 from aqt.utils import tooltip
 
 from . import prioritysieve_config, prioritysieve_globals
 from .prioritysieve_config import PrioritySieveConfig, PrioritySieveConfigFilter
-from .prioritysieve_db import PrioritySieveDB
 from .entry_db import EntryDB
 from .anki_op_utils import notify_op_execution
-from .ui.view_morphs_dialog_ui import Ui_ViewMorphsDialog
 
 browser: Browser | None = None
 
@@ -196,57 +189,4 @@ def run_learn_card_now() -> None:
 
 
 def run_view_morphs() -> None:  # pylint:disable=too-many-locals
-    assert mw is not None
-    assert browser is not None
-
-    am_db = PrioritySieveDB()
-
-    for cid in browser.selectedCards():
-        card = mw.col.get_card(cid)
-        note = card.note()
-
-        am_config_filter: PrioritySieveConfigFilter | None = (
-            prioritysieve_config.get_matching_read_filter(note)
-        )
-        if am_config_filter is None:
-            tooltip("Card does not match any 'Note Filters' that has 'Read' enabled")
-            return
-
-        morphs: list[tuple[str, str, str]] = am_db.get_readable_card_morphs(cid)
-
-        if len(morphs) == 0:
-            tooltip("No entries found")
-        else:
-            dialog = QDialog(parent=None)
-            ui = Ui_ViewMorphsDialog()
-            ui.setupUi(dialog)  # type: ignore[no-untyped-call]
-
-            ui.tableWidget.setAlternatingRowColors(True)
-            ui.tableWidget.setRowCount(len(morphs))
-            ui.tableWidget.setColumnCount(3)
-
-            # disables manual editing of the table
-            ui.tableWidget.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-
-            ui.tableWidget.setHorizontalHeaderLabels(
-                ["Inflection", "Lemma", "Reading"]
-            )
-
-            inflection_column = 0
-            lemma_column = 1
-            reading_column = 2
-
-            for row, morph in enumerate(morphs):
-                inflection = morph[1]
-                lemma = morph[0]
-                reading = morph[2]
-
-                inflection_item = QTableWidgetItem(inflection)
-                lemma_item = QTableWidgetItem(lemma)
-                reading_item = QTableWidgetItem(reading)
-
-                ui.tableWidget.setItem(row, inflection_column, inflection_item)
-                ui.tableWidget.setItem(row, lemma_column, lemma_item)
-                ui.tableWidget.setItem(row, reading_column, reading_item)
-
-            dialog.exec()
+    tooltip("Entry breakdown view is no longer available.")

@@ -14,16 +14,11 @@ import json
 import sqlite3
 from functools import partial
 from pathlib import Path
-from typing import Literal
-
 import aqt
 from anki import hooks
-from anki.cards import Card
-from anki.collection import OpChangesAfterUndo
 from anki.utils import ids2str
 from aqt import gui_hooks, mw
 from aqt.browser.browser import Browser
-from aqt.overview import Overview
 from aqt.qt import (  # pylint:disable=no-name-in-module
     QAction,
     QDesktopServices,
@@ -39,30 +34,24 @@ from aqt.qt import (  # pylint:disable=no-name-in-module
     QUrl,
     QVBoxLayout,
 )
-from aqt.reviewer import Reviewer
 from aqt.toolbar import Toolbar
 from aqt.utils import tooltip
 from aqt.webview import AnkiWebView
 
-from . import (
-    prioritysieve_config,
-)
+from . import prioritysieve_config
 from . import prioritysieve_globals as ps_globals
 from . import (
     browser_utils,
     debug_utils,
     message_box_utils,
     priority_gap_utils,
-    morph_priority_utils,
     name_file_utils,
-    reviewing_utils,
     tags_and_queue_utils,
     text_preprocessing,
     toolbar_stats,
 )
-from .prioritysieve_config import PrioritySieveConfig, PrioritySieveConfigFilter
-from .prioritysieve_db import PrioritySieveDB
 from .entry_db import EntryDB
+from .prioritysieve_config import PrioritySieveConfig, PrioritySieveConfigFilter
 from .extra_settings import prioritysieve_extra_settings, extra_settings_keys
 from .extra_settings.prioritysieve_extra_settings import PrioritySieveExtraSettings
 from .reading_utils import normalize_reading
@@ -79,16 +68,7 @@ _CONTEXT_MENU: str = "ps_context_menu"
 
 _startup_sync: bool = True
 _showed_update_warning: bool = False
-_updated_seen_morphs_for_profile: bool = False
 _state_before_sync_recalc: str | None = None
-
-
-def _maybe_delete_spacy_venv() -> None:
-    try:
-        from .morphemizers import spacy_wrapper
-    except Exception:  # pragma: no cover - best effort in headless envs
-        return
-    spacy_wrapper.maybe_delete_spacy_venv()
 
 
 def _schedule_followup_sync() -> None:
@@ -111,21 +91,13 @@ def main() -> None:
     gui_hooks.profile_did_open.append(redraw_toolbar)
     gui_hooks.profile_did_open.append(init_tool_menu_and_actions)
     gui_hooks.profile_did_open.append(init_browser_menus_and_actions)
-    gui_hooks.profile_did_open.append(replace_card_reviewer)
     gui_hooks.profile_did_open.append(text_preprocessing.update_translation_table)
-    gui_hooks.profile_did_open.append(_maybe_delete_spacy_venv)
     gui_hooks.profile_did_open.append(maybe_show_version_warning_wrapper)
 
     gui_hooks.sync_will_start.append(recalc_on_sync)
     gui_hooks.sync_did_finish.append(recalc_after_sync)
 
     gui_hooks.webview_will_show_context_menu.append(add_text_as_name_action)
-
-    gui_hooks.overview_did_refresh.append(update_seen_morphs)
-
-    gui_hooks.reviewer_did_answer_card.append(insert_seen_morphs)
-
-    gui_hooks.state_did_undo.append(rebuild_seen_morphs)
 
     gui_hooks.profile_will_close.append(cleanup_profile_session)
 
@@ -202,8 +174,8 @@ def reset_startup_sync_variable() -> None:
 
 
 def init_db() -> None:
-    with PrioritySieveDB() as am_db:
-        am_db.create_all_tables()
+    with EntryDB() as entry_db:
+        entry_db.create_schema()
 
 
 def create_am_directories_and_files() -> None:
@@ -560,19 +532,6 @@ def recalc_after_sync(success: bool | None = None) -> None:
     )
 
 
-def replace_card_reviewer() -> None:
-    assert mw is not None
-
-    reviewing_utils.init_undo_targets()
-
-    mw.reviewer.nextCard = reviewing_utils.am_next_card
-    mw.reviewer._shortcutKeys = partial(
-        reviewing_utils.am_reviewer_shortcut_keys,
-        self=mw.reviewer,
-        _old=Reviewer._shortcutKeys,  # type: ignore[arg-type]
-    )
-
-
 def maybe_show_version_warning_wrapper() -> None:
     assert mw is not None
     assert mw.pm is not None
@@ -616,86 +575,7 @@ def maybe_show_version_warning() -> None:
         pass
 
 
-def insert_seen_morphs(
-    _reviewer: Reviewer, card: Card, _ease: Literal[1, 2, 3, 4]
-) -> None:
-    """
-    The '_reviewer' and '_ease' arguments are unused
-    """
-    with PrioritySieveDB() as am_db:
-        am_db.update_seen_morphs_today_single_card(card.id)
-
-
-def update_seen_morphs(_overview: Overview) -> None:
-    """
-    The '_overview' argument is unused
-    """
-    # Overview is NOT the starting screen; it's the screen you see
-    # when you click on a deck. This is a good time to run this function,
-    # as 'seen morphs' only needs to be known before starting a review.
-    # Previously, this function ran on the profile_did_open hook,
-    # but that sometimes caused interference with the add-on updater
-    # since both occurred simultaneously.
-
-    global _updated_seen_morphs_for_profile
-
-    if _updated_seen_morphs_for_profile:
-        return
-
-    has_active_note_filter = False
-    read_config_filters: list[PrioritySieveConfigFilter] = (
-        prioritysieve_config.get_read_enabled_filters()
-    )
-
-    for config_filter in read_config_filters:
-        if config_filter.note_type != "":
-            has_active_note_filter = True
-
-    if has_active_note_filter:
-        PrioritySieveDB.rebuild_seen_morphs_today()
-
-    _updated_seen_morphs_for_profile = True
-
-
-def rebuild_seen_morphs(_changes: OpChangesAfterUndo) -> None:
-    """
-    The '_changes' argument is unused
-    """
-
-    ################################################################
-    #                      TRACKING SEEN MORPHS
-    ################################################################
-    # We need to keep track of which morphs have been seen today,
-    # which gets complicated when a user undos or redos cards.
-    #
-    # When a card is answered/set known, we insert all the card's
-    # morphs into the 'Seen_Morphs'-table. If a morph is already
-    # in the table, we just ignore the insert error. This makes
-    # it tricky to remove morphs from the table when undo is used
-    # because we don't track if the morphs were already in the table
-    # or not. To not deal with this removal problem, we just drop
-    # the entire table and rebuild it with the morphs of all the
-    # studied cards. This is costly, but it only happens on 'undo',
-    # which should be a rare occurrence.
-    #
-    # REDO:
-    # Redoing, i.e., undoing an undo (Ctrl+Shift+Z), is almost
-    # impossible to distinguish from a regular forward operation.
-    # Since this is such a nightmare to deal with (and is hopefully
-    # a rare occurrence), this will just be left as unexpected behavior.
-    ################################################################
-    PrioritySieveDB.rebuild_seen_morphs_today()
-
-    if ps_globals.DEV_MODE:
-        with PrioritySieveDB() as am_db:
-            print("Seen_Morphs:")
-            am_db.print_table("Seen_Morphs")
-
-
 def cleanup_profile_session() -> None:
-    global _updated_seen_morphs_for_profile
-    _updated_seen_morphs_for_profile = False
-    PrioritySieveDB.drop_seen_morphs_table()
     PrioritySieveExtraSettings().save_current_prioritysieve_version()
 
 
@@ -1166,10 +1046,8 @@ def add_text_as_name_action(web_view: AnkiWebView, menu: QMenu) -> None:
     selected_text = web_view.selectedText()
     if selected_text == "":
         return
-    action = QAction("Mark as name", menu)
+    action = QAction("Add selection to names.txt", menu)
     action.triggered.connect(lambda: name_file_utils.add_name_to_file(selected_text))
-    action.triggered.connect(PrioritySieveDB.insert_names_to_seen_morphs)
-    action.triggered.connect(mw.reviewer.bury_current_card)
     menu.addAction(action)
 
 
@@ -1227,13 +1105,6 @@ def test_function() -> None:
 
     assert mw is not None
     assert mw.col.db is not None
-
-    # with PrioritySieveDB() as am_db:
-    #     print("Seen_Morphs:")
-    #     am_db.print_table("Seen_Morphs")
-    #
-    #     print("Morphs:")
-    #     am_db.print_table("Morphs")
 
     # print(f"card: {Card}")
     # mid: NotetypeId = card.note().mid

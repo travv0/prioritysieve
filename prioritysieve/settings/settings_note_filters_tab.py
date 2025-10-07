@@ -26,10 +26,10 @@ from aqt.utils import tooltip
 from .. import (
     prioritysieve_globals,
     message_box_utils,
-    morph_priority_utils,
     table_utils,
     tags_and_queue_utils,
 )
+from ..priority_files import available_priority_files
 from ..prioritysieve_config import (
     PrioritySieveConfig,
     PrioritySieveConfigFilter,
@@ -618,7 +618,7 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
             prioritysieve_globals.NONE_OPTION,
             prioritysieve_globals.COLLECTION_FREQUENCY_OPTION,
         ]
-        available_options += morph_priority_utils.get_priority_files()
+        available_options += available_priority_files()
 
         dialog = PriorityFileSelectionDialog(
             parent=self._parent,

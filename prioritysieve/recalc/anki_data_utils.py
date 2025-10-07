@@ -9,16 +9,12 @@ from collections.abc import Sequence
 from typing import Any
 
 import anki.utils
-from anki.cards import CardId
 from anki.models import ModelManager, NotetypeDict, NotetypeId
 from anki.tags import TagManager
 from aqt import mw
 
 from .. import prioritysieve_globals
 from ..prioritysieve_config import PrioritySieveConfig, PrioritySieveConfigFilter
-from ..morpheme import Morpheme
-
-
 class AnkiDBRowData:
     __slots__ = (
         "card_id",
@@ -63,7 +59,6 @@ class AnkiCardData:  # pylint:disable=too-many-instance-attributes
         "tags",
         "note_id",
         "note_type_id",
-        "morphs",
     )
 
     def __init__(  # pylint:disable=too-many-arguments
@@ -116,40 +111,6 @@ class AnkiCardData:  # pylint:disable=too-many-instance-attributes
         self.tags = anki_row_data.note_tags
         self.note_id = anki_row_data.note_id
         self.note_type_id = note_type_id
-
-        # this is set later in the caching process
-        self.morphs: set[Morpheme] | None = None
-
-
-class PrioritySieveCardData:
-    """
-    This is used when extracting data from the PrioritySieveDB
-    """
-
-    __slots__ = (
-        "card_id",
-        "note_id",
-        "note_type_id",
-        "card_type",
-        "tags",
-    )
-
-    def __init__(self, data_row: list[int | str]) -> None:
-        assert isinstance(data_row[0], int)
-        self.card_id: CardId = CardId(data_row[0])
-
-        assert isinstance(data_row[1], int)
-        self.note_id: int = data_row[1]
-
-        assert isinstance(data_row[2], int)
-        self.note_type_id: int = data_row[2]
-
-        assert isinstance(data_row[3], int)
-        self.card_type: int = data_row[3]
-
-        assert isinstance(data_row[4], str)
-        self.tags: str = data_row[4]
-
 
 def create_card_data_dict(
     am_config: PrioritySieveConfig,

@@ -7,11 +7,9 @@ import sys
 from collections.abc import Iterator
 from pathlib import Path
 from test.fake_configs import default_config_dict
-from test.fake_db import FakeDB
 from test.test_globals import (
     PATH_CARD_COLLECTIONS,
     PATH_DB_COPY,
-    PATH_FAKE_MORPHEMIZERS,
     PATH_TEMP_CARD_COLLECTIONS,
     PATH_TESTS_DATA_DBS,
     PATH_TESTS_DATA_TESTS_OUTPUTS,
@@ -30,14 +28,11 @@ from aqt.reviewer import Reviewer
 
 from prioritysieve import (
     prioritysieve_config,
-    prioritysieve_db,
     prioritysieve_globals,
     priority_files,
     known_morphs_exporter,
-    morph_priority_utils,
     name_file_utils,
     progress_utils,
-    reviewing_utils,
 )
 from prioritysieve.extra_settings import prioritysieve_extra_settings
 from prioritysieve.generators import (
@@ -48,7 +43,6 @@ from prioritysieve.generators import (
     readability_report_generator,
     study_plan_generator,
 )
-from prioritysieve.morphemizers import spacy_wrapper
 from prioritysieve.progression import progression_utils, progression_window
 from prioritysieve.recalc import anki_data_utils, caching, recalc_main
 
@@ -76,7 +70,6 @@ class FakeEnvironment:
     def __init__(  # pylint:disable=too-many-arguments
         self,
         mock_mw: mock.Mock,
-        mock_db: FakeDB,
         config: dict[str, Any],
         priority_files_dir: str,
         known_morphs_dir: str,
@@ -84,7 +77,6 @@ class FakeEnvironment:
         expected_collection: Collection,
     ) -> None:
         self.mock_mw = mock_mw
-        self.mock_db = mock_db
         self.config = config
         self.priority_files_dir = priority_files_dir
         self.known_morphs_dir = known_morphs_dir
@@ -144,22 +136,14 @@ def fake_environment_fixture(  # pylint:disable=too-many-locals
         mw_patch.start()
 
     # 'mw' has to be patched before we can before we can create db instances
-    am_db_patches = create_am_db_patches()
-    for am_db_patch in am_db_patches:
-        am_db_patch.start()
-
     misc_patches = create_misc_patches(_priority_files_dir, _known_morphs_dir)
     for misc_patch in misc_patches:
         misc_patch.start()
-
-    sys.path.append(str(PATH_FAKE_MORPHEMIZERS))
-    mock_db = FakeDB()
 
     try:
         try:
             fake_env = FakeEnvironment(
                 mock_mw=mock_mw,
-                mock_db=mock_db,
                 config=_config_data,
                 known_morphs_dir=_known_morphs_dir,
                 priority_files_dir=_priority_files_dir,
@@ -174,9 +158,8 @@ def fake_environment_fixture(  # pylint:disable=too-many-locals
 
     finally:
         post_test_teardown(
-            mock_db=mock_db,
             mock_mw=mock_mw,
-            patches=mw_patches + am_db_patches + misc_patches,
+            patches=mw_patches + misc_patches,
         )
 
 
@@ -203,38 +186,24 @@ def create_mw_patches(mock_mw: AnkiQt) -> list[Any]:
         mock.patch.object(recalc_main, "mw", mock_mw),
         mock.patch.object(caching, "mw", mock_mw),
         mock.patch.object(progress_utils, "mw", mock_mw),
-        mock.patch.object(prioritysieve_db, "mw", mock_mw),
         mock.patch.object(prioritysieve_config, "mw", mock_mw),
         mock.patch.object(name_file_utils, "mw", mock_mw),
         mock.patch.object(anki_data_utils, "mw", mock_mw),
-        mock.patch.object(reviewing_utils, "mw", mock_mw),
         mock.patch.object(generators_window, "mw", mock_mw),
         mock.patch.object(progression_window, "mw", mock_mw),
         mock.patch.object(readability_report_generator, "mw", mock_mw),
         mock.patch.object(generators_utils, "mw", mock_mw),
         mock.patch.object(priority_file_generator, "mw", mock_mw),
         mock.patch.object(study_plan_generator, "mw", mock_mw),
-        mock.patch.object(morph_priority_utils, "mw", mock_mw),
         mock.patch.object(known_morphs_exporter, "mw", mock_mw),
         mock.patch.object(prioritysieve_extra_settings, "mw", mock_mw),
         mock.patch.object(generators_output_dialog, "mw", mock_mw),
     ]
 
 
-def create_am_db_patches() -> list[Any]:
-    return [
-        mock.patch.object(reviewing_utils, "PrioritySieveDB", FakeDB),
-        mock.patch.object(recalc_main, "PrioritySieveDB", FakeDB),
-        mock.patch.object(caching, "PrioritySieveDB", FakeDB),
-    ]
-
-
 def create_misc_patches(_priority_files_dir: str, _known_morphs_dir: str) -> list[Any]:
     # fmt: off
     return [
-        # tooltip tries to do gui stuff which breaks test
-        mock.patch.object(reviewing_utils, "tooltip", mock.Mock(spec=aqt.utils.tooltip)),
-        mock.patch.object(spacy_wrapper, "testing_environment", True),
         mock.patch.object(prioritysieve_globals, "PRIORITY_FILES_DIR_NAME", _priority_files_dir),
         mock.patch.object(priority_files, "KNOWN_ENTRIES_DIR", _known_morphs_dir),
         mock.patch.object(known_morphs_exporter, "KNOWN_ENTRIES_DIR", _known_morphs_dir),
@@ -243,11 +212,9 @@ def create_misc_patches(_priority_files_dir: str, _known_morphs_dir: str) -> lis
 
 
 def post_test_teardown(
-    mock_db: FakeDB,
     mock_mw: AnkiQt,
     patches: list[Any],
 ) -> None:
-    mock_db.con.close()
     mock_mw.col.close()
 
     for patch in patches:
@@ -255,8 +222,6 @@ def post_test_teardown(
 
     # Windows can sometimes have lingering references so we force cleanup here
     gc.collect()
-
-    sys.path.remove(str(PATH_FAKE_MORPHEMIZERS))
 
     Path.unlink(PATH_DB_COPY, missing_ok=True)
     shutil.rmtree(PATH_TEMP_CARD_COLLECTIONS, ignore_errors=True)

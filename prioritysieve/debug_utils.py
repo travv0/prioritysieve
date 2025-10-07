@@ -7,9 +7,6 @@ from pathlib import Path
 from typing import Any
 
 from . import prioritysieve_globals
-from .morpheme import Morpheme
-
-
 def print_stacktrace() -> None:
     stacktrace = ""
     for thread in threading.enumerate():
@@ -86,8 +83,3 @@ def dev_print(message: str) -> None:
     if prioritysieve_globals.DEV_MODE:
         print(message)
 
-
-def dev_print_morphs(morphs: list[Morpheme]) -> None:
-    if prioritysieve_globals.DEV_MODE:
-        for morph in morphs:
-            print(f"morph: {morph.inflection}")
