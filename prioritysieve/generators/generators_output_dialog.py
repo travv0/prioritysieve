@@ -17,13 +17,12 @@ class OutputOptions:  # pylint:disable=too-many-instance-attributes
     def __init__(self, ui: Ui_GeneratorOutputDialog):
         # fmt: off
         self.output_path: Path = Path(ui.outputLineEdit.text())
-        self.store_only_lemma: bool = ui.storeOnlyMorphLemmaRadioButton.isChecked()
-        self.store_lemma_and_inflection: bool = ui.storeMorphLemmaAndInflectionRadioButton.isChecked()
-        self.min_occurrence: bool = ui.minOccurrenceRadioButton.isChecked()
-        self.comprehension: bool = ui.comprehensionRadioButton.isChecked()
+        self.include_reading: bool = ui.includeReadingCheckBox.isChecked()
+        self.min_occurrence_selected: bool = ui.minOccurrenceRadioButton.isChecked()
+        self.comprehension_selected: bool = ui.comprehensionRadioButton.isChecked()
         self.min_occurrence_threshold: int = ui.minOccurrenceSpinBox.value()
         self.comprehension_threshold: int = ui.comprehensionSpinBox.value()
-        self.selected_extra_occurrences_column: bool = ui.addOccurrencesColumnCheckBox.isChecked()
+        self.include_occurrences_column: bool = ui.addOccurrencesColumnCheckBox.isChecked()
         # fmt: on
 
 
@@ -93,16 +92,6 @@ class GeneratorOutputDialog(QDialog):
             defaultValue=False,
             type=bool,
         )
-        stored_lemma_format_selected: bool = self.am_extra_settings.value(
-            extra_settings_keys.GeneratorsOutputKeys.LEMMA_FORMAT,
-            defaultValue=False,
-            type=bool,
-        )
-        stored_inflection_format_selected: bool = self.am_extra_settings.value(
-            extra_settings_keys.GeneratorsOutputKeys.INFLECTION_FORMAT,
-            defaultValue=True,
-            type=bool,
-        )
 
         self.ui.minOccurrenceRadioButton.setChecked(stored_min_occurrence_selected)
         self.ui.comprehensionRadioButton.setChecked(stored_comprehension_selected)
@@ -114,9 +103,6 @@ class GeneratorOutputDialog(QDialog):
             self.ui.minOccurrenceSpinBox.setDisabled(True)
 
         # fmt: off
-        self.ui.storeMorphLemmaAndInflectionRadioButton.setChecked(stored_inflection_format_selected)
-        self.ui.storeOnlyMorphLemmaRadioButton.setChecked(stored_lemma_format_selected)
-
         self.ui.selectFilePushButton.clicked.connect(self._on_output_button_clicked)
         self.ui.okPushButton.clicked.connect(self._on_ok_button_clicked)
         self.ui.cancelPushButton.clicked.connect(self.reject)
@@ -140,6 +126,13 @@ class GeneratorOutputDialog(QDialog):
         self.ui.minOccurrenceSpinBox.setValue(stored_occurrence_cutoff)
 
     def _setup_checkboxes(self) -> None:
+        stored_include_reading: bool = self.am_extra_settings.value(
+            extra_settings_keys.GeneratorsOutputKeys.INCLUDE_READING,
+            defaultValue=True,
+            type=bool,
+        )
+        self.ui.includeReadingCheckBox.setChecked(stored_include_reading)
+
         stored_occurrences_selected: bool = self.am_extra_settings.value(
             extra_settings_keys.GeneratorsOutputKeys.OCCURRENCES_COLUMN_SELECTED,
             defaultValue=False,

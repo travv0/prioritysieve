@@ -17,31 +17,7 @@ class Dialogs:
 
 class GeneratorsWindowKeys:
     WINDOW_GEOMETRY = "window_geometry"
-    MORPHEMIZER = "morphemizer"
-    FILE_FORMATS = "file_formats"
-    PREPROCESS = "preprocess"
     INPUT_DIR = "input_dir"
-
-
-class FileFormatsKeys:
-    ASS = "ass"
-    EPUB = "epub"
-    HTML = "html"
-    MD = "md"
-    SRT = "srt"
-    TXT = "txt"
-    VTT = "vtt"
-
-
-class PreprocessKeys:
-    IGNORE_SQUARE_BRACKETS = "ignore_square_brackets"
-    IGNORE_ROUND_BRACKETS = "ignore_round_brackets"
-    IGNORE_SLIM_ROUND_BRACKETS = "ignore_slim_round_brackets"
-    IGNORE_NAMES_MORPHEMIZER = "ignore_names_morphemizer"
-    IGNORE_NAMES_IN_FILE = "ignore_names_in_file"
-    IGNORE_NUMBERS = "ignore_numbers"
-    IGNORE_CUSTOM_CHARS = "ignore_custom_chars"
-    CHARS_TO_IGNORE = "chars_to_ignore"
 
 
 class KnownMorphsExporterKeys:
@@ -74,9 +50,8 @@ class ProgressionWindowKeys:
 
 class GeneratorsOutputKeys:
     WINDOW_GEOMETRY = "window_geometry"
-    LEMMA_FORMAT = "lemma_format"
     OUTPUT_FILE_PATH = "output_file_path"
-    INFLECTION_FORMAT = "inflection_format"
+    INCLUDE_READING = "include_reading"
     MIN_OCCURRENCE_SELECTED = "min_occurrence_selected"
     MIN_OCCURRENCE_CUTOFF = "min_occurrence_cutoff"
     COMPREHENSION_SELECTED = "comprehension_selected"

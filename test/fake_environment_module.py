@@ -226,8 +226,6 @@ def create_am_db_patches() -> list[Any]:
         mock.patch.object(reviewing_utils, "PrioritySieveDB", FakeDB),
         mock.patch.object(recalc_main, "PrioritySieveDB", FakeDB),
         mock.patch.object(caching, "PrioritySieveDB", FakeDB),
-        mock.patch.object(readability_report_generator, "PrioritySieveDB", FakeDB),
-        mock.patch.object(study_plan_generator, "PrioritySieveDB", FakeDB),
     ]
 
 

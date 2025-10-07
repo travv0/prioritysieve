@@ -1,199 +1,82 @@
 # Generators
 
+PrioritySieve ships with three tools under **Tools → PrioritySieve → Generators**:
 
-![generators-window.png](../../img/generators-window.png)
+- **Readability report** – summarises how many entries inside a batch of CSV files are already reviewed versus still unseen.
+- **Priority file generator** – merges one or more CSV files into a PrioritySieve-ready priority list.
+- **Study plan generator** – stitches several CSV files together in a fixed order so you can study entries in the same sequence they appear in your source material.
 
-PrioritySieve provides the following three generators:
+Unlike the legacy workflow, generators no longer run morphemizers. They work directly with CSV files that already contain entries. This makes it easy to reuse exports from other tools or tweak priority lists in a spreadsheet.
 
-- [Readability Report Generator](#readability-report-generator)  
-  Generates a report on how well you know the text in the specified files. The results are displayed in the table at the
-  bottom of the window (no file is created).
+---
 
-- [Priority File Generator](#priority-file-generator)  
-  Generates a `.csv` file listing all morphs from the input files, sorted by frequency.
+## Preparing input files
 
-- [Study Plan Generator](#study-plan-generator)  
-  Generates a `.csv` file by merging priority files in a specified order.
+1. Place the CSV files you want to analyse in a directory. The generator scans the directory recursively and picks up every `.csv` file it finds.
+2. Each file must be encoded in UTF-8 and contain at least an `Entry` column. Optional columns include `Reading`, `Morph-Reading`, `Lemma`, or `Morph-Lemma` (PrioritySieve treats these as entry/reading synonyms) and `Occurrences`, `Occurrence`, `Count`, or `Frequency`.
+3. Click **Choose Folder** in the generator window, point it at the directory, and press **Load Files**. The table at the bottom lists every CSV that will be processed.
 
-<br>
+*Tip:* because the generator works with plain CSVs, you can feed it frequency lists, immersion logs, or any other export as long as you provide an `Entry` column.
 
-To use the generators you have to follow these three steps:
-1. [Load input files](#loading-files)
-2. [Select processing options](#processing-files)
-3. [Select output options](#generator-output)
+---
 
-## Loading Files
+## Output options
 
-### File Formats
+Clicking **Generate Priority File** or **Generate Study Plan** opens a dialog with the following settings:
 
-![file_formats.png](../../img/file_formats.png)
+- **Output file** – defaults to your profile’s `prioritysieve-priority-files/` directory. You can change the destination, but PrioritySieve only auto-loads files stored in that folder.
+- **Include reading column** – adds a `Reading` column when the input files contain reading information.
+- **Include occurrences column** – writes out the summed occurrence count for each entry. This is optional; PrioritySieve only needs the `Entry` (and optional `Reading`) columns when consuming a priority file.
+- **Minimum occurrence** – keep entries that appear at least *n* times across the selected files.
+- **Comprehension target** – keep enough entries to cover the specified percentage of total occurrences. For example, 90% includes the most common entries until their cumulative count reaches 90% of all occurrences.
 
-These are the files that the generators are (mostly) able to read. Any files that don't have these extensions will be
-ignored.
+Only one cutoff mode (minimum occurrence or comprehension) is active at a time.
 
-> **Note**:
-> - Files must be encoded in `UTF-8`. Using other encodings may lead to parsing errors or crashes.
-> - EPUB files may be parsed _slightly_ differently across operating systems due to system-specific quirks.
+---
 
-### Selecting Root Folder
+## Readability report
 
-![generator-select-input.png](../../img/generator-select-input.png)
+The readability report combines every loaded CSV with your existing PrioritySieve entry database:
 
-Any files that match your selected file formats and are in this folder or sub-folders,
-will be used by the generators.
+- **Unique entries** – total distinct entries in the file.
+- **Reviewed / Unreviewed entries** – how many of those entries PrioritySieve already marks as reviewed.
+- **Reviewed / Unreviewed occurrences** – occurrence counts split the same way.
 
-Take, for example, the following folders and their files:
+Both the raw counts and the percentages are displayed in separate tabs. Sorting a column in either tab preserves the order when you generate a study plan, which is handy when you want to follow the file with the fewest unknown entries first.
 
-```
-english_texts/
-├── books/
-│   └── The Wise Man's Fear/
-│       ├── The Wise Man's Fear.epub
-│       └── The Wise Man's Fear.txt
-└── subs/
-    ├── Game-of-Thrones/
-    │   └── season-1/
-    │       └── episode_1.srt
-    └── Lord_of_the_Rings/
-        └── The_Fellowship_of_the_Ring.vtt
+---
 
-```
+## Priority file generator
 
-If you were to select the `books` folder, and you checked the `.txt` file format, then the generator would
-only use the `The Wise Man's Fear.txt` file.
+This generator produces a PrioritySieve-ready CSV with the following columns:
 
-If you were to select the folder `english_texts` and you checked all the file format options, then the generator would
-use the files:
+1. `Entry`
+2. Optional `Reading`
+3. `Priority` (0-based, lower numbers indicate higher priority)
+4. Optional `Occurrences`
 
-- `The Wise Man's Fear.epub`
-- `The Wise Man's Fear.txt`
-- `episode_1.srt`
-- `The_Fellowship_of_the_Ring.vtt`
+Entries are sorted by total occurrence count. If you apply a comprehension cutoff or minimum occurrence threshold, rows outside the range are dropped. The resulting file can be copied straight into `prioritysieve-priority-files/` and selected from the settings dialog.
 
-### After Loading
+---
 
-![generator_loaded_files.png](../../img/generator_loaded_files.png)
+## Study plan generator
 
-The files that will be used by the generators will be shown in the `File` column in the tables below, and the generator
-buttons are now enabled. Next, you need to specify how the generators should [process the files](#processing-files).
+Study plans keep the input files in their current order before sorting by occurrence inside each file. The output columns are:
 
-## Processing Files
+1. `Entry`
+2. Optional `Reading`
+3. `Status` (`reviewed` or `unreviewed` based on the current PrioritySieve entry database)
+4. Optional `Occurrences`
+5. `File` (relative path from the chosen input directory)
 
-### Morphemizer
+Duplicate entries are removed after the first appearance so that you only study each expression once. This format is useful when you want to progress through a TV series, book series, or any other structured source in the order it was published.
 
-![generator-morphemizer.png](../../img/generator-morphemizer.png)
+---
 
-This is the tool PrioritySieve uses to split text into morphs.
+## After generating files
 
-### Preprocess
+- Priority files placed in `prioritysieve-priority-files/` are available immediately in the **Note Filters** tab of the settings dialog.
+- Study plans live alongside other priority files. You can reference them directly or merge them into larger lists.
+- The readability report updates in-place; no files are written.
 
-![generator-parsing-options.png](../../img/generator-preprocess-options.png)
-
-These options are equivalent to those found in [`Preprocess` settings](../setup/settings/preprocess.md).
-
-## Generator Output
-
-When clicking the `Generate Priority File` or `Generate Study Plan` buttons you will be presented with these options:
-
-![generator-output-dialog.png](../../img/generator-output-dialog.png)
-
-The output file is automatically set to be in the [[anki profile folder](../../glossary.md#profile-folder)]`/priority-files/` folder. Any priority
-files or study plans that are placed in this folder can be selected in the 
-[note filter: morph priority settings](../setup/settings/note-filter.md#morph-priority).
-
-You can name the file whatever you want as long as it has a `.csv` extension, e.g. `ja-freq.csv`.
-
-### File Format
-
-- `Lemma and inflection`: [inflection priority file](../setup/prioritizing.md#custom-inflection-priority-files)
-- `Only lemma`: [lemma priority file](../setup/prioritizing.md#custom-lemma-priority-files)
-
-### Minimum Occurrence
-
-Limit the morphs to only those that occur at least `x` many times.
-
-### Comprehension Target
-
-Limit the morphs to only those that occur below the specified comprehension percent. Let’s look at a simple scenario
-where these are all the morphs:
-
-![comprehension-example.png](../../img/comprehension-example.png)
-
-If your target is `90%`, then we get:
-
-$$$ \large \text{Occurrence Sum Threshold} = 0.9 \times 400 = 360 $$$
-
-The morphs in the fifth and sixth rows would therefore not be included since they have an occurrence sum greater than 360.
-
-<br>
-<br>
-
-# Readability Report Generator
-
-The Readability Report Generator can give you insights into how much of the text in a file you are able to read. It produces two
-different outputs, one with pure numerical values, and one with percentages.
-
-![readability-report-generator-numerical.png](../../img/readability-report-generator-numerical.png)
-![readability-report-generator-percentages.png](../../img/readability-report-generator-percentages.png)
-
-You can click on the column headers to sort the rows based on those values.
-
-<br>
-<br>
-
-# Priority File Generator
-
-The Priority File Generator creates a priority file that is described in the [prioritizing section](../setup/prioritizing.md).
-
-<br>
-<br>
-
-# Study Plan Generator
-
-![study-guide-example.png](../../img/study-guide-example.png)
-
-Using a study plan is convenient if you want to learn morphs from source materials in a specific sequence,
-e.g., TV show episodes, book series, etc.
-
-A study plan differs from a regular priority file in the following ways:
-- It is first sorted by input files, then morph frequency.
-- It has extra columns:
-    - Learning status
-    - File name
-
-The study plan generator basically does this:
-1. Creates a priority file for each input file
-2. Combines those priority files
-3. Removes duplicate morphs
-
-The resulting file can be used in the [note filter: morph priority settings](../setup/settings/note-filter.md#morph-priority)
-like any other priority file.
-
-> **Note**: that only the data from the `Morph-Lemma`, and `Morph-Lnflection` columns are read 
-by PrioritySieve, so you can delete or modify the other columns if you want.
-
-
-### Changing The File Order
-
-The study plan uses the same file order as that displayed in the currently opened table at the bottom of the window.
-This provides more flexibility than relying solely on the alphanumeric values of the file names.
-
-If I have this table open where I sort based on the `Total Known` column, as I click the `Generate Study Plan` button :
-
-![study-plan-order-example-1.png](../../img/study-plan-order-example-1.png)
-
-the study plan will have the files in this order:
-1. `Jigokuraku-03.srt`
-2. `Jigokuraku-01.srt`
-3. `Jigokuraku-02.srt`
-
-> **Note**: the `Total` "file" is artificial and won't be included, nor is its data used in any calculations.
-
-With this table open where I sort based on the `Total Unknown` column:
-
-![study-plan-order-example-2.png](../../img/study-plan-order-example-2.png)
-
-Then the order will be this:
-1. `Jigokuraku-03.srt`
-2. `Jigokuraku-02.srt`
-3. `Jigokuraku-01.srt`
+Whenever you add or modify CSVs, rerun **Load Files** before generating new outputs, and run **Recalc** afterwards so the new priorities flow into your cards.

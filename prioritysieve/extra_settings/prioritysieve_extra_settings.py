@@ -10,11 +10,9 @@ from ..ui.known_morphs_exporter_dialog_ui import Ui_KnownMorphsExporterDialog
 from ..ui.progression_window_ui import Ui_ProgressionWindow
 from . import extra_settings_keys as keys  # pylint:disable=no-name-in-module
 from .extra_settings_keys import (
-    FileFormatsKeys,
     GeneratorsOutputKeys,
     GeneratorsWindowKeys,
     KnownMorphsExporterKeys,
-    PreprocessKeys,
     ProgressionWindowKeys,
     SpacyManagerWindowKeys,
     SudachiManagerWindowKeys,
@@ -35,34 +33,10 @@ class PrioritySieveExtraSettings(QSettings):
     def save_generators_window_settings(
         self, ui: Ui_GeneratorsWindow, geometry: QByteArray
     ) -> None:
-        # fmt: off
         self.beginGroup(keys.Dialogs.GENERATORS_WINDOW)
         self.setValue(GeneratorsWindowKeys.WINDOW_GEOMETRY, geometry)
-        self.setValue(GeneratorsWindowKeys.MORPHEMIZER, ui.morphemizerComboBox.currentText())
         self.setValue(GeneratorsWindowKeys.INPUT_DIR, ui.inputDirLineEdit.text())
-
-        self.beginGroup(GeneratorsWindowKeys.FILE_FORMATS)
-        self.setValue(FileFormatsKeys.ASS, ui.assFilesCheckBox.isChecked())
-        self.setValue(FileFormatsKeys.EPUB, ui.epubFilesCheckBox.isChecked())
-        self.setValue(FileFormatsKeys.HTML, ui.htmlFilesCheckBox.isChecked())
-        self.setValue(FileFormatsKeys.MD, ui.mdFilesCheckBox.isChecked())
-        self.setValue(FileFormatsKeys.SRT, ui.srtFilesCheckBox.isChecked())
-        self.setValue(FileFormatsKeys.TXT, ui.txtFilesCheckBox.isChecked())
-        self.setValue(FileFormatsKeys.VTT, ui.vttFilesCheckBox.isChecked())
-        self.endGroup()  # file format group
-
-        self.beginGroup(GeneratorsWindowKeys.PREPROCESS)
-        self.setValue(PreprocessKeys.IGNORE_SQUARE_BRACKETS, ui.squareBracketsCheckBox.isChecked())
-        self.setValue(PreprocessKeys.IGNORE_ROUND_BRACKETS, ui.roundBracketsCheckBox.isChecked())
-        self.setValue(PreprocessKeys.IGNORE_SLIM_ROUND_BRACKETS, ui.slimRoundBracketsCheckBox.isChecked())
-        self.setValue(PreprocessKeys.IGNORE_NAMES_MORPHEMIZER, ui.namesMorphemizerCheckBox.isChecked())
-        self.setValue(PreprocessKeys.IGNORE_NAMES_IN_FILE, ui.namesFileCheckBox.isChecked())
-        self.setValue(PreprocessKeys.IGNORE_NUMBERS, ui.numbersCheckBox.isChecked())
-        self.setValue(PreprocessKeys.IGNORE_CUSTOM_CHARS, ui.customCharactersCheckBox.isChecked())
-        self.setValue(PreprocessKeys.CHARS_TO_IGNORE, ui.customCharactersLineEdit.text())
-        self.endGroup()  # preprocess group
-        self.endGroup()  # generators window group
-        # fmt: on
+        self.endGroup()
 
     def save_known_morphs_exporter_settings(
         self, ui: Ui_KnownMorphsExporterDialog, geometry: QByteArray
@@ -134,8 +108,7 @@ class PrioritySieveExtraSettings(QSettings):
         self.beginGroup(keys.Dialogs.GENERATOR_OUTPUT_PRIORITY_FILE)
         self.setValue(GeneratorsOutputKeys.WINDOW_GEOMETRY, geometry)
         self.setValue(GeneratorsOutputKeys.OUTPUT_FILE_PATH, ui.outputLineEdit.text())
-        self.setValue(GeneratorsOutputKeys.LEMMA_FORMAT, ui.storeOnlyMorphLemmaRadioButton.isChecked())
-        self.setValue(GeneratorsOutputKeys.INFLECTION_FORMAT, ui.storeMorphLemmaAndInflectionRadioButton.isChecked())
+        self.setValue(GeneratorsOutputKeys.INCLUDE_READING, ui.includeReadingCheckBox.isChecked())
         self.setValue(GeneratorsOutputKeys.MIN_OCCURRENCE_SELECTED, ui.minOccurrenceRadioButton.isChecked())
         self.setValue(GeneratorsOutputKeys.MIN_OCCURRENCE_CUTOFF, ui.minOccurrenceSpinBox.value())
         self.setValue(GeneratorsOutputKeys.COMPREHENSION_SELECTED, ui.comprehensionRadioButton.isChecked())
@@ -151,8 +124,7 @@ class PrioritySieveExtraSettings(QSettings):
         self.beginGroup(keys.Dialogs.GENERATOR_OUTPUT_STUDY_PLAN)
         self.setValue(GeneratorsOutputKeys.WINDOW_GEOMETRY, geometry)
         self.setValue(GeneratorsOutputKeys.OUTPUT_FILE_PATH, ui.outputLineEdit.text())
-        self.setValue(GeneratorsOutputKeys.LEMMA_FORMAT, ui.storeOnlyMorphLemmaRadioButton.isChecked())
-        self.setValue(GeneratorsOutputKeys.INFLECTION_FORMAT, ui.storeMorphLemmaAndInflectionRadioButton.isChecked())
+        self.setValue(GeneratorsOutputKeys.INCLUDE_READING, ui.includeReadingCheckBox.isChecked())
         self.setValue(GeneratorsOutputKeys.MIN_OCCURRENCE_SELECTED, ui.minOccurrenceRadioButton.isChecked())
         self.setValue(GeneratorsOutputKeys.MIN_OCCURRENCE_CUTOFF, ui.minOccurrenceSpinBox.value())
         self.setValue(GeneratorsOutputKeys.COMPREHENSION_SELECTED, ui.comprehensionRadioButton.isChecked())
