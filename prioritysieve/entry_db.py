@@ -121,6 +121,29 @@ class EntryDB:
         cursor.execute("SELECT text, reading, reviewed FROM Entries")
         return [StoredEntry(text, reading, bool(reviewed)) for text, reading, reviewed in cursor.fetchall()]
 
+    def get_entries_with_counts(
+        self,
+        reviewed_only: bool = True,
+    ) -> list[tuple[Entry, int]]:
+        cursor = self.con.cursor()
+        where_clause = "WHERE e.reviewed = 1" if reviewed_only else ""
+        cursor.execute(
+            f"""
+            SELECT e.text, e.reading, e.reviewed, COUNT(ce.card_id)
+            FROM Entries e
+            LEFT JOIN CardEntries ce
+                ON ce.entry_text = e.text AND ce.entry_reading = e.reading
+            {where_clause}
+            GROUP BY e.text, e.reading, e.reviewed
+            ORDER BY e.text COLLATE NOCASE, e.reading COLLATE NOCASE
+            """
+        )
+        results: list[tuple[Entry, int]] = []
+        for text, reading, reviewed, count in cursor.fetchall():
+            entry = Entry(text=text, reading=reading, reviewed=bool(reviewed))
+            results.append((entry, int(count)))
+        return results
+
     def get_entry_for_card(self, card_id: int) -> Entry | None:
         cursor = self.con.cursor()
         cursor.execute(

@@ -71,9 +71,8 @@ class PrioritySieveExtraSettings(QSettings):
         self.beginGroup(keys.Dialogs.KNOWN_MORPHS_EXPORTER)
         self.setValue(KnownMorphsExporterKeys.WINDOW_GEOMETRY, geometry)
         self.setValue(KnownMorphsExporterKeys.OUTPUT_DIR, ui.outputLineEdit.text())
-        self.setValue(KnownMorphsExporterKeys.LEMMA, ui.storeOnlyMorphLemmaRadioButton.isChecked())
-        self.setValue(KnownMorphsExporterKeys.INFLECTION, ui.storeMorphLemmaAndInflectionRadioButton.isChecked())
-        self.setValue(KnownMorphsExporterKeys.INTERVAL, ui.knownIntervalSpinBox.value())
+        self.setValue(KnownMorphsExporterKeys.INCLUDE_READING, ui.includeReadingCheckBox.isChecked())
+        self.setValue(KnownMorphsExporterKeys.REVIEWED_ONLY, ui.includeReviewedOnlyCheckBox.isChecked())
         self.setValue(KnownMorphsExporterKeys.OCCURRENCES, ui.addOccurrencesColumnCheckBox.isChecked())
         self.endGroup()
         # fmt: on

@@ -32,6 +32,7 @@ from prioritysieve import (
     prioritysieve_config,
     prioritysieve_db,
     prioritysieve_globals,
+    priority_files,
     known_morphs_exporter,
     morph_priority_utils,
     name_file_utils,
@@ -227,9 +228,6 @@ def create_am_db_patches() -> list[Any]:
         mock.patch.object(caching, "PrioritySieveDB", FakeDB),
         mock.patch.object(readability_report_generator, "PrioritySieveDB", FakeDB),
         mock.patch.object(study_plan_generator, "PrioritySieveDB", FakeDB),
-        mock.patch.object(progression_window, "PrioritySieveDB", FakeDB),
-        mock.patch.object(progression_utils, "PrioritySieveDB", FakeDB),
-        mock.patch.object(known_morphs_exporter, "PrioritySieveDB", FakeDB),
     ]
 
 
@@ -240,7 +238,8 @@ def create_misc_patches(_priority_files_dir: str, _known_morphs_dir: str) -> lis
         mock.patch.object(reviewing_utils, "tooltip", mock.Mock(spec=aqt.utils.tooltip)),
         mock.patch.object(spacy_wrapper, "testing_environment", True),
         mock.patch.object(prioritysieve_globals, "PRIORITY_FILES_DIR_NAME", _priority_files_dir),
-        mock.patch.object(prioritysieve_globals, "KNOWN_MORPHS_DIR_NAME", _known_morphs_dir),
+        mock.patch.object(priority_files, "KNOWN_ENTRIES_DIR", _known_morphs_dir),
+        mock.patch.object(known_morphs_exporter, "KNOWN_ENTRIES_DIR", _known_morphs_dir),
     ]
     # fmt: on
 

@@ -1,94 +1,55 @@
 from __future__ import annotations
 
 from pathlib import Path
-from test import test_utils
-from test.fake_configs import (
-    config_inflection_evaluation,
-    config_lemma_evaluation_lemma_extra_fields,
-)
-from test.fake_environment_module import (  # pylint:disable=unused-import
-    FakeEnvironment,
-    FakeEnvironmentParams,
-    fake_environment_fixture,
-)
-from test.test_globals import (
-    PATH_TESTS_DATA_CORRECT_OUTPUTS,
-    PATH_TESTS_DATA_TESTS_OUTPUTS,
-)
 from typing import Any
 
-import pytest
+from pytest import MonkeyPatch
+from unittest.mock import MagicMock
 
+from prioritysieve.entry import Entry
 from prioritysieve.known_morphs_exporter import KnownMorphsExporterDialog
 
-test_cases = [
-    ################################################################
-    #                CASES: EXPORTING KNOWN MORPHS
-    ################################################################
-    # We can export known morphs based on their lemma, or
-    # lemma + inflection, so we test both.
-    # The KnownMorphsExporterDialog automatically checks which of
-    # those options should be used depending on whether the
-    # 'evaluate_morph_lemma' option is enabled in PrioritySieveConfig.
-    ################################################################
-    pytest.param(
-        FakeEnvironmentParams(
-            actual_col="some_studied_lemmas_collection",
-            expected_col="some_studied_lemmas_collection",
-            config=config_lemma_evaluation_lemma_extra_fields,
-            am_db="some_studied_lemmas.db",
-        ),
-        True,
-        id="exporting_lemmas",
-    ),
-    pytest.param(
-        FakeEnvironmentParams(
-            actual_col="some_studied_lemmas_collection",
-            expected_col="some_studied_lemmas_collection",
-            config=config_inflection_evaluation,
-            am_db="some_studied_lemmas.db",
-        ),
-        False,
-        id="exporting_inflections",
-    ),
-]
+
+def _collect_exported_rows(output_dir: Path) -> list[list[str]]:
+    exported_files = sorted(output_dir.glob("known_entries-*.csv"))
+    assert exported_files, "Expected exporter to create a CSV output"
+    target = exported_files[-1]
+    with target.open(encoding="utf-8") as handle:
+        return [line.rstrip("\n").split(",") for line in handle]
 
 
-@pytest.mark.parametrize(
-    "fake_environment_fixture, only_store_lemma",
-    test_cases,
-    indirect=["fake_environment_fixture"],
-)
-def test_known_morphs_exporter(  # pylint:disable=unused-argument
-    fake_environment_fixture: FakeEnvironment,
-    only_store_lemma: bool,
-    qtbot: Any,
+def test_known_entries_exporter_writes_expected_columns(
+    tmp_path: Path, monkeypatch: MonkeyPatch, qtbot: Any
 ) -> None:
-    exporter_dialog = KnownMorphsExporterDialog()
+    entries = [
+        (Entry(text="犬", reading="いぬ", reviewed=True), 3),
+        (Entry(text="猫", reading="", reviewed=True), 1),
+    ]
 
-    if only_store_lemma:
-        _file_name = "exported_known_morphs_lemmas.csv"
-    else:
-        _file_name = "exported_known_morphs_inflections.csv"
+    fake_db = MagicMock()
+    fake_db.__enter__.return_value = fake_db
+    fake_db.__exit__.return_value = False
+    fake_db.get_entries_with_counts.return_value = entries
 
-    correct_output_file = Path(
-        PATH_TESTS_DATA_CORRECT_OUTPUTS,
-        _file_name,
+    monkeypatch.setattr(
+        "prioritysieve.known_morphs_exporter.EntryDB",
+        lambda: fake_db,
     )
 
-    # sets the output dir
-    exporter_dialog.ui.outputLineEdit.setText(str(PATH_TESTS_DATA_TESTS_OUTPUTS))
+    dialog = KnownMorphsExporterDialog()
+    qtbot.addWidget(dialog)
 
-    # both 'correct_output' files have the occurrence column
-    exporter_dialog.ui.addOccurrencesColumnCheckBox.setChecked(True)
+    output_dir = tmp_path / "exports"
+    output_dir.mkdir()
 
-    exporter_dialog._background_export_known_morphs()
+    dialog.ui.outputLineEdit.setText(str(output_dir))
+    dialog.ui.includeReadingCheckBox.setChecked(True)
+    dialog.ui.includeReviewedOnlyCheckBox.setChecked(True)
+    dialog.ui.addOccurrencesColumnCheckBox.setChecked(True)
 
-    # the exported file has a dynamic name (includes datetime of creation), so we
-    # have to retrieve it dynamically. The output dir should only contain one
-    # file so this is pretty easy
-    test_output_file = list(PATH_TESTS_DATA_TESTS_OUTPUTS.iterdir())[0]
+    dialog._background_export_known_morphs()
 
-    test_utils.assert_csv_files_are_identical(
-        correct_output_file=correct_output_file, test_output_file=test_output_file
-    )
+    rows = _collect_exported_rows(output_dir)
+    assert rows[0] == ["Entry", "Reading", "Occurrences"]
+    assert rows[1] == ["犬", "いぬ", "3"]
+    assert rows[2] == ["猫", "", "1"]

@@ -38,85 +38,28 @@
    <item>
     <widget class="QGroupBox" name="groupBox">
      <property name="title">
-      <string>Entry Format</string></property>
-     <layout class="QHBoxLayout" name="horizontalLayout_5">
-      <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_4">
-        <item>
-         <widget class="QRadioButton" name="storeOnlyMorphLemmaRadioButton">
-          <property name="text">
-           <string>Lemmas</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QRadioButton" name="storeMorphLemmaAndInflectionRadioButton">
-          <property name="text">
-           <string>Inflections</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <spacer name="horizontalSpacer_4">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>40</width>
-            <height>20</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-       </layout>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
-    <widget class="QGroupBox" name="groupBox_2">
-     <property name="title">
-      <string>Entry Learning Interval</string></property>
+      <string>Included Columns</string>
+     </property>
      <layout class="QVBoxLayout" name="verticalLayout">
       <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_2">
-        <property name="leftMargin">
-         <number>3</number>
+       <widget class="QCheckBox" name="includeReadingCheckBox">
+        <property name="text">
+         <string>Include reading column</string>
         </property>
-        <property name="topMargin">
-         <number>0</number>
+        <property name="checked">
+         <bool>true</bool>
         </property>
-        <item>
-         <widget class="QLabel" name="label_2">
-          <property name="text">
-           <string>Entries with interval </string></property>
-         </widget>
-        </item>
-        <item alignment="Qt::AlignLeft">
-         <widget class="QSpinBox" name="knownIntervalSpinBox" />
-        </item>
-        <item alignment="Qt::AlignLeft">
-         <widget class="QLabel" name="label">
-          <property name="text">
-           <string>days or higher</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <spacer name="horizontalSpacer_3">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>40</width>
-            <height>20</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-       </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="includeReviewedOnlyCheckBox">
+        <property name="text">
+         <string>Reviewed entries only</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
       </item>
      </layout>
     </widget>

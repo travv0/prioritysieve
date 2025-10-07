@@ -13,8 +13,8 @@ from aqt.qt import QDialog, QFileDialog  # pylint:disable=no-name-in-module
 from aqt.utils import tooltip
 
 from . import prioritysieve_globals as am_globals
-from .prioritysieve_config import PrioritySieveConfig
-from .prioritysieve_db import PrioritySieveDB
+from .entry_db import EntryDB
+from .priority_files import KNOWN_ENTRIES_DIR
 from .exceptions import CancelledOperationException, EmptyFileSelectionException
 from .extra_settings import extra_settings_keys
 from .extra_settings.prioritysieve_extra_settings import PrioritySieveExtraSettings
@@ -30,7 +30,6 @@ class KnownMorphsExporterDialog(QDialog):
         super().__init__(parent=None)  # no parent makes the dialog modeless
         self.ui = Ui_KnownMorphsExporterDialog()  # pylint:disable=invalid-name
         self.ui.setupUi(self)  # type: ignore[no-untyped-call]
-        self.am_config = PrioritySieveConfig()
 
         self.am_extra_settings = PrioritySieveExtraSettings()
         self.am_extra_settings.beginGroup(
@@ -38,12 +37,11 @@ class KnownMorphsExporterDialog(QDialog):
         )
 
         self._default_output_dir = os.path.join(
-            mw.pm.profileFolder(), am_globals.KNOWN_MORPHS_DIR_NAME
+            mw.pm.profileFolder(), KNOWN_ENTRIES_DIR
         )
 
         self._setup_output_path()
         self._setup_buttons()
-        self._setup_spinbox()
         self._setup_checkboxes()
         self._setup_geometry()
 
@@ -68,29 +66,19 @@ class KnownMorphsExporterDialog(QDialog):
         self.ui.selectOutputPushButton.clicked.connect(self._on_output_button_clicked)
         self.ui.exportKnownMorphsPushButton.clicked.connect(self._export_known_morphs)
 
-        stored_lemma_selected: bool = self.am_extra_settings.value(
-            extra_settings_keys.KnownMorphsExporterKeys.LEMMA,
-            defaultValue=self.am_config.evaluate_morph_lemma,
+        stored_include_reading: bool | None = self.am_extra_settings.value(
+            extra_settings_keys.KnownMorphsExporterKeys.INCLUDE_READING,
             type=bool,
         )
-        stored_inflection_selected: bool = self.am_extra_settings.value(
-            extra_settings_keys.KnownMorphsExporterKeys.INFLECTION,
-            defaultValue=not self.am_config.evaluate_morph_lemma,
+        if stored_include_reading is not None:
+            self.ui.includeReadingCheckBox.setChecked(stored_include_reading)
+
+        stored_reviewed_only: bool | None = self.am_extra_settings.value(
+            extra_settings_keys.KnownMorphsExporterKeys.REVIEWED_ONLY,
             type=bool,
         )
-
-        self.ui.storeOnlyMorphLemmaRadioButton.setChecked(stored_lemma_selected)
-        self.ui.storeMorphLemmaAndInflectionRadioButton.setChecked(
-            stored_inflection_selected
-        )
-
-    def _setup_spinbox(self) -> None:
-        stored_interval: int = self.am_extra_settings.value(
-            extra_settings_keys.KnownMorphsExporterKeys.INTERVAL,
-            defaultValue=self.am_config.interval_for_known_morphs,
-            type=int,
-        )
-        self.ui.knownIntervalSpinBox.setValue(stored_interval)
+        if stored_reviewed_only is not None:
+            self.ui.includeReviewedOnlyCheckBox.setChecked(stored_reviewed_only)
 
     def _setup_checkboxes(self) -> None:
         stored_occurrences_selection: bool = self.am_extra_settings.value(
@@ -128,93 +116,62 @@ class KnownMorphsExporterDialog(QDialog):
         operation.failure(self._on_failure)
         operation.with_progress().run_in_background()
 
-    def _background_export_known_morphs(  # pylint:disable=too-many-locals
-        self,
-    ) -> None:
+    def _background_export_known_morphs(self) -> None:
         assert mw is not None
 
-        if self.ui.outputLineEdit.text() == "":
+        output_dir = self.ui.outputLineEdit.text()
+        if output_dir == "":
             raise EmptyFileSelectionException
 
-        output_dir = self.ui.outputLineEdit.text()
+        include_reading = self.ui.includeReadingCheckBox.isChecked()
+        reviewed_only = self.ui.includeReviewedOnlyCheckBox.isChecked()
+        include_occurrences = self.ui.addOccurrencesColumnCheckBox.isChecked()
+
+        self.am_extra_settings.beginGroup(
+            extra_settings_keys.Dialogs.KNOWN_MORPHS_EXPORTER
+        )
+        self.am_extra_settings.setValue(
+            extra_settings_keys.KnownMorphsExporterKeys.OUTPUT_DIR, output_dir
+        )
+        self.am_extra_settings.setValue(
+            extra_settings_keys.KnownMorphsExporterKeys.INCLUDE_READING,
+            include_reading,
+        )
+        self.am_extra_settings.setValue(
+            extra_settings_keys.KnownMorphsExporterKeys.REVIEWED_ONLY,
+            reviewed_only,
+        )
+        self.am_extra_settings.setValue(
+            extra_settings_keys.KnownMorphsExporterKeys.OCCURRENCES,
+            include_occurrences,
+        )
+        self.am_extra_settings.endGroup()
+
         _datetime = datetime.datetime.now().strftime("%Y-%m-%d@%H-%M-%S")
         output_file = os.path.join(output_dir, f"known_entries-{_datetime}.csv")
-
-        # create the parent directories if they don't exist
         Path(output_file).parent.mkdir(parents=True, exist_ok=True)
 
-        selected_extra_occurrences_column: bool = (
-            self.ui.addOccurrencesColumnCheckBox.isChecked()
-        )
-        known_interval: int = self.ui.knownIntervalSpinBox.value()
-        store_only_lemma: bool = self.ui.storeOnlyMorphLemmaRadioButton.isChecked()
-
-        if store_only_lemma:
-            self._export_lemmas(
-                output_file=output_file,
-                known_interval=known_interval,
-                selected_extra_occurrences_column=selected_extra_occurrences_column,
-            )
-        else:
-            self._export_inflections(
-                output_file=output_file,
-                known_interval=known_interval,
-                selected_extra_occurrences_column=selected_extra_occurrences_column,
+        with EntryDB() as entry_db:
+            entries_with_counts = entry_db.get_entries_with_counts(
+                reviewed_only=reviewed_only
             )
 
-    @staticmethod
-    def _export_inflections(
-        output_file: str,
-        known_interval: int,
-        selected_extra_occurrences_column: bool,
-    ) -> None:
-        headers: list[str] = [
-            am_globals.LEMMA_HEADER,
-            am_globals.INFLECTION_HEADER,
-            am_globals.READING_HEADER,
-        ]
-        if selected_extra_occurrences_column:
-            headers.append("Occurrence")
-
-        export_list: list[tuple[str, str, str, int]] = (
-            PrioritySieveDB().get_known_lemmas_and_inflections_with_count(known_interval)
-        )
+        headers: list[str] = ["Entry"]
+        if include_reading:
+            headers.append("Reading")
+        if include_occurrences:
+            headers.append("Occurrences")
 
         with open(output_file, mode="w+", encoding="utf-8", newline="") as csvfile:
-            morph_writer = csv.writer(csvfile)
-            morph_writer.writerow(headers)
-
-            if selected_extra_occurrences_column:
-                for lemma, inflection, reading, inflection_count in export_list:
-                    morph_writer.writerow([lemma, inflection, reading, inflection_count])
-            else:
-                for lemma, inflection, reading, _ in export_list:
-                    morph_writer.writerow([lemma, inflection, reading])
-
-    @staticmethod
-    def _export_lemmas(
-        output_file: str,
-        known_interval: int,
-        selected_extra_occurrences_column: bool,
-    ) -> None:
-        headers: list[str] = [am_globals.LEMMA_HEADER, am_globals.READING_HEADER]
-        if selected_extra_occurrences_column is True:
-            headers.append("Occurrence")
-
-        export_list: list[tuple[str, str, int]] = PrioritySieveDB().get_known_lemmas_with_count(
-            known_interval
-        )
-
-        with open(output_file, mode="w+", encoding="utf-8", newline="") as csvfile:
-            morph_writer = csv.writer(csvfile)
-            morph_writer.writerow(headers)
-
-            if selected_extra_occurrences_column:
-                for lemma, reading, count in export_list:
-                    morph_writer.writerow([lemma, reading, count])
-            else:
-                for lemma, reading, _ in export_list:
-                    morph_writer.writerow([lemma, reading])
+            writer = csv.writer(csvfile)
+            writer.writerow(headers)
+            for entry, count in entries_with_counts:
+                row: list[str | int] = [entry.text]
+                if include_reading:
+                    row.append(entry.reading)
+                if include_occurrences:
+                    row.append(int(count))
+                writer.writerow(row)
 
     def closeWithCallback(  # pylint:disable=invalid-name
         self, callback: Callable[[], None]

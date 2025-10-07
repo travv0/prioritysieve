@@ -71,7 +71,7 @@ from .settings import settings_dialog
 from .settings.settings_dialog import SettingsDialog
 from .tag_selection_dialog import TagSelectionDialog
 from .toolbar_stats import EntryToolbarStats
-from .priority_files import load_priority_map
+from .priority_files import load_priority_map, KNOWN_ENTRIES_DIR
 
 _TOOL_MENU: str = "ps_tool_menu"
 _BROWSE_MENU: str = "ps_browse_menu"
@@ -210,8 +210,8 @@ def create_am_directories_and_files() -> None:
     assert mw is not None
 
     names_file_path: Path = Path(mw.pm.profileFolder(), ps_globals.NAMES_TXT_FILE_NAME)
-    known_morphs_dir_path: Path = Path(
-        mw.pm.profileFolder(), ps_globals.KNOWN_MORPHS_DIR_NAME
+    known_entries_dir_path: Path = Path(
+        mw.pm.profileFolder(), KNOWN_ENTRIES_DIR
     )
     priority_files_dir_path: Path = Path(
         mw.pm.profileFolder(), ps_globals.PRIORITY_FILES_DIR_NAME
@@ -220,8 +220,8 @@ def create_am_directories_and_files() -> None:
     # Create the file if it doesn't exist
     names_file_path.touch(exist_ok=True)
 
-    if not known_morphs_dir_path.exists():
-        Path(known_morphs_dir_path).mkdir()
+    if not known_entries_dir_path.exists():
+        Path(known_entries_dir_path).mkdir()
 
     if not priority_files_dir_path.exists():
         Path(priority_files_dir_path).mkdir()

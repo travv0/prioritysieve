@@ -47,9 +47,8 @@ class PreprocessKeys:
 class KnownMorphsExporterKeys:
     WINDOW_GEOMETRY = "window_geometry"
     OUTPUT_DIR = "output_dir"
-    LEMMA = "lemma"
-    INFLECTION = "inflection"
-    INTERVAL = "interval"
+    INCLUDE_READING = "include_reading"
+    REVIEWED_ONLY = "reviewed_only"
     OCCURRENCES = "occurrences"
 
 

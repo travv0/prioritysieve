@@ -17,7 +17,6 @@ from aqt.qt import (  # pylint:disable=no-name-in-module
 from aqt.utils import tooltip
 
 from .. import prioritysieve_globals
-from ..prioritysieve_config import PrioritySieveConfig
 from ..entry_db import EntryDB
 from ..priority_files import available_priority_files, load_priority_map
 from ..exceptions import (
@@ -117,8 +116,6 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
         self.ui.viewProgressPushButton.clicked.connect(
             self._on_view_progress_button_clicked
         )
-
-        am_config = PrioritySieveConfig()
 
         stored_normal_bin_type: bool = self.am_extra_settings.value(
             extra_settings_keys.ProgressionWindowKeys.BIN_TYPE_NORMAL,
