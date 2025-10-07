@@ -108,10 +108,6 @@ def init_toolbar_items(links: list[str], toolbar: Toolbar) -> None:
     entry_toolbar_stats = EntryToolbarStats()
     am_config = PrioritySieveConfig()
 
-    known_entries_tooltip_message = (
-        "L = Known entry base forms<br>V = Known entry variants"
-    )
-
     if am_config.hide_recalc_toolbar is False:
         links.append(
             toolbar.create_link(
@@ -123,25 +119,27 @@ def init_toolbar_items(links: list[str], toolbar: Toolbar) -> None:
             )
         )
 
-    if am_config.hide_lemma_toolbar is False:
+    if am_config.hide_reviewed_counter is False:
+        primary_message = f"{entry_toolbar_stats.primary_name} entry count"
         links.append(
             toolbar.create_link(
-                cmd="known_lemmas",
-                label=entry_toolbar_stats.lemmas,
-                func=lambda: tooltip(known_entries_tooltip_message),
-                tip="L = Known entry base forms",
-                id="known_lemmas",
+                cmd="reviewed_entries",
+                label=entry_toolbar_stats.primary_label,
+                func=lambda msg=primary_message: tooltip(msg),
+                tip=primary_message,
+                id="reviewed_entries",
             )
         )
 
-    if am_config.hide_inflection_toolbar is False:
+    if am_config.hide_tracked_counter is False:
+        secondary_message = f"{entry_toolbar_stats.secondary_name} entry count"
         links.append(
             toolbar.create_link(
-                cmd="known_variants",
-                label=entry_toolbar_stats.variants,
-                func=lambda: tooltip(known_entries_tooltip_message),
-                tip="V = Known entry variants",
-                id="known_variants",
+                cmd="tracked_entries",
+                label=entry_toolbar_stats.secondary_label,
+                func=lambda msg=secondary_message: tooltip(msg),
+                tip=secondary_message,
+                id="tracked_entries",
             )
         )
 

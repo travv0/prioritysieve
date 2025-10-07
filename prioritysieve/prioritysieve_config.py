@@ -67,8 +67,8 @@ class RawConfigKeys:
     AUTO_SUSPEND_UNLISTED_ENTRIES = "auto_suspend_unlisted_entries"
     RECALC_OFFSET_PRIORITY_DECKS = "recalc_offset_priority_decks"
     HIDE_RECALC_TOOLBAR = "hide_recalc_toolbar"
-    HIDE_LEMMA_TOOLBAR = "hide_lemma_toolbar"
-    HIDE_INFLECTION_TOOLBAR = "hide_inflection_toolbar"
+    HIDE_REVIEWED_COUNTER = "hide_lemma_toolbar"
+    HIDE_TRACKED_COUNTER = "hide_inflection_toolbar"
     TAG_READY = "tag_ready"
     TAG_NOT_READY = "tag_not_ready"
     TAG_KNOWN_AUTOMATICALLY = "tag_known_automatically"
@@ -421,13 +421,13 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes
                 expected_type=bool,
                 use_default=is_default,
             )
-            self.hide_lemma_toolbar: bool = self._get_config_item(
-                key=RawConfigKeys.HIDE_LEMMA_TOOLBAR,
+            self.hide_reviewed_counter: bool = self._get_config_item(
+                key=RawConfigKeys.HIDE_REVIEWED_COUNTER,
                 expected_type=bool,
                 use_default=is_default,
             )
-            self.hide_inflection_toolbar: bool = self._get_config_item(
-                key=RawConfigKeys.HIDE_INFLECTION_TOOLBAR,
+            self.hide_tracked_counter: bool = self._get_config_item(
+                key=RawConfigKeys.HIDE_TRACKED_COUNTER,
                 expected_type=bool,
                 use_default=is_default,
             )

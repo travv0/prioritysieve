@@ -208,15 +208,15 @@
               </item>
               <item>
                <widget class="QCheckBox" name="hideLemmaCheckBox">
-                <property name="text">
-                 <string>L</string>
+               <property name="text">
+                 <string>Reviewed</string>
                 </property>
                </widget>
               </item>
               <item>
                <widget class="QCheckBox" name="hideInflectionCheckBox">
                 <property name="text">
-                 <string>V</string>
+                 <string>Tracked</string>
                 </property>
                </widget>
               </item>
@@ -245,7 +245,7 @@
                  </font>
                 </property>
                 <property name="text">
-                 <string>Toolbar counters (‘L’ and ‘V’) show:</string>
+                 <string>Toolbar counters display:</string>
                 </property>
                </widget>
               </item>

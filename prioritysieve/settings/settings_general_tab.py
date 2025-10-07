@@ -38,8 +38,8 @@ class GeneralTab(SettingsTab):
             RawConfigKeys.RECALC_ON_SYNC: self.ui.recalcBeforeSyncCheckBox,
             RawConfigKeys.RECALC_AFTER_SYNC: self.ui.recalcAfterSyncCheckBox,
             RawConfigKeys.HIDE_RECALC_TOOLBAR: self.ui.hideRecalcCheckBox,
-            RawConfigKeys.HIDE_LEMMA_TOOLBAR: self.ui.hideLemmaCheckBox,
-            RawConfigKeys.HIDE_INFLECTION_TOOLBAR: self.ui.hideInflectionCheckBox,
+            RawConfigKeys.HIDE_REVIEWED_COUNTER: self.ui.hideLemmaCheckBox,
+            RawConfigKeys.HIDE_TRACKED_COUNTER: self.ui.hideInflectionCheckBox,
         }
 
         self._raw_config_key_to_spin_box = {}
