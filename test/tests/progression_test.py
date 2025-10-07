@@ -84,7 +84,7 @@ case_some_studied_japanese_params = FakeEnvironmentParams(
             "0.0 %",  # k_percent_unknown
             ["の", "に", "は"],  # k_lemma_list
             ["-", "-", "-"],  # k_inflection_list
-            ["missing", "missing", "learning"],  # k_morph_statuses
+            ["missing", "missing", "pending"],  # k_morph_statuses
         ),
         (
             case_some_studied_japanese_params,  # fake_environment_fixture
@@ -100,7 +100,7 @@ case_some_studied_japanese_params = FakeEnvironmentParams(
             "0.0 %",  # k_percent_unknown
             ["だ", "に", "は"],  # k_lemma_list
             ["だ", "に", "は"],  # k_inflection_list
-            ["missing", "missing", "learning"],  # k_morph_statuses
+            ["missing", "missing", "pending"],  # k_morph_statuses
         ),
     ],
     indirect=["fake_environment_fixture"],

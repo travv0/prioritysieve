@@ -573,12 +573,6 @@
                  </widget>
                 </item>
                 <item>
-                 <widget class="QLabel" name="label_46">
-                  <property name="text">
-                   <string>Fresh entries</string></property>
-                 </widget>
-                </item>
-                <item>
                  <widget class="QLabel" name="label_6">
                   <property name="text">
                    <string>Learn card now</string>
@@ -614,9 +608,6 @@
                 </item>
                 <item>
                  <widget class="QLineEdit" name="tagNotReadyLineEdit" />
-                </item>
-                <item>
-                 <widget class="QLineEdit" name="tagfreshLineEdit" />
                 </item>
                 <item>
                  <widget class="QLineEdit" name="tagLearnCardNowLineEdit" />

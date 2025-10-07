@@ -26,10 +26,6 @@ class TagsTab(SettingsTab):
             RawConfigKeys.TAG_KNOWN_MANUALLY: self.ui.tagKnownManuallyLineEdit,
             RawConfigKeys.TAG_LEARN_CARD_NOW: self.ui.tagLearnCardNowLineEdit,
         }
-
-        self.ui.tagfreshLineEdit.hide()
-        self.ui.label_46.hide()
-
         self.populate()
         self.setup_buttons()
         self.update_previous_state()
