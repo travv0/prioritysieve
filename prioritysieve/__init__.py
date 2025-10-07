@@ -591,9 +591,11 @@ def reset_am_tags() -> None:
         f"<li> {am_config.tag_known_automatically}"
         f"<li> {am_config.tag_ready}"
         f"<li> {am_config.tag_not_ready}"
-        f"<li> {am_config.tag_fresh}"
-        "</ul>"
     )
+    legacy_items = "".join(f"<li> {tag}" for tag in sorted(ps_globals.legacy_fresh_tags))
+    if legacy_items:
+        body += legacy_items
+    body += "</ul>"
     want_reset = message_box_utils.show_warning_box(title, body, parent=mw)
     if want_reset:
         tags_and_queue_utils.reset_am_tags(parent=mw)

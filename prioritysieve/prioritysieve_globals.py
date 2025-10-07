@@ -50,3 +50,6 @@ DEFAULT_REVIEW_DUE = 9_999_999
 config_broken: bool = False
 new_config_found: bool = False
 shown_config_warning: bool = False
+
+# Collect legacy tag names we should strip from notes when encountered.
+legacy_fresh_tags: set[str] = {"ps-fresh-entries", "ps-fresh-morphs"}

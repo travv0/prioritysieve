@@ -13,7 +13,7 @@ from aqt.qt import (  # pylint:disable=no-name-in-module
     QSpinBox,
 )
 
-from .. import message_box_utils
+from .. import message_box_utils, prioritysieve_globals
 from ..prioritysieve_config import PrioritySieveConfig
 from ..ui.settings_dialog_ui import Ui_SettingsDialog
 
@@ -64,7 +64,13 @@ class SettingsTab(ABC):  # pylint:disable=too-many-instance-attributes
             f"<li> {self._config.tag_known_automatically}"
             f"<li> {self._config.tag_ready}"
             f"<li> {self._config.tag_not_ready}"
-            f"<li> {self._config.tag_fresh}"
+        )
+        legacy_items = "".join(
+            f"<li> {tag}" for tag in sorted(prioritysieve_globals.legacy_fresh_tags)
+        )
+        if legacy_items:
+            body += legacy_items
+        body += (
             "</ul>"
             "(Note: You can run this removal process at any time by navigating to: "
             "Tools -> PrioritySieve -> Reset Tags)"

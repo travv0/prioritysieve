@@ -39,7 +39,6 @@
   "recalc_after_sync": false,
   "auto_suspend_unlisted_entries": false,
   "recalc_offset_priority_decks": [],
-  "tag_fresh": "ps-fresh-entries",
   "tag_ready": "ps-ready",
   "tag_not_ready": "ps-not-ready",
   "tag_known_automatically": "ps-known-automatically",

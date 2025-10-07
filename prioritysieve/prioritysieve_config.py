@@ -69,7 +69,6 @@ class RawConfigKeys:
     HIDE_RECALC_TOOLBAR = "hide_recalc_toolbar"
     HIDE_LEMMA_TOOLBAR = "hide_lemma_toolbar"
     HIDE_INFLECTION_TOOLBAR = "hide_inflection_toolbar"
-    TAG_FRESH = "tag_fresh"
     TAG_READY = "tag_ready"
     TAG_NOT_READY = "tag_not_ready"
     TAG_KNOWN_AUTOMATICALLY = "tag_known_automatically"
@@ -432,11 +431,6 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes
                 expected_type=bool,
                 use_default=is_default,
             )
-            self.tag_fresh: str = self._sanitize_tag_value(
-                RawConfigKeys.TAG_FRESH,
-                fallback="ps-fresh-entries",
-                is_default=is_default,
-            )
             self.tag_ready: str = self._get_config_item(
                 key=RawConfigKeys.TAG_READY,
                 expected_type=str,
@@ -476,20 +470,6 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes
             if not prioritysieve_globals.config_broken:
                 show_critical_config_error()
                 prioritysieve_globals.config_broken = True
-
-    def _sanitize_tag_value(
-        self, key: str, fallback: str, is_default: bool
-    ) -> str:
-        value = self._get_config_item(
-            key=key,
-            expected_type=str,
-            use_default=is_default,
-        )
-        if value == "ps-fresh-morphs":
-            value = fallback
-            if not is_default:
-                update_configs({key: value})
-        return value
 
     def update(self) -> None:
         new_config = PrioritySieveConfig()
@@ -650,8 +630,13 @@ def normalize_config_keys(configs: dict[str, Any]) -> dict[str, Any]:
             normalized.pop(obsolete_key, None)
             prioritysieve_globals.new_config_found = True
 
-    if normalized.get(RawConfigKeys.TAG_FRESH) == "ps-fresh-morphs":
-        normalized[RawConfigKeys.TAG_FRESH] = "ps-fresh-entries"
+    legacy_fresh_tag = normalized.pop("tag_fresh", None)
+    if isinstance(legacy_fresh_tag, str):
+        trimmed_tag = legacy_fresh_tag.strip()
+        if trimmed_tag:
+            prioritysieve_globals.legacy_fresh_tags.add(trimmed_tag)
+            prioritysieve_globals.new_config_found = True
+    elif legacy_fresh_tag is not None:
         prioritysieve_globals.new_config_found = True
 
     filters_obj = normalized.get(RawConfigKeys.FILTERS)

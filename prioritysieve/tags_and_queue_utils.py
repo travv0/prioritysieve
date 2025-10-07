@@ -24,12 +24,13 @@ def apply_entry_tags(
 ) -> None:
     """Apply tags for a single entry-based note."""
 
-    tags = list(tag for tag in note.tags if tag and tag.strip())
-    for tag in (
+    tags = [tag for tag in note.tags if tag and tag.strip()]
+    removal_tags = [
         am_config.tag_ready,
         am_config.tag_not_ready,
-        am_config.tag_fresh,
-    ):
+    ]
+    removal_tags.extend(am_globals.legacy_fresh_tags)
+    for tag in removal_tags:
         while tag in tags:
             tags.remove(tag)
 
@@ -87,9 +88,9 @@ def _reset_am_tags_background_op() -> None:
         am_config.tag_known_automatically,
         am_config.tag_ready,
         am_config.tag_not_ready,
-        am_config.tag_fresh,
         am_config.tag_suspended_automatically,
     ]
+    tags_to_remove.extend(am_globals.legacy_fresh_tags)
     for tag in tags_to_remove:
         note_ids: Sequence[NoteId] = mw.col.find_notes(f"tag:{tag}")
         note_amount = len(note_ids)
