@@ -365,17 +365,12 @@
           </column>
           <column>
            <property name="text">
-            <string>Total Known</string>
+            <string>Total Reviewed</string>
            </property>
           </column>
           <column>
            <property name="text">
-            <string>Total Learning</string>
-           </property>
-          </column>
-          <column>
-           <property name="text">
-            <string>Total Unknown</string>
+            <string>Total Pending</string>
            </property>
           </column>
           <column>
@@ -408,17 +403,12 @@
           </column>
           <column>
            <property name="text">
-            <string>% Known</string>
+            <string>% Reviewed</string>
            </property>
           </column>
           <column>
            <property name="text">
-            <string>% Learning</string>
-           </property>
-          </column>
-          <column>
-           <property name="text">
-            <string>% Unknown</string>
+            <string>% Pending</string>
            </property>
           </column>
           <column>
@@ -464,12 +454,12 @@
           </column>
           <column>
            <property name="text">
-            <string>Lemma</string>
+            <string>Text</string>
            </property>
           </column>
           <column>
            <property name="text">
-            <string>Inflection</string>
+            <string>Reading</string>
            </property>
           </column>
           <column>
