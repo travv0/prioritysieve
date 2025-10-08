@@ -26,37 +26,109 @@ def apply_entry_tags(
 ) -> None:
     """Apply tags for a single entry-based note."""
 
-    tags = [tag for tag in note.tags if tag and tag.strip()]
+    def _is_valid(tag: str) -> bool:
+        return isinstance(tag, str) and tag.strip()
+
+    tags = [tag for tag in note.tags if _is_valid(tag)]
+
+    tracked_tags = {
+        am_config.tag_ready,
+        am_config.tag_not_ready,
+        am_config.tag_known_automatically,
+        am_config.tag_suspended_automatically,
+    }
+    tracked_tags.update(am_globals.legacy_fresh_tags)
+
+    original_positions: dict[str, int] = {}
+    for index, tag in enumerate(note.tags):
+        if tag in tracked_tags and tag not in original_positions:
+            original_positions[tag] = index
+
+    def _remove_tag(tag: str) -> None:
+        if not _is_valid(tag):
+            return
+        while tag in tags:
+            tags.remove(tag)
+
+    def _insert_tag(tag: str) -> None:
+        if not _is_valid(tag):
+            return
+        if tag in tags:
+            return
+        position = original_positions.get(tag)
+        if position is None or position >= len(tags):
+            tags.append(tag)
+        else:
+            tags.insert(position, tag)
+
     removal_tags = [
         am_config.tag_ready,
         am_config.tag_not_ready,
     ]
     removal_tags.extend(am_globals.legacy_fresh_tags)
     for tag in removal_tags:
-        while tag in tags:
-            tags.remove(tag)
+        _remove_tag(tag)
 
     if auto_suspend:
-        if am_config.tag_suspended_automatically not in tags:
-            tags.append(am_config.tag_suspended_automatically)
+        _insert_tag(am_config.tag_suspended_automatically)
     else:
-        while am_config.tag_suspended_automatically in tags:
-            tags.remove(am_config.tag_suspended_automatically)
+        _remove_tag(am_config.tag_suspended_automatically)
 
     if reviewed:
-        if am_config.tag_known_automatically not in tags:
-            tags.append(am_config.tag_known_automatically)
+        _insert_tag(am_config.tag_known_automatically)
     else:
-        while am_config.tag_known_automatically in tags:
-            tags.remove(am_config.tag_known_automatically)
+        _remove_tag(am_config.tag_known_automatically)
         if auto_suspend:
-            if am_config.tag_not_ready not in tags:
-                tags.append(am_config.tag_not_ready)
+            _insert_tag(am_config.tag_not_ready)
         else:
-            if am_config.tag_ready not in tags:
-                tags.append(am_config.tag_ready)
+            _insert_tag(am_config.tag_ready)
 
     note.tags = tags
+
+
+def ensure_tag_preserving_order(
+    note: Note, tag: str, original_tags: Sequence[str]
+) -> None:
+    """Ensure `tag` exists on `note` using the order from `original_tags`."""
+
+    if not isinstance(tag, str):
+        return
+    tag = tag.strip()
+    if not tag:
+        return
+
+    current_tags = [
+        existing for existing in note.tags if isinstance(existing, str) and existing.strip()
+    ]
+
+    if tag in current_tags:
+        if current_tags != note.tags:
+            note.tags = current_tags
+        return
+
+    sanitized_original = [
+        value for value in original_tags if isinstance(value, str) and value.strip()
+    ]
+
+    try:
+        target_index = sanitized_original.index(tag)
+    except ValueError:
+        current_tags.append(tag)
+        note.tags = current_tags
+        return
+
+    original_positions = {
+        value: index for index, value in enumerate(sanitized_original)
+    }
+    insert_position = len(current_tags)
+    for index, existing_tag in enumerate(current_tags):
+        original_index = original_positions.get(existing_tag)
+        if original_index is not None and original_index > target_index:
+            insert_position = index
+            break
+
+    current_tags.insert(insert_position, tag)
+    note.tags = current_tags
 
 
 def _resolve_field_map(note: Note) -> dict[str, tuple[int, Any]]:

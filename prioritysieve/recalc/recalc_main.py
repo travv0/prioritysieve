@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import time
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Callable, Collection
 from dataclasses import dataclass
 from pathlib import Path
@@ -352,15 +352,34 @@ def _apply_priorities(
     with EntryDB() as db:
         entry_cache = db.get_card_entry_cache()
 
-    cards_to_update: dict[int, Card] = {}
-    notes_to_update: dict[int, Note] = {}
+    touched_cards: dict[int, Card] = {}
+    touched_notes: dict[int, Note] = {}
     card_original_state: dict[int, tuple[int, int]] = {}
-    note_original_tags: dict[int, list[str]] = {}
+    note_original_state: dict[int, tuple[list[str], list[str]]] = {}
 
     duplicates: defaultdict[
         tuple[str, str],
         list[DuplicateCandidate],
     ] = defaultdict(list)
+
+    card_change_stats: dict[str, int] = {
+        "total": 0,
+        "due": 0,
+        "queue": 0,
+        "due_and_queue": 0,
+    }
+    note_change_stats: dict[str, int] = {
+        "total": 0,
+        "tags": 0,
+        "fields": 0,
+    }
+    card_change_samples: list[str] = []
+    note_change_samples: list[str] = []
+    due_transition_counter: Counter[tuple[int, int]] = Counter()
+    queue_transition_counter: Counter[tuple[int, int]] = Counter()
+    tags_added_counter: Counter[str] = Counter()
+    tags_removed_counter: Counter[str] = Counter()
+    tag_reorder_samples: list[str] = []
 
     suspended_exception_tags = set(am_config.get_preprocess_ignore_suspended_unless_tag_list())
     deck_priority_lookup = _build_deck_priority_lookup(am_config.recalc_offset_priority_decks)
@@ -419,10 +438,11 @@ def _apply_priorities(
             auto_suspend = base_auto_suspend or (entry_reviewed and is_new_card)
 
             if is_new_card:
-                if card_id not in card_original_state:
-                    card_original_state[card_id] = (card.due, card.queue)
-                if note.id not in note_original_tags:
-                    note_original_tags[note.id] = note.tags.copy()
+                card_original_state.setdefault(card_id, (card.due, card.queue))
+                note_original_state.setdefault(
+                    note.id,
+                    (note.fields.copy(), note.tags.copy()),
+                )
 
                 if entry_reviewed or auto_suspend:
                     due = DEFAULT_REVIEW_DUE
@@ -448,8 +468,8 @@ def _apply_priorities(
                 if config_filter.extra_reading_field and entry.reading:
                     tags_and_queue_utils.update_entry_reading_field(note, entry.reading)
 
-                cards_to_update[card_id] = card
-                notes_to_update[note.id] = note
+                touched_cards[card_id] = card
+                touched_notes[note.id] = note
             else:
                 due = card.due
 
@@ -466,7 +486,125 @@ def _apply_priorities(
                 )
             )
 
-    _apply_duplicate_rules(am_config, duplicates)
+    _apply_duplicate_rules(am_config, duplicates, note_original_state)
+
+    cards_to_update: dict[int, Card] = {}
+    notes_to_update: dict[int, Note] = {}
+
+    for card_id, card in touched_cards.items():
+        original_due, original_queue = card_original_state.get(
+            card_id, (card.due, card.queue)
+        )
+        due_changed = card.due != original_due
+        queue_changed = card.queue != original_queue
+        if due_changed or queue_changed:
+            cards_to_update[card_id] = card
+            card_change_stats["total"] += 1
+            if due_changed:
+                card_change_stats["due"] += 1
+                due_transition_counter[(original_due, card.due)] += 1
+            if queue_changed:
+                card_change_stats["queue"] += 1
+                queue_transition_counter[(original_queue, card.queue)] += 1
+            if due_changed and queue_changed:
+                card_change_stats["due_and_queue"] += 1
+
+            if len(card_change_samples) < 50:
+                card_type_label = "new" if card.type == CARD_TYPE_NEW else "review"
+                reason_parts: list[str] = []
+                if due_changed:
+                    reason_parts.append(f"due {original_due}->{card.due}")
+                if queue_changed:
+                    reason_parts.append(f"queue {original_queue}->{card.queue}")
+                reason_parts.append(f"deck {card.did}")
+
+                note = touched_notes.get(card.nid)
+                tag_summary = ""
+                if note is not None:
+                    tag_summary = (
+                        f", tags:{', '.join(sorted(tag for tag in note.tags if tag))}"
+                        if note.tags
+                        else ", tags:[]"
+                    )
+
+                sample = (
+                    f"card {card_id} (note {card.nid}, {card_type_label}): "
+                    + ", ".join(reason_parts)
+                    + tag_summary
+                )
+                card_change_samples.append(sample)
+
+    invalid_tag_notes: list[str] = []
+
+    for note_id, note in touched_notes.items():
+        original_fields, original_tags = note_original_state.get(
+            note_id, (note.fields, note.tags)
+        )
+        fields_changed = note.fields != original_fields
+        tags_changed = note.tags != original_tags
+
+        invalid_tags = [tag for tag in note.tags if not isinstance(tag, str) or not tag.strip()]
+        if invalid_tags and len(invalid_tag_notes) < 50:
+            invalid_tag_notes.append(
+                f"note {note_id}: invalid tags {', '.join(repr(tag) for tag in invalid_tags)}"
+            )
+
+        if fields_changed or tags_changed:
+            notes_to_update[note_id] = note
+            note_change_stats["total"] += 1
+            changes_summary: list[str] = []
+
+            if tags_changed:
+                note_change_stats["tags"] += 1
+                added_tags = sorted(set(note.tags) - set(original_tags))
+                removed_tags = sorted(set(original_tags) - set(note.tags))
+                for tag in added_tags:
+                    tags_added_counter[tag] += 1
+                for tag in removed_tags:
+                    tags_removed_counter[tag] += 1
+                tag_change_details: list[str] = []
+                if added_tags:
+                    tag_change_details.append("+" + ",".join(added_tags))
+                if removed_tags:
+                    tag_change_details.append("-" + ",".join(removed_tags))
+                if not tag_change_details:
+                    tag_change_details.append("reordered")
+                    if len(tag_reorder_samples) < 25:
+                        tag_reorder_samples.append(
+                            f"note {note_id}: {original_tags} -> {note.tags}"
+                        )
+                changes_summary.append("tags " + " ".join(tag_change_details))
+
+            if fields_changed:
+                note_change_stats["fields"] += 1
+                changed_field_indexes = []
+                for index, (before, after) in enumerate(zip(original_fields, note.fields)):
+                    if before != after:
+                        changed_field_indexes.append(index)
+                if changed_field_indexes:
+                    changes_summary.append(
+                        "fields idx "
+                        + ",".join(str(index) for index in changed_field_indexes)
+                    )
+                elif len(original_fields) != len(note.fields):
+                    changes_summary.append(
+                        f"field count {len(original_fields)}->{len(note.fields)}"
+                    )
+                else:
+                    changes_summary.append("fields changed")
+
+            if len(note_change_samples) < 50:
+                try:
+                    note_type = note.note_type()
+                    note_type_name = (
+                        note_type.get("name", "") if isinstance(note_type, dict) else ""
+                    )
+                except Exception:
+                    note_type_name = ""
+                prefix = f"note {note_id}"
+                if note_type_name:
+                    prefix += f" ({note_type_name})"
+                note_change_samples.append(prefix + ": " + "; ".join(changes_summary))
 
     if cards_to_update:
         card_changes = mw.col.update_cards(list(cards_to_update.values()))
@@ -475,12 +613,75 @@ def _apply_priorities(
         note_changes = mw.col.update_notes(list(notes_to_update.values()))
         notify_op_execution(note_changes)
 
-    _record_recent_changes(card_original_state, note_original_tags, cards_to_update, notes_to_update)
+    _record_recent_changes(
+        card_original_state,
+        note_original_state,
+        cards_to_update,
+        notes_to_update,
+    )
+
+    total_touched_cards = len(touched_cards)
+    total_touched_notes = len(touched_notes)
+
+    if total_touched_cards or total_touched_notes:
+        print("PrioritySieve recalc debug summary:")
+        print(f"  config auto-suspend tag: {am_config.tag_suspended_automatically!r}")
+        if invalid_tag_notes:
+            print("  notes with invalid tags encountered:")
+            for entry in invalid_tag_notes:
+                print("    " + entry)
+        print(
+            f"  touched cards: {total_touched_cards}, cards to update: {card_change_stats['total']} "
+            f"(due changes: {card_change_stats['due']}, queue changes: {card_change_stats['queue']}, "
+            f"both: {card_change_stats['due_and_queue']})"
+        )
+        if due_transition_counter:
+            print("  top due transitions:")
+            for (old_due, new_due), count in due_transition_counter.most_common(5):
+                print(f"    {old_due}->{new_due}: {count}")
+        if queue_transition_counter:
+            print("  top queue transitions:")
+            for (old_queue, new_queue), count in queue_transition_counter.most_common(5):
+                print(f"    {old_queue}->{new_queue}: {count}")
+        if card_change_samples:
+            print("  sample card changes:")
+            for entry in card_change_samples:
+                print("    " + entry)
+            remaining_cards = card_change_stats["total"] - len(card_change_samples)
+            if remaining_cards > 0:
+                print(f"    ... {remaining_cards} more cards omitted")
+
+        print(
+            f"  touched notes: {total_touched_notes}, notes to update: {note_change_stats['total']} "
+            f"(tag changes: {note_change_stats['tags']}, field changes: {note_change_stats['fields']})"
+        )
+        if tags_added_counter or tags_removed_counter:
+            print("  tag delta summary:")
+            if tags_added_counter:
+                print("    added tags:")
+                for tag, count in tags_added_counter.most_common(5):
+                    print(f"      {tag}: {count}")
+            if tags_removed_counter:
+                print("    removed tags:")
+                for tag, count in tags_removed_counter.most_common(5):
+                    print(f"      {tag}: {count}")
+        if note_change_samples:
+            print("  sample note changes:")
+            for entry in note_change_samples:
+                print("    " + entry)
+            remaining_notes = note_change_stats["total"] - len(note_change_samples)
+            if remaining_notes > 0:
+                print(f"    ... {remaining_notes} more notes omitted")
+        if tag_reorder_samples:
+            print("  tag reorder samples:")
+            for entry in tag_reorder_samples:
+                print("    " + entry)
 
 
 def _apply_duplicate_rules(
     am_config: PrioritySieveConfig,
     duplicates: defaultdict[tuple[str, str], list[DuplicateCandidate]],
+    note_original_state: dict[int, tuple[list[str], list[str]]],
 ) -> None:
     for _, items in duplicates.items():
         items.sort(
@@ -509,7 +710,10 @@ def _apply_duplicate_rules(
                 active_slot_available = False
                 if candidate.card.queue == QUEUE_TYPE_SUSPENDED:
                     candidate.card.queue = QUEUE_TYPE_NEW
-                if am_config.tag_suspended_automatically in candidate.note.tags:
+                if (
+                    am_config.tag_suspended_automatically
+                    and am_config.tag_suspended_automatically in candidate.note.tags
+                ):
                     candidate.note.tags.remove(am_config.tag_suspended_automatically)
             else:
                 candidate.auto_suspend = True
@@ -519,13 +723,24 @@ def _apply_duplicate_rules(
                     and candidate.card.due != DEFAULT_REVIEW_DUE
                 ):
                     candidate.card.due = DEFAULT_REVIEW_DUE
-                if am_config.tag_suspended_automatically not in candidate.note.tags:
-                    candidate.note.tags.append(am_config.tag_suspended_automatically)
+                if (
+                    am_config.tag_suspended_automatically
+                    and am_config.tag_suspended_automatically not in candidate.note.tags
+                ):
+                    original_tags = note_original_state.get(
+                        candidate.note.id,
+                        ([], []),
+                    )[1]
+                    tags_and_queue_utils.ensure_tag_preserving_order(
+                        candidate.note,
+                        am_config.tag_suspended_automatically,
+                        original_tags,
+                    )
 
 
 def _record_recent_changes(
     card_original_state: dict[int, tuple[int, int]],
-    note_original_tags: dict[int, list[str]],
+    note_original_state: dict[int, tuple[list[str], list[str]]],
     cards: dict[int, Card],
     notes: dict[int, Note],
 ) -> None:
@@ -542,12 +757,20 @@ def _record_recent_changes(
                 )
 
     for note_id, note in notes.items():
-        original_tags = note_original_tags.get(note_id, note.tags)
-        if note.tags != original_tags:
+        original_fields, original_tags = note_original_state.get(
+            note_id,
+            (note.fields, note.tags),
+        )
+        tags_changed = note.tags != original_tags
+        fields_changed = note.fields != original_fields
+        if tags_changed or fields_changed:
             if len(_recent_note_diffs) < 5:
-                _recent_note_diffs.append(
-                    f"note {note_id}: tags {original_tags}→{note.tags}"
-                )
+                changes: list[str] = []
+                if tags_changed:
+                    changes.append(f"tags {original_tags}→{note.tags}")
+                if fields_changed:
+                    changes.append(f"fields {original_fields}→{note.fields}")
+                _recent_note_diffs.append(f"note {note_id}: " + "; ".join(changes))
 
 
 def _on_success() -> None:

@@ -14,6 +14,7 @@ def _dummy_config() -> SimpleNamespace:
 
 
 _card_sequence = 0
+_note_sequence = 0
 
 
 def _card(queue: int, card_type: int, due: int = 42) -> SimpleNamespace:
@@ -23,7 +24,13 @@ def _card(queue: int, card_type: int, due: int = 42) -> SimpleNamespace:
 
 
 def _note(tags: list[str] | None = None) -> SimpleNamespace:
-    return SimpleNamespace(tags=list(tags or []))
+    global _note_sequence
+    _note_sequence += 1
+    return SimpleNamespace(tags=list(tags or []), id=_note_sequence)
+
+
+def _original_state(*notes: SimpleNamespace) -> dict[int, tuple[list[str], list[str]]]:
+    return {note.id: ([], list(note.tags)) for note in notes}
 
 
 def test_duplicate_rules_leave_review_cards_untouched() -> None:
@@ -57,7 +64,11 @@ def test_duplicate_rules_leave_review_cards_untouched() -> None:
         ),
     ]
 
-    _apply_duplicate_rules(am_config, duplicates)
+    _apply_duplicate_rules(
+        am_config,
+        duplicates,
+        _original_state(review_note, new_note),
+    )
 
     assert review_card.queue == QUEUE_TYPE_NEW
     assert review_note.tags == ["existing"]
@@ -97,7 +108,11 @@ def test_duplicate_rules_unsuspend_single_new_card_when_allowed() -> None:
         ),
     ]
 
-    _apply_duplicate_rules(am_config, duplicates)
+    _apply_duplicate_rules(
+        am_config,
+        duplicates,
+        _original_state(first_note, second_note),
+    )
 
     assert first_card.queue == QUEUE_TYPE_NEW
     assert "ps-auto-suspend" not in first_note.tags
@@ -139,7 +154,11 @@ def test_duplicate_rules_respect_distinct_readings() -> None:
         )
     ]
 
-    _apply_duplicate_rules(am_config, duplicates)
+    _apply_duplicate_rules(
+        am_config,
+        duplicates,
+        _original_state(reviewed_note, new_note),
+    )
 
     assert new_card.queue == QUEUE_TYPE_NEW
     assert new_card.due == 5
@@ -177,7 +196,11 @@ def test_duplicate_rules_prefer_priority_deck() -> None:
         ),
     ]
 
-    _apply_duplicate_rules(am_config, duplicates)
+    _apply_duplicate_rules(
+        am_config,
+        duplicates,
+        _original_state(high_priority_note, low_priority_note),
+    )
 
     assert high_priority_card.queue == QUEUE_TYPE_NEW
     assert "ps-auto-suspend" not in high_priority_note.tags
@@ -217,7 +240,11 @@ def test_duplicate_rules_keep_manually_suspended_exception() -> None:
         )
     ]
 
-    _apply_duplicate_rules(am_config, duplicates)
+    _apply_duplicate_rules(
+        am_config,
+        duplicates,
+        _original_state(manual_note, other_note),
+    )
 
     assert manual_card.queue == QUEUE_TYPE_SUSPENDED
     assert manual_card.due == 77
@@ -225,3 +252,32 @@ def test_duplicate_rules_keep_manually_suspended_exception() -> None:
     assert other_card.queue == QUEUE_TYPE_SUSPENDED
     assert other_card.due == DEFAULT_REVIEW_DUE
     assert "ps-auto-suspend" in other_note.tags
+
+
+def test_duplicate_rules_preserve_tag_order_with_auto_suspend() -> None:
+    am_config = _dummy_config()
+    base_tags = ["am-ready", "ps-auto-suspend", "matched20250511", "matched20250512"]
+    base_note = _note(tags=base_tags)
+    base_card = _card(queue=QUEUE_TYPE_SUSPENDED, card_type=CARD_TYPE_NEW, due=5)
+
+    duplicates = defaultdict(list)
+    duplicates[("tag-order", "")] = [
+        DuplicateCandidate(
+            card=base_card,
+            note=base_note,
+            due=5,
+            auto_suspend=True,
+            is_new_card=True,
+            entry_reviewed=False,
+            deck_priority=0,
+            manually_suspended=False,
+        ),
+    ]
+
+    _apply_duplicate_rules(
+        am_config,
+        duplicates,
+        _original_state(base_note),
+    )
+
+    assert base_note.tags == base_tags, "auto-suspend tag should remain in original position"
