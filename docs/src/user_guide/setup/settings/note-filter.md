@@ -105,7 +105,7 @@ If, for whatever reason, you don't want PrioritySieve to read one of the note fi
 can uncheck the `Read` option.
 
 If you uncheck `Modify`, PrioritySieve will analyze the
-specified fields of cards (and update the database of known morphs based on them), but won’t reorder
+specified fields of cards (and update the database of known entries based on them), but won’t reorder
 or change the cards in any way.
 
 <br>

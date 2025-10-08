@@ -842,42 +842,6 @@
         </attribute>
         <layout class="QVBoxLayout" name="verticalLayout_51">
          <item>
-          <widget class="QGroupBox" name="groupBox">
-           <property name="title">
-            <string>When Encountering Cards (skip = bury)</string>
-           </property>
-           <layout class="QVBoxLayout" name="verticalLayout_36">
-            <item>
-             <layout class="QVBoxLayout" name="verticalLayout_11">
-              <item>
-               <layout class="QVBoxLayout" name="verticalLayout_50">
-                <item>
-                 <widget class="QCheckBox" name="skipNoUnKnownMorphsCheckBox">
-                  <property name="text">
-                   <string>Skip cards that have no unknown entries</string></property>
-                 </widget>
-                </item>
-               </layout>
-              </item>
-              <item>
-               <widget class="QCheckBox" name="skipAlreadySeenCheckBox">
-                <property name="text">
-                 <string>Skip cards whose unknown entries were already seen today</string></property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QCheckBox" name="skipNotificationsCheckBox">
-                <property name="text">
-                 <string>Show notification: "Skipped X cards"</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
-            </item>
-           </layout>
-          </widget>
-         </item>
-         <item>
           <widget class="QGroupBox" name="groupBox_13">
            <property name="title">
             <string>On Recalc</string>

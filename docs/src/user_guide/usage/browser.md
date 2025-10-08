@@ -1,20 +1,9 @@
 # Browser
 
-PrioritySieve adds new options in the Browse window that can be accessed either from the `PrioritySieve` menu at the top or
-when right-clicking cards:
+PrioritySieve adds a few browse actions under the `PrioritySieve` menu (and the right-click menu):
 
-* **View Morphemes**:  
-  Opens a pop-up window showing the card's morphs
-
-* **Learn Card Now**:  
-  Raises selected cards to the top of the `new cards`-queue.
-  > **Note**: If you use `Learn Card Now` on a card that is not in the deck you are currently studying, then it won't show
-  up. 
-* **Browse Same Morphs**:  
-  Searches for all the cards that have the same morphs (inflection) as the selected card.
-* **Browse Same Unknown Morphs**:  
-  Searches for all the cards that have the same unknown morphs (inflection) as the selected card.
-*  **Browse Same Unknown Morphs (Lemma)**:  
-   Searches for all the cards that have the same unknown morphs (lemma) as the selected card.
-* **Tag As Known**:  
-  Adds the [`Set known and skip` tag](../setup/settings/tags.md) to the selected cards.
+* **Learn Card Now** – raises the selected card(s) to the top of the new queue. If the cards live in a different deck,
+  move to that deck before study.
+* **Browse Same Entry** – lists every card that shares the current entry.
+* **Browse Same Entry (pending only)** – lists only the cards whose entry is still pending.
+* **Tag As Known** – applies the `am-known-manually` tag, marking the entry as reviewed during the next Recalc.

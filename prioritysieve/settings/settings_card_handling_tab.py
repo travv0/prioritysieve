@@ -30,10 +30,6 @@ class CardHandlingTab(SettingsTab):
             RawConfigKeys.AUTO_SUSPEND_UNLISTED_ENTRIES: self.ui.autoSuspendUnlistedEntriesCheckBox,
         }
 
-        self.ui.skipNoUnKnownMorphsCheckBox.hide()
-        self.ui.skipAlreadySeenCheckBox.hide()
-        self.ui.skipNotificationsCheckBox.hide()
-
         self._raw_config_key_to_spin_box: dict[str, QSpinBox | QDoubleSpinBox] = {}
 
         self._priority_deck_list_widget: QListWidget = self.ui.priorityDecksListWidget
@@ -228,4 +224,4 @@ class CardHandlingTab(SettingsTab):
         return sorted(deck_names)
 
     def get_confirmation_text(self) -> str:
-        return "Are you sure you want to restore default skip settings?"
+        return "Are you sure you want to restore default card handling settings?"

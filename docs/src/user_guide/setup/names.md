@@ -18,8 +18,4 @@ The `names.txt` file is located in your [anki profile folder](../glossary.md#pro
 
 ![example-name-list.png](../../img/example-name-list.png)
 
-You can either update this file manually, or during a review you can also add names to the list by selecting a word,
-right-clicking it, and choosing `Mark as name` from the dropdown menu.
-
-![mark-as-name.png](../../img/mark-as-name.png)
-
+Edit this file manually whenever you want to ignore additional names.

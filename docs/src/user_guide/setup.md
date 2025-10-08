@@ -4,7 +4,7 @@ The setup guide is separated into the following sections:
 
 * [Decks](setup/decks.md): which deck-options to use and other miscellaneous deck tips 
 * [Settings](setup/settings.md): details about the PrioritySieve settings options
-* [Prioritizing](setup/prioritizing.md): how to give priority to morphs
+* [Prioritizing](setup/prioritizing.md): how to supply entry priority files
 * [Names](setup/names.md): how to specify names to ignore
 * [Setting Known Entries](setup/setting-known-entries.md): how to import entries you have already reviewed
 * [Highlighting](setup/highlighting.md): how to highlight text on your cards 

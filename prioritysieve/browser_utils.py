@@ -167,7 +167,7 @@ def run_learn_card_now() -> None:
 
     # We give the cards the 'learn-now' tag to make sure that they are
     # not skipped, even if other skip conditions are met.
-    # Note: this is done in SkippedCards.process_skip_conditions_of_card()
+    # The recalc routine already keeps duplicate entries suspended.
     tag_changes = mw.col.tags.bulk_add(note_ids, am_config.tag_learn_card_now)
     notify_op_execution(tag_changes)
 

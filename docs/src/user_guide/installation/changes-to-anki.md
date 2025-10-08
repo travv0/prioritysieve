@@ -1,268 +1,29 @@
 # Changes To Anki
 
-After installing PrioritySieve you will find that some changes have been made to Anki.
+After installing PrioritySieve you will notice a few additions to Anki:
 
-## Toolbar
+## Toolbar Counter
 
-![toolbar.png](../../img/toolbar.png)
+The main toolbar shows two counters:
 
-The toolbar now has three new items:
+- **Reviewed** – number of entries you have already reviewed.
+- **Tracked** – total number of entries PrioritySieve has seen (or, if you enable the option in settings, only the
+  reviewed count).
 
-- [Recalc](../usage/recalc.md)
-- `L`, which stands for `Known Morph Lemmas`
-- `V`, which stands for `Known entry variants`
+You can hide either counter or the Recalc button from **Tools → PrioritySieve Settings → General**.
 
-<details>
-  <summary style="display:list-item">English examples of L and V</summary>
+## PrioritySieve Menu
 
+The main window, browser, and reviewer receive new PrioritySieve menu entries. They expose actions such as Recalc, Learn
+Card Now, Browse Same Entry, and the Known Entries exporter.
 
-<blockquote>
+## Profile Files
 
-**Each column in the table represents a lemma, and every row in a column contains a different variant of that lemma.**
+PrioritySieve stores its data inside your Anki profile folder:
 
-Knowing the morph in the highlighted cell below would give you L: 1 and V: 1
-<div class='morph-variation'>
-<table>
-    <colgroup>
-    <col>
-    <col>
-    <col>
-  </colgroup>
-<tr>
-    <td>go</td>
-    <td>break</td>
-    <td>read</td>
-    <td>walk</td>
-</tr>
-<tr>
-    <td>went</td>
-    <td>broke</td>
-    <td>read</td>
-    <td>walked</td>
-</tr>
-<tr>
-    <td>going</td>
-    <td class="morph-variation-selected_cell">breaking</td>
-    <td>reading</td>
-    <td>walking</td>
-</tr>
-<tr>
-    <td>gone</td>
-    <td>broken</td>
-    <td>read</td>
-    <td>walked</td>
-</tr>
-</table>
-</div>
+- `prioritysieve.db` – lightweight entry database.
+- `prioritysieve-priority-files/` – custom priority CSVs.
+- `prioritysieve-known-entries/` – exported reviewed entries.
+- `prioritysieve_names.txt` – optional list of names to ignore during preprocessing.
 
-Knowing the morphs in the highlighted cells below would give you L: 1 and V: 2
-
-<div class='morph-variation'>
-<table>
-    <colgroup>
-    <col>
-    <col>
-    <col>
-  </colgroup>
-<tr>
-    <td>go</td>
-    <td class="morph-variation-selected_cell">break</td>
-    <td>read</td>
-    <td>walk</td>
-</tr>
-<tr>
-    <td>went</td>
-    <td>broke</td>
-    <td>read</td>
-    <td>walked</td>
-</tr>
-<tr>
-    <td>going</td>
-    <td class="morph-variation-selected_cell">breaking</td>
-    <td>reading</td>
-    <td>walking</td>
-</tr>
-<tr>
-    <td>gone</td>
-    <td>broken</td>
-    <td>read</td>
-    <td>walked</td>
-</tr>
-</table>
-</div>
-
-Knowing the morphs in the highlighted cells below would give you L: 2 and V: 3
-
-<div class='morph-variation'>
-<table>
-    <colgroup>
-    <col>
-    <col>
-    <col>
-  </colgroup>
-<tr>
-    <td>go</td>
-    <td class="morph-variation-selected_cell">break</td>
-    <td>read</td>
-    <td>walk</td>
-</tr>
-<tr>
-    <td>went</td>
-    <td>broke</td>
-    <td>read</td>
-    <td class="morph-variation-selected_cell">walked</td>
-</tr>
-<tr>
-    <td>going</td>
-    <td class="morph-variation-selected_cell">breaking</td>
-    <td>reading</td>
-    <td>walking</td>
-</tr>
-<tr>
-    <td>gone</td>
-    <td>broken</td>
-    <td>read</td>
-    <td>walked</td>
-</tr>
-</table>
-</div>
-
-<br>
-</blockquote>
-</details>
-
-
-<details>
-  <summary style="display:list-item">Japanese examples of L and V</summary>
-
-
-<blockquote>
-
-**Each column in the table represents a lemma, and every row in a column contains a different variant of that lemma.**
-
-Knowing the morph in the highlighted cell below would give you L: 1 and V: 1
-<div class='morph-variation'>
-<table>
-    <colgroup>
-    <col>
-    <col>
-    <col>
-  </colgroup>
-<tr>
-    <td>ない</td>
-    <td>物</td>
-    <td>奴</td>
-    <td>出</td>
-</tr>
-<tr>
-    <td>ねぇ</td>
-    <td>もの</td>
-    <td>やつ</td>
-    <td>出る</td>
-</tr>
-<tr>
-    <td>ね</td>
-    <td class="morph-variation-selected_cell">もん</td>
-    <td>ヤツ</td>
-    <td>出よう</td>
-</tr>
-</table>
-</div>
-
-Knowing the morphs in the highlighted cells below would give you L: 1 and V: 2
-
-<div class='morph-variation'>
-<table>
-    <colgroup>
-    <col>
-    <col>
-    <col>
-  </colgroup>
-<tr>
-    <td>ない</td>
-    <td class="morph-variation-selected_cell">物</td>
-    <td>奴</td>
-    <td>出</td>
-</tr>
-<tr>
-    <td>ねぇ</td>
-    <td>もの</td>
-    <td>やつ</td>
-    <td>出る</td>
-</tr>
-<tr>
-    <td>ね</td>
-    <td class="morph-variation-selected_cell">もん</td>
-    <td>ヤツ</td>
-    <td>出よう</td>
-</tr>
-</table>
-</div>
-
-Knowing the morphs in the highlighted cells below would give you L: 2 and V: 3
-
-<div class='morph-variation'>
-<table>
-    <colgroup>
-    <col>
-    <col>
-    <col>
-  </colgroup>
-<tr>
-    <td>ない</td>
-    <td class="morph-variation-selected_cell">物</td>
-    <td>奴</td>
-    <td>出</td>
-</tr>
-<tr>
-    <td>ねぇ</td>
-    <td>もの</td>
-    <td>やつ</td>
-    <td class="morph-variation-selected_cell">出る</td>
-</tr>
-<tr>
-    <td>ね</td>
-    <td class="morph-variation-selected_cell">もん</td>
-    <td>ヤツ</td>
-    <td>出よう</td>
-</tr>
-</table>
-</div>
-<br>
-</blockquote>
-</details>
-
-The `L` and `I` numbers are updated after every [Recalc](../usage/recalc.md).
-
-> **Note**: Chinese and other languages that don't have variants will result in `L` and `V` having equal numbers.
-
-
-## Browse
-
-PrioritySieve adds new options in the `Browse` window
-
-![browser-right-click.png](../../img/browser-right-click.png)
-
-These options can be accessed either from the context menu when right-clicking cards, or from the `PrioritySieve` menu at
-the top of the `Browse` window:
-
-![browse-toolbar.png](../../img/browse-toolbar.png)
-
-These features are explained [here](../usage/browser.md).
-
-## Tools Menu
-
-An PrioritySieve submenu is added to the Anki `Tools` menu:
-
-![tools_menu.png](../../img/tools_menu.png)
-
-You can find info about the options here:
-
-* [Settings](../setup/settings.md)
-* [Recalc](../usage/recalc.md)
-* [Generators](../usage/generators.md)
-* [Progression](../usage/progression.md)
-* [spaCy Manager](../installation/installing-spacy.md)
-* [Sudachi Manager](../installation/installing-sudachi.md)
-* [Known Entries Exporter](../usage/known-entries-exporter.md)
-* [Reset Tags](../usage/reset_tags.md)
+You can safely back up, copy, or version control these files along with the rest of your profile.

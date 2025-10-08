@@ -3,9 +3,8 @@
 ### Learning specific media
 
 If you want to learn a specific piece of media—like a book or a movie—a targeted [priority file](prioritizing.md) can speed things
-up compared to a general one. However, ou should only really do this after you have already learned **at least** the
-most frequent 2k morphs. If you start to specialize too early you can fall into the trap of "over-fitting"
-your vocabulary and understanding of the language.
+up compared to a general one. However, you should only do this after you have already learned the most frequent couple
+thousand entries. If you specialize too early you risk “over-fitting” your vocabulary.
 
 ### Reverting PrioritySieve changes
 
