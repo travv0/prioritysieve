@@ -16,6 +16,6 @@ The General tab contains a handful of global behaviour toggles.
   If you want to declutter the toolbar you can choose to hide any of the
   [toolbar items](../../installation/changes-to-anki.md#toolbar) provided by the addon.
 
-* **Toolbar counters display:**  
-    * **Seen entries** – counts every entry that has been reviewed at least once.
-    * **Known entries** – counts only entries that Recalc currently marks as reviewed.
+* **Toolbar counters show:**  
+    * **Tracked entries** – the toolbar displays the total number of unique entries PrioritySieve has discovered, with the secondary counter showing how many are still pending.
+    * **Reviewed entries** – the primary counter switches to your reviewed entries while the secondary counter continues to report the pending count.

@@ -6,11 +6,12 @@ After installing PrioritySieve you will notice a few additions to Anki:
 
 The main toolbar shows two counters:
 
-- **Reviewed** – number of entries you have already reviewed.
-- **Tracked** – total number of entries PrioritySieve has seen (or, if you enable the option in settings, only the
-  reviewed count).
+- **Tracked** – total number of unique entries PrioritySieve has discovered in your cards.
+- **Pending** – tracked entries you have not reviewed yet.
 
-You can hide either counter or the Recalc button from **Tools → PrioritySieve Settings → General**.
+If you switch **Tools → PrioritySieve Settings → General → Toolbar counters show** to *Reviewed entries*, the primary
+counter becomes **Reviewed** (entries already studied) while the secondary counter continues to display **Pending**.
+You can hide either counter or the Recalc button from the same settings page.
 
 ## PrioritySieve Menu
 

@@ -129,20 +129,20 @@
                  </font>
                 </property>
                 <property name="text">
-                 <string>Toolbar counters display:</string>
+                 <string>Toolbar counters show:</string>
                 </property>
                </widget>
               </item>
               <item>
                <widget class="QRadioButton" name="toolbarStatsUseSeenRadioButton">
                 <property name="text">
-                 <string>Seen entries (reviewed at least once)</string></property>
+                 <string>Tracked entries (total unique found)</string></property>
                </widget>
               </item>
               <item>
                <widget class="QRadioButton" name="toolbarStatsUseKnownRadioButton">
                 <property name="text">
-                 <string>Known entries</string></property>
+                 <string>Reviewed entries (studied at least once)</string></property>
                </widget>
               </item>
               <item>
