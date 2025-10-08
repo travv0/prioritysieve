@@ -17,10 +17,24 @@ _card_sequence = 0
 _note_sequence = 0
 
 
-def _card(queue: int, card_type: int, due: int = 42) -> SimpleNamespace:
+def _card(
+    queue: int,
+    card_type: int,
+    due: int = 42,
+    *,
+    did: int = 1,
+    odid: int = 0,
+) -> SimpleNamespace:
     global _card_sequence
     _card_sequence += 1
-    return SimpleNamespace(queue=queue, type=card_type, due=due, id=_card_sequence)
+    return SimpleNamespace(
+        queue=queue,
+        type=card_type,
+        due=due,
+        id=_card_sequence,
+        did=did,
+        odid=odid,
+    )
 
 
 def _note(tags: list[str] | None = None) -> SimpleNamespace:
@@ -281,3 +295,47 @@ def test_duplicate_rules_preserve_tag_order_with_auto_suspend() -> None:
     )
 
     assert base_note.tags == base_tags, "auto-suspend tag should remain in original position"
+
+
+def test_duplicate_rules_prefer_newest_card_within_same_deck() -> None:
+    am_config = _dummy_config()
+    older_card = _card(queue=QUEUE_TYPE_SUSPENDED, card_type=CARD_TYPE_NEW, due=5, did=42)
+    older_note = _note(tags=["ps-auto-suspend"])
+    newer_card = _card(queue=QUEUE_TYPE_SUSPENDED, card_type=CARD_TYPE_NEW, due=10, did=42)
+    newer_note = _note()
+
+    duplicates = defaultdict(list)
+    duplicates[("新", "")] = [
+        DuplicateCandidate(
+            card=older_card,
+            note=older_note,
+            due=5,
+            auto_suspend=False,
+            is_new_card=True,
+            entry_reviewed=False,
+            deck_priority=0,
+            manually_suspended=False,
+        ),
+        DuplicateCandidate(
+            card=newer_card,
+            note=newer_note,
+            due=10,
+            auto_suspend=False,
+            is_new_card=True,
+            entry_reviewed=False,
+            deck_priority=0,
+            manually_suspended=False,
+        ),
+    ]
+
+    _apply_duplicate_rules(
+        am_config,
+        duplicates,
+        _original_state(older_note, newer_note),
+    )
+
+    assert newer_card.queue == QUEUE_TYPE_NEW
+    assert "ps-auto-suspend" not in newer_note.tags
+    assert older_card.queue == QUEUE_TYPE_SUSPENDED
+    assert older_card.due == DEFAULT_REVIEW_DUE
+    assert "ps-auto-suspend" in older_note.tags

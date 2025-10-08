@@ -815,6 +815,50 @@ def _apply_duplicate_rules(
     duplicates: defaultdict[tuple[str, str], list[DuplicateCandidate]],
     note_original_state: dict[int, tuple[list[str], list[str]]],
 ) -> None:
+    def _get_candidate_deck_id(candidate: DuplicateCandidate) -> int:
+        card = candidate.card
+        odid = getattr(card, "odid", 0)
+        did = getattr(card, "did", 0)
+        return int(odid or did or 0)
+
+    def _get_candidate_creation_ts(candidate: DuplicateCandidate) -> int:
+        card_id = getattr(candidate.card, "id", 0)
+        try:
+            return int(card_id)
+        except (TypeError, ValueError):
+            return 0
+
+    def _unsuspend_candidate(candidate: DuplicateCandidate) -> None:
+        if candidate.card.queue == QUEUE_TYPE_SUSPENDED:
+            candidate.card.queue = QUEUE_TYPE_NEW
+        if (
+            am_config.tag_suspended_automatically
+            and am_config.tag_suspended_automatically in candidate.note.tags
+        ):
+            candidate.note.tags.remove(am_config.tag_suspended_automatically)
+
+    def _force_suspend_candidate(candidate: DuplicateCandidate) -> None:
+        candidate.auto_suspend = True
+        candidate.card.queue = QUEUE_TYPE_SUSPENDED
+        if (
+            candidate.card.type == CARD_TYPE_NEW
+            and candidate.card.due != DEFAULT_REVIEW_DUE
+        ):
+            candidate.card.due = DEFAULT_REVIEW_DUE
+        if (
+            am_config.tag_suspended_automatically
+            and am_config.tag_suspended_automatically not in candidate.note.tags
+        ):
+            original_tags = note_original_state.get(
+                candidate.note.id,
+                ([], []),
+            )[1]
+            tags_and_queue_utils.ensure_tag_preserving_order(
+                candidate.note,
+                am_config.tag_suspended_automatically,
+                original_tags,
+            )
+
     for _, items in duplicates.items():
         items.sort(
             key=lambda item: (
@@ -825,6 +869,7 @@ def _apply_duplicate_rules(
         )
         has_review_card = any(not candidate.is_new_card for candidate in items)
         active_slot_available = True
+        unsuspended_candidate: DuplicateCandidate | None = None
 
         for candidate in items:
             if not candidate.is_new_card:
@@ -840,34 +885,23 @@ def _apply_duplicate_rules(
             )
             if active_slot_available and not force_suspend:
                 active_slot_available = False
-                if candidate.card.queue == QUEUE_TYPE_SUSPENDED:
-                    candidate.card.queue = QUEUE_TYPE_NEW
-                if (
-                    am_config.tag_suspended_automatically
-                    and am_config.tag_suspended_automatically in candidate.note.tags
-                ):
-                    candidate.note.tags.remove(am_config.tag_suspended_automatically)
+                unsuspended_candidate = candidate
+                _unsuspend_candidate(candidate)
+                continue
+
+            should_promote = (
+                not force_suspend
+                and unsuspended_candidate is not None
+                and _get_candidate_deck_id(candidate) == _get_candidate_deck_id(unsuspended_candidate)
+                and _get_candidate_creation_ts(candidate) > _get_candidate_creation_ts(unsuspended_candidate)
+            )
+
+            if should_promote:
+                _force_suspend_candidate(unsuspended_candidate)
+                unsuspended_candidate = candidate
+                _unsuspend_candidate(candidate)
             else:
-                candidate.auto_suspend = True
-                candidate.card.queue = QUEUE_TYPE_SUSPENDED
-                if (
-                    candidate.card.type == CARD_TYPE_NEW
-                    and candidate.card.due != DEFAULT_REVIEW_DUE
-                ):
-                    candidate.card.due = DEFAULT_REVIEW_DUE
-                if (
-                    am_config.tag_suspended_automatically
-                    and am_config.tag_suspended_automatically not in candidate.note.tags
-                ):
-                    original_tags = note_original_state.get(
-                        candidate.note.id,
-                        ([], []),
-                    )[1]
-                    tags_and_queue_utils.ensure_tag_preserving_order(
-                        candidate.note,
-                        am_config.tag_suspended_automatically,
-                        original_tags,
-                    )
+                _force_suspend_candidate(candidate)
 
 
 def _record_recent_changes(
