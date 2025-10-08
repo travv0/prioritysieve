@@ -1,6 +1,6 @@
 <ui version="4.0">
- <class>KnownMorphsExporterDialog</class>
- <widget class="QDialog" name="KnownMorphsExporterDialog">
+<class>KnownEntriesExporterDialog</class>
+ <widget class="QDialog" name="KnownEntriesExporterDialog">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -109,7 +109,7 @@
       </spacer>
      </item>
      <item>
-      <widget class="QPushButton" name="exportKnownMorphsPushButton">
+      <widget class="QPushButton" name="exportKnownEntriesPushButton">
        <property name="text">
         <string>Export Known Entries</string></property>
       </widget>

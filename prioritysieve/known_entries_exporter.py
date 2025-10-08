@@ -18,7 +18,7 @@ from .priority_files import KNOWN_ENTRIES_DIR
 from .exceptions import CancelledOperationException, EmptyFileSelectionException
 from .extra_settings import extra_settings_keys
 from .extra_settings.prioritysieve_extra_settings import PrioritySieveExtraSettings
-from .ui.known_morphs_exporter_dialog_ui import Ui_KnownMorphsExporterDialog
+from .ui.known_entries_exporter_dialog_ui import Ui_KnownEntriesExporterDialog
 
 
 class KnownEntriesExporterDialog(QDialog):
@@ -28,7 +28,7 @@ class KnownEntriesExporterDialog(QDialog):
         assert mw is not None
 
         super().__init__(parent=None)  # no parent makes the dialog modeless
-        self.ui = Ui_KnownMorphsExporterDialog()  # pylint:disable=invalid-name
+        self.ui = Ui_KnownEntriesExporterDialog()  # pylint:disable=invalid-name
         self.ui.setupUi(self)  # type: ignore[no-untyped-call]
 
         self.am_extra_settings = PrioritySieveExtraSettings()
@@ -61,10 +61,10 @@ class KnownEntriesExporterDialog(QDialog):
 
     def _setup_buttons(self) -> None:
         self.ui.selectOutputPushButton.setAutoDefault(False)
-        self.ui.exportKnownMorphsPushButton.setAutoDefault(False)
+        self.ui.exportKnownEntriesPushButton.setAutoDefault(False)
 
         self.ui.selectOutputPushButton.clicked.connect(self._on_output_button_clicked)
-        self.ui.exportKnownMorphsPushButton.clicked.connect(self._export_known_entries)
+        self.ui.exportKnownEntriesPushButton.clicked.connect(self._export_known_entries)
 
         stored_include_reading: bool | None = self.am_extra_settings.value(
             extra_settings_keys.KnownEntriesExporterKeys.INCLUDE_READING,

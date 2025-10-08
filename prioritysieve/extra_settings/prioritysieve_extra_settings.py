@@ -6,7 +6,7 @@ from aqt.qt import QByteArray, QSettings  # pylint:disable=no-name-in-module
 from .. import prioritysieve_globals
 from ..ui.generator_output_dialog_ui import Ui_GeneratorOutputDialog
 from ..ui.generators_window_ui import Ui_GeneratorsWindow
-from ..ui.known_morphs_exporter_dialog_ui import Ui_KnownMorphsExporterDialog
+from ..ui.known_entries_exporter_dialog_ui import Ui_KnownEntriesExporterDialog
 from ..ui.progression_window_ui import Ui_ProgressionWindow
 from . import extra_settings_keys as keys  # pylint:disable=no-name-in-module
 from .extra_settings_keys import (
@@ -37,7 +37,7 @@ class PrioritySieveExtraSettings(QSettings):
         self.endGroup()
 
     def save_known_entries_exporter_settings(
-        self, ui: Ui_KnownMorphsExporterDialog, geometry: QByteArray
+        self, ui: Ui_KnownEntriesExporterDialog, geometry: QByteArray
     ) -> None:
         # fmt: off
         self.beginGroup(keys.Dialogs.KNOWN_ENTRIES_EXPORTER)
