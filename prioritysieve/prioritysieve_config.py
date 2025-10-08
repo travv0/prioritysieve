@@ -686,6 +686,11 @@ def save_config_to_am_file(
     configs: dict[str, str | int | float | bool | object],
 ) -> None:
     assert mw is not None
+    profile_name = getattr(mw.pm, "name", None)
+    if not profile_name:
+        # During early startup, the profile name can be unset. Defer writing until the
+        # profile is fully loaded to avoid TypeError from profileFolder().
+        return
     profile_settings_path = Path(
         mw.pm.profileFolder(), prioritysieve_globals.PROFILE_SETTINGS_FILE_NAME
     )
