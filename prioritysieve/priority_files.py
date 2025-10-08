@@ -7,6 +7,7 @@ from typing import Iterable
 from aqt import mw
 
 from . import prioritysieve_globals
+from .reading_utils import normalize_reading
 
 DEFAULT_PRIORITY_DIR = "prioritysieve-priority-files"
 KNOWN_ENTRIES_DIR = "prioritysieve-known-entries"
@@ -67,10 +68,9 @@ def _read_priority_file(path: Path) -> Iterable[tuple[tuple[str, str], int]]:
             text = row[text_index].strip()
             if not text:
                 continue
+            reading: str = ""
             if reading_index is not None and reading_index < len(row):
-                reading = row[reading_index].strip()
-            else:
-                reading = ""
+                reading = normalize_reading(row[reading_index].strip())
             if priority_index is not None and priority_index < len(row):
                 priority_str = row[priority_index].strip()
                 try:

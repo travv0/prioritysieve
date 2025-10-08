@@ -1,5 +1,7 @@
 from collections.abc import Sequence
 
+from typing import Any
+
 from anki.cards import Card
 from anki.consts import QUEUE_TYPE_NEW, QUEUE_TYPE_SUSPENDED
 from anki.notes import Note, NoteId
@@ -57,8 +59,41 @@ def apply_entry_tags(
     note.tags = tags
 
 
+def _resolve_field_map(note: Note) -> dict[str, tuple[int, Any]]:
+    """Return the field map for the provided note, resilient to API changes."""
+
+    # Older Anki versions exposed a callable private helper.
+    field_map_callable = getattr(note, "_field_map", None)
+    if callable(field_map_callable):
+        mapping = field_map_callable()
+        if isinstance(mapping, dict):
+            return mapping
+
+    # Recent versions store the mapping on _fmap.
+    fmap = getattr(note, "_fmap", None)
+    if isinstance(fmap, dict):
+        return fmap
+
+    # Fall back to recomputing the map from the collection.
+    note_type = note.note_type()
+    collection = getattr(note, "col", None)
+    if note_type is None or collection is None:
+        return {}
+
+    models = getattr(collection, "models", None)
+    if models is None:
+        return {}
+
+    try:
+        mapping = models.field_map(note_type)
+    except Exception:  # pragma: no cover - defensive fallback
+        return {}
+
+    return mapping if isinstance(mapping, dict) else {}
+
+
 def update_entry_reading_field(note: Note, reading: str) -> None:
-    mapping = note._field_map()
+    mapping = _resolve_field_map(note)
     field_info = mapping.get(am_globals.EXTRA_FIELD_READING)
     if not field_info:
         return

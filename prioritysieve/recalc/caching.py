@@ -103,24 +103,67 @@ def _extract_reading(
     config_filter: PrioritySieveConfigFilter,
     card_data,
 ) -> str:
-    candidates: list[str] = []
+    def _normalise_reading_field(value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            return ""
 
-    if card_data.reading:
-        processed = get_processed_text(am_config, card_data.reading).strip()
-        if processed:
-            candidates.append(processed)
+        parts = stripped.split()
+        if not parts:
+            parts = [stripped]
 
-    if card_data.furigana:
-        tokens = parse_furigana_field(card_data.furigana)
-        if tokens:
-            candidates.append("".join(tokens))
+        normalised_parts: list[str] = []
+        for part in parts:
+            processed = get_processed_text(am_config, part.lower()).strip()
+            if not processed:
+                continue
+            normalised = normalize_reading(processed)
+            if normalised:
+                normalised_parts.append(normalised)
 
-    if config_filter.reading_priority != READING_PRIORITY_FURIGANA_FIRST:
-        candidates = list(reversed(candidates))
+        return " ".join(normalised_parts).strip()
 
-    for candidate in candidates:
-        normalised = normalize_reading(candidate.strip())
-        if normalised:
-            return normalised
+    def _normalise_furigana_source(value: str) -> str:
+        tokens = parse_furigana_field(value)
+        if not tokens:
+            return ""
+
+        combined = "".join(tokens)
+        if not combined:
+            return ""
+
+        combined = get_processed_text(am_config, combined.lower()).strip()
+        if not combined:
+            return ""
+
+        return normalize_reading(combined)
+
+    reading_candidates: list[str] = []
+    if getattr(card_data, "reading", None):
+        candidate = _normalise_reading_field(card_data.reading)
+        if candidate:
+            reading_candidates.append(candidate)
+
+    furigana_candidates: list[str] = []
+
+    primary_furigana_source = getattr(card_data, "furigana", None)
+    if primary_furigana_source:
+        candidate = _normalise_furigana_source(primary_furigana_source)
+        if candidate:
+            furigana_candidates.append(candidate)
+
+    if not furigana_candidates and getattr(card_data, "expression", None):
+        candidate = _normalise_furigana_source(card_data.expression)
+        if candidate:
+            furigana_candidates.append(candidate)
+
+    if config_filter.reading_priority == READING_PRIORITY_FURIGANA_FIRST:
+        ordered_candidates = furigana_candidates + reading_candidates
+    else:
+        ordered_candidates = reading_candidates + furigana_candidates
+
+    for candidate in ordered_candidates:
+        if candidate:
+            return candidate.strip()
 
     return ""

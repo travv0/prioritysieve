@@ -23,12 +23,17 @@ def test_priority_files_helpers(tmp_path, monkeypatch) -> None:
     (priority_dir / "b.csv").write_text(
         "Entry,Reading,Priority\nalpha,reading,3\n", encoding="utf-8"
     )
+    (priority_dir / "c.csv").write_text(
+        "Entry,Reading,Priority\nテニス仲間,テニスナカマ,7\n",
+        encoding="utf-8",
+    )
 
-    assert priority_files.available_priority_files() == ["a.csv", "b.csv"]
+    assert priority_files.available_priority_files() == ["a.csv", "b.csv", "c.csv"]
 
-    priority_map = priority_files.load_priority_map(["a.csv", "b.csv"])
+    priority_map = priority_files.load_priority_map(["a.csv", "b.csv", "c.csv"])
     assert priority_map[("alpha", "")] == 1
     assert priority_map[("alpha", "reading")] == 3
+    assert priority_map[("テニス仲間", "てにすなかま")] == 7
 
     # ensure legacy header names are still accepted
     (priority_dir / "legacy.csv").write_text(

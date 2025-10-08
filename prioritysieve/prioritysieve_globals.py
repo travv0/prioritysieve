@@ -41,7 +41,7 @@ STATUS_KNOWN = "known"
 STATUS_UNKNOWN = "unknown"
 STATUS_UNDEFINED = "undefined"
 
-DEFAULT_REVIEW_DUE = 9_999_999
+DEFAULT_REVIEW_DUE = 2_147_483_647
 config_broken: bool = False
 new_config_found: bool = False
 shown_config_warning: bool = False
