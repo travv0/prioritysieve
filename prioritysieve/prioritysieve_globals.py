@@ -35,9 +35,6 @@ READING_PRIORITY_READING_FIRST = "Reading first"
 NEVER_OPTION = "Never"
 ONLY_KNOWN_OPTION = "If all entries are known"
 
-# Priority file/study plan headers
-LEMMA_PRIORITY_HEADER = "Lemma-Priority"
-INFLECTION_PRIORITY_HEADER = "Inflection-Priority"
 OCCURRENCES_HEADER = "Occurrences"
 
 STATUS_KNOWN = "known"

@@ -34,7 +34,7 @@
           </widget>
          </item>
          <item>
-          <widget class="QComboBox" name="morphPriorityCBox">
+          <widget class="QComboBox" name="priorityFileComboBox">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
              <horstretch>0</horstretch>
@@ -353,7 +353,7 @@
         <string>Entry list</string></attribute>
        <layout class="QVBoxLayout" name="verticalLayout_2">
         <item>
-         <widget class="QTableWidget" name="morphTableWidget">
+         <widget class="QTableWidget" name="entryTableWidget">
           <property name="enabled">
            <bool>true</bool>
           </property>

@@ -159,7 +159,7 @@ def test_progression(  # pylint:disable=too-many-arguments, unused-argument, too
     _entry_texts: list[str] = []
     for _row in [0, 1, 2]:
         _column = 1
-        _item = pw.ui.morphTableWidget.item(_row, _column)
+    _item = pw.ui.entryTableWidget.item(_row, _column)
         assert _item is not None
         _entry_texts.append(_item.text())
     assert _entry_texts == k_entry_texts
@@ -167,7 +167,7 @@ def test_progression(  # pylint:disable=too-many-arguments, unused-argument, too
     _entry_readings: list[str] = []
     for _row in [0, 1, 2]:
         _column = 2
-        _item = pw.ui.morphTableWidget.item(_row, _column)
+    _item = pw.ui.entryTableWidget.item(_row, _column)
         assert _item is not None
         _entry_readings.append(_item.text())
     assert _entry_readings == k_entry_readings
@@ -175,7 +175,7 @@ def test_progression(  # pylint:disable=too-many-arguments, unused-argument, too
     _status_list: list[str] = []
     for _row in [0, 1, 2]:
         _column = 3
-        _item = pw.ui.morphTableWidget.item(_row, _column)
+    _item = pw.ui.entryTableWidget.item(_row, _column)
         assert _item is not None
         _status_list.append(_item.text())
     assert _status_list == k_statuses

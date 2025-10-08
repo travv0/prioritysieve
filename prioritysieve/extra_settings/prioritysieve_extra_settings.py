@@ -72,7 +72,7 @@ class PrioritySieveExtraSettings(QSettings):
         # fmt: off
         self.beginGroup(keys.Dialogs.PROGRESSION_WINDOW)
         self.setValue(ProgressionWindowKeys.WINDOW_GEOMETRY, geometry)
-        self.setValue(ProgressionWindowKeys.PRIORITY_FILE, ui.morphPriorityCBox.currentText())
+        self.setValue(ProgressionWindowKeys.PRIORITY_FILE, ui.priorityFileComboBox.currentText())
         self.setValue(ProgressionWindowKeys.PRIORITY_RANGE_START, ui.minPrioritySpinBox.value())
         self.setValue(ProgressionWindowKeys.PRIORITY_RANGE_END, ui.maxPrioritySpinBox.value())
         self.setValue(ProgressionWindowKeys.BIN_SIZE, ui.binSizeSpinBox.value())

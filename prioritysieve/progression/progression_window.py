@@ -68,7 +68,7 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
 
         self._setup_numerical_percent_table(self.ui.numericalTableWidget)
         self._setup_numerical_percent_table(self.ui.percentTableWidget)
-        self._setup_entry_table(self.ui.morphTableWidget)
+        self._setup_entry_table(self.ui.entryTableWidget)
         self._setup_buttons()
         self._setup_spin_boxes()
         self._setup_priority_file_cbox()
@@ -155,7 +155,7 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
     def _setup_priority_file_cbox(self) -> None:
         priority_files: list[str] = [prioritysieve_globals.NONE_OPTION]
         priority_files += available_priority_files()
-        self.ui.morphPriorityCBox.addItems(priority_files)
+        self.ui.priorityFileComboBox.addItems(priority_files)
 
         stored_priority_file: str = self.am_extra_settings.value(
             extra_settings_keys.ProgressionWindowKeys.PRIORITY_FILE, type=str
@@ -163,7 +163,7 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
 
         for index, file in enumerate(priority_files):
             if file == stored_priority_file:
-                self.ui.morphPriorityCBox.setCurrentIndex(index)
+                self.ui.priorityFileComboBox.setCurrentIndex(index)
                 break
 
     def _setup_geometry(self) -> None:
@@ -199,7 +199,7 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
         assert mw is not None
 
         bins = self._get_selected_bins()
-        selected_file = self.ui.morphPriorityCBox.currentText()
+        selected_file = self.ui.priorityFileComboBox.currentText()
 
         if selected_file == prioritysieve_globals.NONE_OPTION:
             priority_map: dict[tuple[str, str], int] = {}
@@ -255,11 +255,11 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
 
         self.ui.numericalTableWidget.clearContents()
         self.ui.percentTableWidget.clearContents()
-        self.ui.morphTableWidget.clearContents()
+        self.ui.entryTableWidget.clearContents()
 
         self.ui.numericalTableWidget.setRowCount(len(reports))
         self.ui.percentTableWidget.setRowCount(len(reports))
-        self.ui.morphTableWidget.setRowCount(len(entry_statuses))
+        self.ui.entryTableWidget.setRowCount(len(entry_statuses))
 
         error_indexes: tuple[int, int] | None = None
 
@@ -367,14 +367,14 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
         reading_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         status_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.ui.morphTableWidget.setItem(
+        self.ui.entryTableWidget.setItem(
             row, self._columns["priority"], priority_item
         )
-        self.ui.morphTableWidget.setItem(row, self._columns["text"], text_item)
-        self.ui.morphTableWidget.setItem(
+        self.ui.entryTableWidget.setItem(row, self._columns["text"], text_item)
+        self.ui.entryTableWidget.setItem(
             row, self._columns["reading"], reading_item
         )
-        self.ui.morphTableWidget.setItem(row, self._columns["status"], status_item)
+        self.ui.entryTableWidget.setItem(row, self._columns["status"], status_item)
 
     def closeWithCallback(  # pylint:disable=invalid-name
         self, callback: Callable[[], None]
