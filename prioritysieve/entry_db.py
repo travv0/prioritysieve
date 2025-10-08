@@ -132,6 +132,25 @@ class EntryDB:
         cursor.execute("SELECT text, reading, reviewed FROM Entries")
         return [StoredEntry(text, reading, bool(reviewed)) for text, reading, reviewed in cursor.fetchall()]
 
+    def get_cards(self) -> list[StoredCard]:
+        cursor = self.con.cursor()
+        cursor.execute(
+            """
+            SELECT card_id, note_id, note_type_id, card_type, tags
+            FROM Cards
+            """
+        )
+        return [
+            StoredCard(
+                card_id=int(card_id),
+                note_id=int(note_id),
+                note_type_id=int(note_type_id),
+                card_type=int(card_type),
+                tags=str(tags),
+            )
+            for card_id, note_id, note_type_id, card_type, tags in cursor.fetchall()
+        ]
+
     def get_entries_with_counts(
         self,
         reviewed_only: bool = True,
@@ -240,3 +259,10 @@ class EntryDB:
             key = (text, reading)
             result.setdefault(key, set()).add(int(card_id))
         return result
+@dataclass(slots=True)
+class StoredCard:
+    card_id: int
+    note_id: int
+    note_type_id: int
+    card_type: int
+    tags: str
