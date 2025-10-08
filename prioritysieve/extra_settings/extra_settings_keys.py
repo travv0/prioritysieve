@@ -29,8 +29,6 @@ class KnownEntriesExporterKeys:
 class ProgressionWindowKeys:
     WINDOW_GEOMETRY = "window_geometry"
     PRIORITY_FILE = "priority_file"
-    LEMMA_EVALUATION = "lemma_evaluation"
-    INFLECTION_EVALUATION = "inflection_evaluation"
     PRIORITY_RANGE_START = "priority_range_start"
     PRIORITY_RANGE_END = "priority_range_end"
     BIN_SIZE = "bin_size"

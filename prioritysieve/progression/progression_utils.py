@@ -60,16 +60,12 @@ class ProgressReport:
     def get_total_missing(self) -> int:
         return len(self.missing_entries)
 
-    def get_total_morphs(self) -> int:
+    def get_total_entries(self) -> int:
         return (
             self.get_total_reviewed()
             + self.get_total_pending()
             + self.get_total_missing()
         )
-
-    def get_total_entries(self) -> int:
-        """Return the total count of tracked entries (alias for get_total_morphs)."""
-        return self.get_total_morphs()
 
 
 def _update_progress_report(

@@ -53,7 +53,7 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
 
         self._columns = {}
         # For all tables
-        self._columns["morph_priorities"] = 0
+        self._columns["priority"] = 0
         # For numerical and percentage tables
         self._columns["total_entries"] = 1
         self._columns["reviewed"] = 2
@@ -64,7 +64,7 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
         self._columns["reading"] = 2
         self._columns["status"] = 3
         self.num_numerical_percent_columns = 5
-        self.num_morph_columns = 4
+        self.num_entry_columns = 4
 
         self._setup_numerical_percent_table(self.ui.numericalTableWidget)
         self._setup_numerical_percent_table(self.ui.percentTableWidget)
@@ -82,7 +82,7 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
         table.setSortingEnabled(False)
         table.setColumnCount(self.num_numerical_percent_columns)
 
-        table.setColumnWidth(self._columns["morph_priorities"], 130)
+        table.setColumnWidth(self._columns["priority"], 130)
         table.setColumnWidth(self._columns["total_entries"], 120)
         table.setColumnWidth(self._columns["reviewed"], 120)
         table.setColumnWidth(self._columns["pending"], 120)
@@ -98,9 +98,9 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
     def _setup_entry_table(self, table: QTableWidget) -> None:
         table.setAlternatingRowColors(True)
         table.setSortingEnabled(False)
-        table.setColumnCount(self.num_morph_columns)
+        table.setColumnCount(self.num_entry_columns)
 
-        table.setColumnWidth(self._columns["morph_priorities"], 90)
+        table.setColumnWidth(self._columns["priority"], 90)
         table.setColumnWidth(self._columns["text"], 120)
         table.setColumnWidth(self._columns["reading"], 120)
         table.setColumnWidth(self._columns["status"], 90)
@@ -127,9 +127,6 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
             defaultValue=False,
             type=bool,
         )
-
-        self.ui.lemmaRadioButton.setChecked(True)
-        self.ui.inflectionRadioButton.hide()
 
         self.ui.normalRadioButton.setChecked(stored_normal_bin_type)
         self.ui.cumulativeRadioButton.setChecked(stored_cumulative_bin_type)
@@ -302,7 +299,7 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
         missing_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.ui.numericalTableWidget.setItem(
-            row, self._columns["morph_priorities"], priority_item
+            row, self._columns["priority"], priority_item
         )
         self.ui.numericalTableWidget.setItem(
             row, self._columns["total_entries"], total_entries_item
@@ -343,7 +340,7 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
         missing_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.ui.percentTableWidget.setItem(
-            row, self._columns["morph_priorities"], priority_item
+            row, self._columns["priority"], priority_item
         )
         self.ui.percentTableWidget.setItem(
             row, self._columns["total_entries"], total_entries_item
@@ -371,7 +368,7 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
         status_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.ui.morphTableWidget.setItem(
-            row, self._columns["morph_priorities"], priority_item
+            row, self._columns["priority"], priority_item
         )
         self.ui.morphTableWidget.setItem(row, self._columns["text"], text_item)
         self.ui.morphTableWidget.setItem(
