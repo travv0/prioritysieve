@@ -7,25 +7,23 @@ of the different tags if you want, or you can leave them as they are and move on
 
 > **Note:** Avoid reusing tags from other sources. Mixing different tags can quickly become complicated and confusing. 
 
-* **One unknown morph**:  
-  Cards that only have one unknown morph will be given this tag
+* **Ready**:  
+  Cards that can be safely studied immediately gain this tag.
 
-* **Multiple unknown morphs**:  
-  Cards that have more than one unknown morph will be given this tag
-* **Fresh entries**:  
-  Cards that have one or more morphs in a `learning` state will be given this tag
+* **Not ready**:  
+  Cards that still depend on other entries keep this tag. They will be suspended automatically if you enable auto-
+  suspend.
+* **Known automatically**:  
+  Cards whose entry was marked reviewed during Recalc gain this tag.
+* **Known manually**:  
+  Cards you mark with “Set Known and Skip” receive this tag. Do **not** delete cards with this tag; PrioritySieve uses
+  them to track which entries you know.
 * **Learn card now**:  
   When you use the [Learn Card Now](../../usage/browser.md) feature on a card, it will be given this tag. The purpose of
   this tag is to make the internal process of the `Learn Card Now` feature simpler. Do not manually assign this tag to
   cards, as it will have no effect.
-* **Set known and skip**:  
-  When you use the [Set Known and Skip](../../usage/reviewing-cards.md#encountering-morphs-you-already-know) feature on
-  a card, it will be given this tag. Do **not** delete cards that have this tag, as PrioritySieve relies on them to track
-  which morphs you know.
-* **All morphs known**:  
-  New cards that only have morphs you already know will be given this tag. Cards with this tag can safely be deleted
-  without PrioritySieve losing track of which morphs you know. This can be useful if you want to trim down your card
+* **All entries known**:  
+  New cards whose entries are already reviewed receive this tag. They can be safely deleted if you want to trim your
   collection.
 * **Suspended automatically**:  
   Cards that have been suspended with the [suspend new cards option](card_handling.md) will be given this tag.
-

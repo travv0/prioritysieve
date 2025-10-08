@@ -5,11 +5,10 @@ and finally start using PrioritySieve with your cards! Delve into how to use Pri
 
 * [Reviewing cards](usage/reviewing-cards.md) with PrioritySieve.
 * Using the [Browser Options](usage/browser.md).
-* [Generating priority files](usage/generators.md#frequency-file-generator) to change morph priorities.
-* [Generating readability reports](usage/generators.md#readability-report-generator) to find out much of specified files you will be able to read.
+* [Generating priority files](usage/generators.md#frequency-file-generator) to adjust entry priorities.
+* [Generating readability reports](usage/generators.md#readability-report-generator) to see how much of a corpus you can already read.
 * [Exporting known entries](usage/known-entries-exporter.md) so you can trim down your card collection.
-* [Gauging your overall progress](usage/progression.md) in terms of morph priorities.
-
+* [Gauging your overall progress](usage/progression.md) in terms of entry priorities.
 
 
 
