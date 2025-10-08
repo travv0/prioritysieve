@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import Iterable as TypingIterable
 
-from anki.consts import CARD_TYPE_NEW
+from anki.consts import CARD_TYPE_NEW, QUEUE_TYPE_SUSPENDED
 
 from .entry_db import EntryDB, StoredCard
 from .prioritysieve_config import PrioritySieveConfig
@@ -58,43 +58,49 @@ class EntryToolbarStats:
         self.secondary_label = f"{secondary_name}: {secondary_value}"
 
 
+@dataclass(slots=True)
+class _NoteState:
+    tags: set[str]
+    has_exception: bool
+    active_any: bool = False
+    active_non_new: bool = False
+
+
 def _compute_note_counts(
     config: PrioritySieveConfig,
     cards: TypingIterable[StoredCard],
 ) -> tuple[int, int]:
     """Return (tracked_notes, reviewed_notes) counts."""
 
-    auto_tag = config.tag_suspended_automatically.strip()
-    known_auto_tag = config.tag_known_automatically.strip()
-    known_manual_tag = config.tag_known_manually.strip()
     exception_tags = {
         tag.strip()
         for tag in config.get_preprocess_ignore_suspended_unless_tag_list()
-        if isinstance(tag, str)
+        if isinstance(tag, str) and tag.strip()
     }
 
-    tracked_notes: set[int] = set()
-    reviewed_notes: set[int] = set()
+    note_states: dict[int, _NoteState] = {}
 
     for card in cards:
-        tag_words = {
-            tag for tag in card.tags.strip().split() if tag and tag.strip()
-        }
+        state = note_states.get(card.note_id)
+        if state is None:
+            tag_words = {
+                tag for tag in card.tags.split() if tag and tag.strip()
+            }
+            state = _NoteState(
+                tags=tag_words,
+                has_exception=bool(exception_tags & tag_words),
+            )
+            note_states[card.note_id] = state
 
-        if auto_tag and auto_tag in tag_words and not (
-            exception_tags & tag_words
-        ):
-            # Automatically suspended duplicate; skip for toolbar counts.
-            continue
+        is_suspended = card.card_queue == QUEUE_TYPE_SUSPENDED
+        is_active = not is_suspended or state.has_exception
 
-        tracked_notes.add(card.note_id)
+        if is_active:
+            state.active_any = True
+            if card.card_type != CARD_TYPE_NEW:
+                state.active_non_new = True
 
-        is_reviewed = (
-            card.card_type != CARD_TYPE_NEW
-            or (known_auto_tag and known_auto_tag in tag_words)
-            or (known_manual_tag and known_manual_tag in tag_words)
-        )
-        if is_reviewed:
-            reviewed_notes.add(card.note_id)
+    tracked_notes = sum(1 for state in note_states.values() if state.active_any)
+    reviewed_notes = sum(1 for state in note_states.values() if state.active_non_new)
 
-    return len(tracked_notes), len(reviewed_notes)
+    return tracked_notes, reviewed_notes

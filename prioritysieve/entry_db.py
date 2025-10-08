@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Iterable
 
 from aqt import mw
-from anki.consts import CARD_TYPE_NEW
+from anki.consts import CARD_TYPE_NEW, QUEUE_TYPE_SUSPENDED
 
 from .entry import Entry
 
@@ -72,7 +72,8 @@ class EntryDB:
                     note_id INTEGER NOT NULL,
                     note_type_id INTEGER NOT NULL,
                     card_type INTEGER NOT NULL,
-                    tags TEXT NOT NULL
+                    tags TEXT NOT NULL,
+                    card_queue INTEGER NOT NULL
                 )
                 """
             )
@@ -108,7 +109,7 @@ class EntryDB:
                 entries,
             )
             self.con.executemany(
-                "INSERT OR REPLACE INTO Cards (card_id, note_id, note_type_id, card_type, tags) VALUES (:card_id, :note_id, :note_type_id, :card_type, :tags)",
+                "INSERT OR REPLACE INTO Cards (card_id, note_id, note_type_id, card_type, tags, card_queue) VALUES (:card_id, :note_id, :note_type_id, :card_type, :tags, :card_queue)",
                 cards,
             )
             self.con.executemany(
@@ -134,12 +135,26 @@ class EntryDB:
 
     def get_cards(self) -> list[StoredCard]:
         cursor = self.con.cursor()
-        cursor.execute(
-            """
-            SELECT card_id, note_id, note_type_id, card_type, tags
-            FROM Cards
-            """
-        )
+        try:
+            cursor.execute(
+                """
+                SELECT card_id, note_id, note_type_id, card_type, tags, card_queue
+                FROM Cards
+                """
+            )
+            rows = cursor.fetchall()
+        except sqlite3.OperationalError:  # pragma: no cover - legacy database fallback
+            cursor.execute(
+                """
+                SELECT card_id, note_id, note_type_id, card_type, tags
+                FROM Cards
+                """
+            )
+            rows = [
+                (card_id, note_id, note_type_id, card_type, tags, QUEUE_TYPE_SUSPENDED)
+                for card_id, note_id, note_type_id, card_type, tags in cursor.fetchall()
+            ]
+
         return [
             StoredCard(
                 card_id=int(card_id),
@@ -147,8 +162,9 @@ class EntryDB:
                 note_type_id=int(note_type_id),
                 card_type=int(card_type),
                 tags=str(tags),
+                card_queue=int(card_queue),
             )
-            for card_id, note_id, note_type_id, card_type, tags in cursor.fetchall()
+            for card_id, note_id, note_type_id, card_type, tags, card_queue in rows
         ]
 
     def get_entries_with_counts(
@@ -266,3 +282,4 @@ class StoredCard:
     note_type_id: int
     card_type: int
     tags: str
+    card_queue: int

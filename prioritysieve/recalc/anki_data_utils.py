@@ -20,6 +20,7 @@ class AnkiDBRowData:
         "card_id",
         "card_interval",
         "card_type",
+        "card_queue",
         "note_id",
         "note_fields",
         "note_tags",
@@ -34,6 +35,9 @@ class AnkiDBRowData:
 
         assert isinstance(data_row[2], int)
         self.card_type: int = data_row[2]
+
+        assert isinstance(data_row[3], int)
+        self.card_queue: int = data_row[3]
 
         assert isinstance(data_row[4], int)
         self.note_id: int = data_row[4]
@@ -59,6 +63,7 @@ class AnkiCardData:  # pylint:disable=too-many-instance-attributes
         "tags",
         "note_id",
         "note_type_id",
+        "queue",
     )
 
     def __init__(  # pylint:disable=too-many-arguments
@@ -111,6 +116,7 @@ class AnkiCardData:  # pylint:disable=too-many-instance-attributes
         self.tags = anki_row_data.note_tags
         self.note_id = anki_row_data.note_id
         self.note_type_id = note_type_id
+        self.queue = anki_row_data.card_queue
 
 def create_card_data_dict(
     am_config: PrioritySieveConfig,

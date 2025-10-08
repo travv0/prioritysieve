@@ -40,6 +40,7 @@ def cache_entries(
                 "note_type_id": card_data.note_type_id,
                 "card_type": card_data.type,
                 "tags": card_data.tags,
+                "card_queue": getattr(card_data, "queue", 0),
             }
             card_entry_rows[card_id] = entry.key()
 

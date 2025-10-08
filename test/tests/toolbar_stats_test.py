@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from anki.consts import CARD_TYPE_NEW, CARD_TYPE_REV
+from anki.consts import (
+    CARD_TYPE_NEW,
+    CARD_TYPE_REV,
+    QUEUE_TYPE_NEW,
+    QUEUE_TYPE_REV,
+    QUEUE_TYPE_SUSPENDED,
+)
 
 from prioritysieve.entry_db import StoredCard
 from prioritysieve.toolbar_stats import _compute_note_counts
@@ -26,8 +32,22 @@ def _config(
 def test_counts_skip_auto_suspended_duplicates() -> None:
     config = _config()
     cards = [
-        StoredCard(card_id=1, note_id=11, note_type_id=1, card_type=CARD_TYPE_NEW, tags=" ps-auto-suspend "),
-        StoredCard(card_id=2, note_id=22, note_type_id=1, card_type=CARD_TYPE_REV, tags=""),
+        StoredCard(
+            card_id=1,
+            note_id=11,
+            note_type_id=1,
+            card_type=CARD_TYPE_NEW,
+            tags=" ps-auto-suspend ",
+            card_queue=QUEUE_TYPE_SUSPENDED,
+        ),
+        StoredCard(
+            card_id=2,
+            note_id=22,
+            note_type_id=1,
+            card_type=CARD_TYPE_REV,
+            tags="",
+            card_queue=QUEUE_TYPE_REV,
+        ),
     ]
 
     tracked, reviewed = _compute_note_counts(config, cards)
@@ -45,6 +65,7 @@ def test_counts_include_exception_tagged_suspended_cards() -> None:
             note_type_id=1,
             card_type=CARD_TYPE_NEW,
             tags=" ps-auto-suspend keep-active ",
+            card_queue=QUEUE_TYPE_SUSPENDED,
         )
     ]
 
@@ -63,6 +84,7 @@ def test_counts_treat_known_tags_as_reviewed() -> None:
             note_type_id=1,
             card_type=CARD_TYPE_NEW,
             tags=" ps-known-automatically ",
+            card_queue=QUEUE_TYPE_NEW,
         ),
         StoredCard(
             card_id=2,
@@ -70,10 +92,57 @@ def test_counts_treat_known_tags_as_reviewed() -> None:
             note_type_id=1,
             card_type=CARD_TYPE_NEW,
             tags=" ps-known-manually ",
+            card_queue=QUEUE_TYPE_NEW,
         ),
     ]
 
     tracked, reviewed = _compute_note_counts(config, cards)
 
     assert tracked == 2
-    assert reviewed == 2
+    assert reviewed == 0
+
+
+def test_counts_ignore_notes_with_all_suspended_cards() -> None:
+    config = _config()
+    cards = [
+        StoredCard(
+            card_id=1,
+            note_id=11,
+            note_type_id=1,
+            card_type=CARD_TYPE_REV,
+            tags="",
+            card_queue=QUEUE_TYPE_SUSPENDED,
+        )
+    ]
+
+    tracked, reviewed = _compute_note_counts(config, cards)
+
+    assert tracked == 0
+    assert reviewed == 0
+
+
+def test_counts_include_active_new_and_review_cards_per_note() -> None:
+    config = _config()
+    cards = [
+        StoredCard(
+            card_id=1,
+            note_id=11,
+            note_type_id=1,
+            card_type=CARD_TYPE_NEW,
+            tags="",
+            card_queue=QUEUE_TYPE_NEW,
+        ),
+        StoredCard(
+            card_id=2,
+            note_id=11,
+            note_type_id=1,
+            card_type=CARD_TYPE_REV,
+            tags="",
+            card_queue=QUEUE_TYPE_REV,
+        ),
+    ]
+
+    tracked, reviewed = _compute_note_counts(config, cards)
+
+    assert tracked == 1
+    assert reviewed == 1
