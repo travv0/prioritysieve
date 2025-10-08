@@ -362,11 +362,11 @@ def recalc_on_sync() -> None:
         )
         current_settings_state_json = extra_settings.get_recalc_settings_state()
 
-    print(
-        "PrioritySieve pre-sync settings snapshot state:",
-        current_settings_state_json,
-    )
     if not am_config.recalc_on_sync:
+        if current_state_json is not None:
+            extra_settings.set_recalc_collection_state(current_state_json)
+        if current_settings_state_json is not None:
+            extra_settings.set_recalc_settings_state(current_settings_state_json)
         _state_before_sync_recalc = current_state_json
         return
 
@@ -388,12 +388,34 @@ def recalc_on_sync() -> None:
         relevant_filters,
     )
 
+    print(
+        "PrioritySieve pre-sync settings snapshot state:",
+        current_settings_state_json,
+    )
+    print(
+        "PrioritySieve pre-sync change flags:",
+        {
+            "collection_state_changed": collection_state_changed,
+            "settings_state_changed": settings_state_changed,
+        },
+    )
+    print(
+        "PrioritySieve pre-sync pending change scan:", pending_changes
+    )
+
     if (
         not pending_changes
         and not settings_state_changed
         and previous_state is not None
     ):
-        print("PrioritySieve: skipping pre-sync recalc (no relevant card/note changes)")
+        print(
+            "PrioritySieve: skipping pre-sync recalc"
+            " (no relevant card/note changes)"
+        )
+        if current_state_json is not None:
+            extra_settings.set_recalc_collection_state(current_state_json)
+        if current_settings_state_json is not None:
+            extra_settings.set_recalc_settings_state(current_settings_state_json)
         _state_before_sync_recalc = current_state_json
         return
 
@@ -402,6 +424,10 @@ def recalc_on_sync() -> None:
             "PrioritySieve: skipping pre-sync recalc"
             " (collection and settings unchanged)"
         )
+        if current_state_json is not None:
+            extra_settings.set_recalc_collection_state(current_state_json)
+        if current_settings_state_json is not None:
+            extra_settings.set_recalc_settings_state(current_settings_state_json)
         _state_before_sync_recalc = current_state_json
         return
 
@@ -419,18 +445,28 @@ def recalc_on_sync() -> None:
     def _cache_post_recalc_state() -> None:
         global _state_before_sync_recalc
 
-        updated_state: str | None = None
         try:
-            updated_state = extra_settings.get_recalc_collection_state()
-            if updated_state is None:
-                updated_state = json.dumps(
-                    recalc_main.compute_modify_filters_state(), sort_keys=True
-                )
+            updated_state = json.dumps(
+                recalc_main.compute_modify_filters_state(), sort_keys=True
+            )
+            extra_settings.set_recalc_collection_state(updated_state)
         except Exception as error:  # pylint:disable=broad-except
             print(
                 f"PrioritySieve: unable to cache pre-sync state after recalc ({error})"
             )
             updated_state = current_state_json
+            if updated_state is not None:
+                extra_settings.set_recalc_collection_state(updated_state)
+
+        try:
+            settings_state = json.dumps(
+                prioritysieve_config.get_config_dict(), sort_keys=True
+            )
+            extra_settings.set_recalc_settings_state(settings_state)
+        except Exception as error:  # pylint:disable=broad-except
+            print(
+                f"PrioritySieve: unable to cache settings state after recalc ({error})"
+            )
 
         _state_before_sync_recalc = updated_state
         print(
@@ -486,6 +522,13 @@ def recalc_after_sync(success: bool | None = None) -> None:
 
     print("PrioritySieve post-sync baseline state:", baseline_state)
     print("PrioritySieve post-sync observed state:", post_state_json)
+    print(
+        "PrioritySieve post-sync state change:",
+        {
+            "states_equal": baseline_state == post_state_json,
+            "recalc_after_sync": am_config.recalc_after_sync,
+        },
+    )
 
     if not am_config.recalc_after_sync:
         if post_state_json is not None:

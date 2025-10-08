@@ -142,15 +142,17 @@ def _collect_filters_state(filters: list[PrioritySieveConfigFilter]) -> list[dic
         if card_stats is None or note_stats is None:
             continue
 
-        card_count, _card_max_mod, card_max_id = card_stats
-        note_count, _note_max_mod, note_max_id = note_stats
+        card_count, card_max_mod, card_max_id = card_stats
+        note_count, note_max_mod, note_max_id = note_stats
 
         state.append(
             {
                 "id": _get_filter_identifier(config_filter),
                 "card_count": int(card_count),
+                "card_max_mod": int(card_max_mod),
                 "card_max_id": int(card_max_id),
                 "note_count": int(note_count),
+                "note_max_mod": int(note_max_mod),
                 "note_max_id": int(note_max_id),
             }
         )
@@ -281,9 +283,24 @@ def filters_have_pending_changes(
     if mw.col is None:
         return False
 
+    changed_filters: list[str] = []
     for config_filter in filters:
-        if _filter_has_pending_changes(am_config, config_filter):
-            return True
+        identifier = _get_filter_identifier(config_filter)
+        has_changes = _filter_has_pending_changes(am_config, config_filter)
+        print(
+            f"PrioritySieve pending-change probe: {identifier} -> {has_changes}"
+        )
+        if has_changes:
+            changed_filters.append(identifier)
+
+    if changed_filters:
+        print(
+            "PrioritySieve pending-change summary: detected changes in "
+            + ", ".join(changed_filters)
+        )
+        return True
+
+    print("PrioritySieve pending-change summary: no relevant changes detected")
     return False
 
 
@@ -346,8 +363,40 @@ def _filter_has_pending_changes(
         "WHERE " + " AND ".join(where_clauses) + " LIMIT 1"
     )
 
-    result = mw.col.db.scalar(sql, *params)
-    return result is not None
+    try:
+        result = mw.col.db.scalar(sql, *params)
+    except Exception as error:  # pylint:disable=broad-except
+        print(
+            "PrioritySieve pending-change probe error:"
+            f" {error} (filter {_get_filter_identifier(config_filter)})"
+        )
+        return False
+
+    if result is None:
+        return False
+
+    try:
+        sample_sql = sql.replace(
+            "SELECT 1",
+            "SELECT cards.id, cards.usn, cards.queue, notes.usn, notes.tags",
+        ) + " LIMIT 5"
+        sample_rows = mw.col.db.all(sample_sql, *params)
+    except Exception as error:  # pylint:disable=broad-except
+        print(
+            "PrioritySieve pending-change sample error:"
+            f" {error} (filter {_get_filter_identifier(config_filter)})"
+        )
+        sample_rows = []
+
+    if sample_rows:
+        print("PrioritySieve pending-change samples (card_id, card_usn, queue, note_usn, tags):")
+        for row in sample_rows:
+            card_id, card_usn, queue, note_usn, tags = row
+            print(
+                f"  card {card_id}: card_usn={card_usn}, queue={queue}, note_usn={note_usn}, tags={tags}"
+            )
+
+    return True
 
 
 def _validate_filters(filters: list[PrioritySieveConfigFilter]) -> None:
