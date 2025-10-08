@@ -55,7 +55,6 @@ filterwarnings = [
 # pytest-randomly: randomly order tests and control random.seed.
 # pytest-cov: test coverage
 # - use "pytest --randomly-seed=xxxxxxx" to repeate failing seeds
-required_plugins = "pytest-qt pytest-xvfb pytest-expect pytest-sugar pytest-randomly pytest-cov"
 # xfail_strict = True: tests marked with @pytest.mark.xfail that actually succeed will by default fail the test suite
 xfail_strict = "True"
 # addopts: set of command line arguments as if they had been specified by the user
