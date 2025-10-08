@@ -382,6 +382,21 @@ def recalc_on_sync() -> None:
         or current_settings_state_json != previous_settings_state
     )
 
+    relevant_filters = recalc_main._filters_requiring_state_snapshot()
+    pending_changes = recalc_main.filters_have_pending_changes(
+        am_config,
+        relevant_filters,
+    )
+
+    if (
+        not pending_changes
+        and not settings_state_changed
+        and previous_state is not None
+    ):
+        print("PrioritySieve: skipping pre-sync recalc (no relevant card/note changes)")
+        _state_before_sync_recalc = current_state_json
+        return
+
     if not collection_state_changed and not settings_state_changed:
         print(
             "PrioritySieve: skipping pre-sync recalc"

@@ -273,6 +273,85 @@ def _filters_requiring_state_snapshot() -> list[PrioritySieveConfigFilter]:
     return _merge_unique_filters(modify_filters + read_filters)
 
 
+def filters_have_pending_changes(
+    am_config: PrioritySieveConfig,
+    filters: list[PrioritySieveConfigFilter],
+) -> bool:
+    """Return True if any filter has cards/notes with unsynced changes."""
+
+    assert mw is not None
+    if mw.col is None:
+        return False
+
+    for config_filter in filters:
+        if _filter_has_pending_changes(am_config, config_filter):
+            return True
+    return False
+
+
+def _filter_has_pending_changes(
+    am_config: PrioritySieveConfig,
+    config_filter: PrioritySieveConfigFilter,
+) -> bool:
+    assert mw is not None
+    if mw.col is None or mw.col.db is None:
+        return False
+
+    note_type_id = mw.col.models.id_for_name(config_filter.note_type)
+    if note_type_id is None:
+        return False
+
+    manual_known_tag = am_config.tag_known_manually.strip()
+    auto_suspended_tag = am_config.tag_suspended_automatically.strip()
+    exception_tags = [
+        tag.strip()
+        for tag in am_config.get_preprocess_ignore_suspended_unless_tag_list()
+        if isinstance(tag, str) and tag.strip()
+    ]
+
+    ignore_clauses = ["cards.queue != ?"]
+    ignore_params: list[object] = [QUEUE_TYPE_SUSPENDED]
+
+    if manual_known_tag:
+        ignore_clauses.append("notes.tags LIKE ?")
+        ignore_params.append(f"% {manual_known_tag} %")
+    if auto_suspended_tag:
+        ignore_clauses.append("notes.tags LIKE ?")
+        ignore_params.append(f"% {auto_suspended_tag} %")
+    for tag in exception_tags:
+        ignore_clauses.append("notes.tags LIKE ?")
+        ignore_params.append(f"% {tag} %")
+
+    include_tags = config_filter.tags.get("include", [])
+    exclude_tags = config_filter.tags.get("exclude", [])
+
+    where_clauses = ["notes.mid = ?"]
+    params: list[object] = [note_type_id]
+
+    for tag in include_tags:
+        if isinstance(tag, str) and tag.strip():
+            where_clauses.append("notes.tags LIKE ?")
+            params.append(f"% {tag.strip()} %")
+
+    for tag in exclude_tags:
+        if isinstance(tag, str) and tag.strip():
+            where_clauses.append("notes.tags NOT LIKE ?")
+            params.append(f"% {tag.strip()} %")
+
+    where_clauses.append("(" + " OR ".join(ignore_clauses) + ")")
+    params.extend(ignore_params)
+    where_clauses.append("(cards.usn != 0 OR notes.usn != 0)")
+
+    sql = (
+        "SELECT 1 FROM cards "
+        "JOIN notes ON notes.id = cards.nid "
+        "WHERE " + " AND ".join(where_clauses) + " LIMIT 1"
+    )
+
+    result = mw.col.db.scalar(sql, *params)
+    return result is not None
+
+
 def _validate_filters(filters: list[PrioritySieveConfigFilter]) -> None:
     assert mw is not None
     if mw.col is None:
