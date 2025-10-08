@@ -9,9 +9,9 @@ from aqt import mw
 DEFAULT_PRIORITY_DIR = "prioritysieve-priority-files"
 KNOWN_ENTRIES_DIR = "prioritysieve-known-entries"
 
-ENTRY_HEADERS = ("Entry", "Morph-Lemma", "Lemma")
-READING_HEADERS = ("Reading", "Morph-Reading")
-PRIORITY_HEADERS = ("Priority", "Lemma-Priority")
+ENTRY_HEADERS = ("Entry", "Lemma", "Morph-Lemma")
+READING_HEADERS = ("Reading", "Lemma-Reading", "Morph-Reading")
+PRIORITY_HEADERS = ("Priority", "Entry-Priority", "Lemma-Priority")
 
 
 def ensure_directories() -> None:

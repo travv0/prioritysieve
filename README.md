@@ -30,7 +30,7 @@ The result is a smooth “kanji first, vocab second” workflow with Anki’s st
 ## Getting started
 1. **Install.** Copy the folder into `Anki2/addons21/prioritysieve` (or install the packaged add-on) and restart Anki.
 2. **Configure filters.** Open **Tools → PrioritySieve Settings** and, for each note type you care about, pick the expression field, optional reading field, and the tags you want PrioritySieve to manage.
-3. **Provide priority data.** Place your CSV files in the profile folder under `prioritysieve-priority-files/`. Each file should contain at least an `Entry` column, optionally a `Reading` column (or `Morph-Reading`/`Reading` from legacy lists), and a numeric `Priority` column. Lower numbers = higher priority; unlisted entries default to the lowest priority.
+3. **Provide priority data.** Place your CSV files in the profile folder under `prioritysieve-priority-files/`. Each file should contain at least an `Entry` column, optionally a `Reading` column (the legacy headers `Morph-Lemma`/`Morph-Reading` are still accepted), and a numeric `Priority` column. Lower numbers = higher priority; unlisted entries default to the lowest priority.
 4. **Run recalc.** Use the toolbar button or the shortcut defined in the settings dialog. Recalc can also trigger automatically before/after sync depending on the options you enable.
 
 The add-on stores per-profile settings in `prioritysieve_profile_settings.json`, so each Anki profile can keep an independent set of note filters and behaviour.
@@ -38,7 +38,7 @@ The add-on stores per-profile settings in `prioritysieve_profile_settings.json`,
 ---
 
 ## Working with priority files
-- **Format.** PrioritySieve accepts `Entry`, optional `Reading`, and `Priority` columns. Alternative headers such as `Lemma`, `Morph-Lemma`, `Reading`, or `Morph-Reading` are also recognised for backwards compatibility.
+- **Format.** PrioritySieve accepts `Entry`, optional `Reading`, and `Priority` columns. Legacy exports that label these columns `Lemma`, `Morph-Lemma`, or `Morph-Reading` are also recognised for backwards compatibility.
 - **Generators.** The generator window (Tools → PrioritySieve → Generators) now reads existing CSV exports—such as frequency lists or parsed immersion logs—and converts them into PrioritySieve-friendly files. You can also build study plans that merge multiple CSVs and annotate the originating file for each entry.
 - **Known entry exporter.** The exporter writes `Entry`, optional `Reading`, and optional `Occurrences` columns for every entry that PrioritySieve currently marks as reviewed, making it easy to seed external tooling or share progress.
 

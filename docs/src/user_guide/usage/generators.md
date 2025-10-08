@@ -13,7 +13,7 @@ Unlike the legacy workflow, generators no longer run morphemizers. They work dir
 ## Preparing input files
 
 1. Place the CSV files you want to analyse in a directory. The generator scans the directory recursively and picks up every `.csv` file it finds.
-2. Each file must be encoded in UTF-8 and contain at least an `Entry` column. Optional columns include `Reading`, `Morph-Reading`, `Lemma`, or `Morph-Lemma` (PrioritySieve treats these as entry/reading synonyms) and `Occurrences`, `Occurrence`, `Count`, or `Frequency`.
+2. Each file must be encoded in UTF-8 and contain at least an `Entry` column. Optional columns include `Reading` (legacy exports may label this `Morph-Reading`), `Lemma` (treated as an entry synonym), and `Occurrences`, `Occurrence`, `Count`, or `Frequency`.
 3. Click **Choose Folder** in the generator window, point it at the directory, and press **Load Files**. The table at the bottom lists every CSV that will be processed.
 
 *Tip:* because the generator works with plain CSVs, you can feed it frequency lists, immersion logs, or any other export as long as you provide an `Entry` column.
