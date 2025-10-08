@@ -264,5 +264,5 @@ You can find info about the options here:
 * [Progression](../usage/progression.md)
 * [spaCy Manager](../installation/installing-spacy.md)
 * [Sudachi Manager](../installation/installing-sudachi.md)
-* [Known Morphs Exporter](../usage/known-morphs-exporter.md)
+* [Known Entries Exporter](../usage/known-entries-exporter.md)
 * [Reset Tags](../usage/reset_tags.md)

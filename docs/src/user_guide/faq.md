@@ -13,7 +13,7 @@ I recommend using the default PrioritySieve tags. Mixing tags can get confusing.
 > Should I export all of studied and in progress words into a CSV spreadsheet?
 
 PrioritySieve determines which morphs are known in the same way MorphMan does it: by how long the learning
-intervals of the cards are. The [Known Morphs Exporter](usage/known-morphs-exporter.md) is more of a tool for trimming
+intervals of the cards are. The [Known Entries Exporter](usage/known-entries-exporter.md) is more of a tool for trimming
 your card collection, it's not a requirement for transitioning from MorphMan.
 
 If you want to retain the morphs on cards that you have tagged as known with MorphMan, then I recommend bulk tagging
@@ -34,5 +34,4 @@ known with MorphMan, you can usually get them back quickly by using `K` when you
 > everything?
 
 PrioritySieve does not reuse the MorphMan focus morph field, so it makes no difference.
-
 

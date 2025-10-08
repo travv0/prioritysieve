@@ -6,5 +6,5 @@ The setup guide is separated into the following sections:
 * [Settings](setup/settings.md): details about the PrioritySieve settings options
 * [Prioritizing](setup/prioritizing.md): how to give priority to morphs
 * [Names](setup/names.md): how to specify names to ignore
-* [Setting Known Morphs](setup/setting-known-morphs.md): how to import known morphs
+* [Setting Known Entries](setup/setting-known-entries.md): how to import entries you have already reviewed
 * [Highlighting](setup/highlighting.md): how to highlight text on your cards 

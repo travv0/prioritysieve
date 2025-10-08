@@ -11,8 +11,8 @@
   This is variable is used when text is [highlighted](../../setup/settings/extra-fields.md#using-am-highlighted), and it
   determines the [L and I numbers](../../installation/changes-to-anki.md#toolbar).
 
-* **Read files in 'known-morphs' folder and register morphs as known**:  
-  Import known morphs from the `known-morphs` folder. Read more in [Settings Known Morphs](../setting-known-morphs.md).
+* **Read files in 'known-entries' folder and register entries as known**:  
+  Import known entries from the `known-entries` folder. Read more in [Setting Known Entries](../setting-known-entries.md).
 
 * **Automatically Recalc before Anki sync**:  
   Recalc automatically runs before Anki syncs your card collection.

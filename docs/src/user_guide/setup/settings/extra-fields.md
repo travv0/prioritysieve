@@ -20,10 +20,10 @@ The fields contain the following:
 
 - **am-all-morphs-count**:  
   The number of morphs.
-- **am-unknown-morphs**:  
-  A list of the morphs that are still unknown to you.
-- **am-unknown-morphs-count**:  
-  The number of morphs that are still unknown to you.
+- **am-unknown-entries**:  
+  A list of the entries that are still unknown to you.
+- **am-unknown-entries-count**:  
+  The number of entries that are still unknown to you.
 - **am-highlighted**:  
   An HTML version of the text that highlights the morphs based on learning status.
 - **am-score**:  
@@ -42,8 +42,8 @@ The following fields will only update on [new cards](../../glossary.md#new-cards
 - am-study-morphs
 
 and these fields will always update, even on [reviewed cards](../../glossary.md#reviewed-cards):
-- am-unknown-morphs
-- am-unknown-morphs-count
+- am-unknown-entries
+- am-unknown-entries-count
 - am-highlighted
 
 
@@ -68,7 +68,7 @@ or their lemma (base) forms:
 
 This effects the following three fields:
 - am-all-morphs
-- am-unknown-morphs
+- am-unknown-entries
 - am-study-morphs
 
 
@@ -97,4 +97,3 @@ This is useful if you want to sort your cards in the browser based on how many t
 </video>
 
 This field is used for static highlighting. For more details, see the [highlighting section](../../setup/highlighting.md).
-

@@ -88,17 +88,13 @@ Once a card has been studied, i.e. answered with either "Again", "Hard", "Good",
 from the "new" state into the "review" state.
 
 
-## Unknown Morphs
-A morph is classified as **unknown** if it does not appear on any review cards and is not stored in the
-[known morphs folder](setup/setting-known-morphs.md).
+## Unknown Entries
+An entry is classified as **unknown** if it does not appear on any review cards and is not stored in the
+[known entries folder](setup/setting-known-entries.md).
 
-## Known Morphs
-A morph is classified as **known** if it is on a review card with a learning interval of at least the
-[known morph interval setting](setup/settings/general.md), or if it is stored in the [known morphs folder](setup/setting-known-morphs.md).
-
-## Fresh Entries
-A morph is classified as **fresh** if it only appears on review cards with a learning interval less than the
-[known morph interval setting](setup/settings/general.md). These morphs are in the learning state.
+## Known Entries
+An entry is classified as **known** if it is marked reviewed with a sufficient interval by Recalc, or if it is stored in
+the [known entries folder](setup/setting-known-entries.md).
 
 
 ## Profile folder
@@ -107,7 +103,7 @@ For PrioritySieve to work, it needs to use some dedicated files and folders, nam
 - `prioritysieve.db`
 - `names.txt`
 - `priority-files/`
-- `known-morphs/`
+- `known-entries/`
 
 Those can be found in the Anki profile folder. The path to the Anki profile folder depends on your operating system:
 
