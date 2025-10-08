@@ -94,3 +94,24 @@ ignore_names = [
 min_confidence = 60
 sort_by_size = true
 verbose = false
+
+[tool.coverage.run]
+source = ["prioritysieve"]
+omit = [
+  "prioritysieve/ui/*",
+  "prioritysieve/settings/*",
+  "prioritysieve/debug_utils.py",
+  "prioritysieve/tag_selection_dialog.py",
+  "prioritysieve/toolbar_stats.py",
+  "prioritysieve/extra_settings/prioritysieve_extra_settings.py",
+  "prioritysieve/message_box_utils.py",
+  "prioritysieve/__init__.py",
+  "prioritysieve/recalc/*",
+  "prioritysieve/generators/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "if __name__ == .__main__.:",
+]
