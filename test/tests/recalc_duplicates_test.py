@@ -43,6 +43,7 @@ def test_duplicate_rules_leave_review_cards_untouched() -> None:
             is_new_card=False,
             entry_reviewed=True,
             deck_priority=0,
+            manually_suspended=False,
         ),
         DuplicateCandidate(
             card=new_card,
@@ -52,6 +53,7 @@ def test_duplicate_rules_leave_review_cards_untouched() -> None:
             is_new_card=True,
             entry_reviewed=True,
             deck_priority=0,
+            manually_suspended=False,
         ),
     ]
 
@@ -81,6 +83,7 @@ def test_duplicate_rules_unsuspend_single_new_card_when_allowed() -> None:
             is_new_card=True,
             entry_reviewed=False,
             deck_priority=0,
+            manually_suspended=False,
         ),
         DuplicateCandidate(
             card=second_card,
@@ -90,6 +93,7 @@ def test_duplicate_rules_unsuspend_single_new_card_when_allowed() -> None:
             is_new_card=True,
             entry_reviewed=False,
             deck_priority=1,
+            manually_suspended=False,
         ),
     ]
 
@@ -119,6 +123,7 @@ def test_duplicate_rules_respect_distinct_readings() -> None:
             is_new_card=False,
             entry_reviewed=True,
             deck_priority=0,
+            manually_suspended=False,
         )
     ]
     duplicates[("側", "がわ")] = [
@@ -130,6 +135,7 @@ def test_duplicate_rules_respect_distinct_readings() -> None:
             is_new_card=True,
             entry_reviewed=False,
             deck_priority=0,
+            manually_suspended=False,
         )
     ]
 
@@ -157,6 +163,7 @@ def test_duplicate_rules_prefer_priority_deck() -> None:
             is_new_card=True,
             entry_reviewed=False,
             deck_priority=0,
+            manually_suspended=False,
         ),
         DuplicateCandidate(
             card=low_priority_card,
@@ -166,6 +173,7 @@ def test_duplicate_rules_prefer_priority_deck() -> None:
             is_new_card=True,
             entry_reviewed=False,
             deck_priority=5,
+            manually_suspended=False,
         ),
     ]
 
@@ -176,3 +184,44 @@ def test_duplicate_rules_prefer_priority_deck() -> None:
     assert low_priority_card.queue == QUEUE_TYPE_SUSPENDED
     assert low_priority_card.due == DEFAULT_REVIEW_DUE
     assert "ps-auto-suspend" in low_priority_note.tags
+
+
+def test_duplicate_rules_keep_manually_suspended_exception() -> None:
+    am_config = _dummy_config()
+    manual_card = _card(queue=QUEUE_TYPE_SUSPENDED, card_type=CARD_TYPE_NEW, due=77)
+    manual_note = _note(tags=["manual", "allow-recalc"])
+    other_card = _card(queue=QUEUE_TYPE_SUSPENDED, card_type=CARD_TYPE_NEW, due=10)
+    other_note = _note()
+
+    duplicates = defaultdict(list)
+    duplicates[("例", "")] = [
+        DuplicateCandidate(
+            card=manual_card,
+            note=manual_note,
+            due=77,
+            auto_suspend=False,
+            is_new_card=True,
+            entry_reviewed=False,
+            deck_priority=0,
+            manually_suspended=True,
+        ),
+        DuplicateCandidate(
+            card=other_card,
+            note=other_note,
+            due=10,
+            auto_suspend=False,
+            is_new_card=True,
+            entry_reviewed=False,
+            deck_priority=1,
+            manually_suspended=False,
+        )
+    ]
+
+    _apply_duplicate_rules(am_config, duplicates)
+
+    assert manual_card.queue == QUEUE_TYPE_SUSPENDED
+    assert manual_card.due == 77
+    assert "ps-auto-suspend" not in manual_note.tags
+    assert other_card.queue == QUEUE_TYPE_SUSPENDED
+    assert other_card.due == DEFAULT_REVIEW_DUE
+    assert "ps-auto-suspend" in other_note.tags

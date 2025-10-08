@@ -55,6 +55,7 @@ class DuplicateCandidate:
     is_new_card: bool
     entry_reviewed: bool
     deck_priority: int
+    manually_suspended: bool
 
 
 def set_followup_sync_callback(callback: Callable[[], None] | None) -> None:
@@ -380,6 +381,7 @@ def _apply_priorities(
             card = mw.col.get_card(card_id)
             note = card.note()
 
+            has_exception_tag = any(tag in note.tags for tag in suspended_exception_tags)
             if _should_skip_card(
                 card,
                 note,
@@ -392,6 +394,12 @@ def _apply_priorities(
                 card,
                 deck_priority_lookup,
                 deck_name_cache,
+            )
+
+            manually_suspended_exception = (
+                card.queue == QUEUE_TYPE_SUSPENDED
+                and am_config.tag_suspended_automatically not in note.tags
+                and has_exception_tag
             )
 
             entry = entry_cache.get(card_id)
@@ -423,7 +431,11 @@ def _apply_priorities(
                 card.due = due
 
                 allowed_new_queues = (QUEUE_TYPE_NEW, QUEUE_TYPE_SUSPENDED)
-                if not entry_reviewed and card.queue in allowed_new_queues:
+                if (
+                    not entry_reviewed
+                    and card.queue in allowed_new_queues
+                    and not manually_suspended_exception
+                ):
                     card.queue = QUEUE_TYPE_NEW
 
                 tags_and_queue_utils.apply_entry_tags(
@@ -450,6 +462,7 @@ def _apply_priorities(
                     is_new_card=is_new_card,
                     entry_reviewed=entry_reviewed,
                     deck_priority=deck_priority,
+                    manually_suspended=manually_suspended_exception,
                 )
             )
 
@@ -484,7 +497,14 @@ def _apply_duplicate_rules(
             if not candidate.is_new_card:
                 continue
 
-            force_suspend = candidate.auto_suspend or has_review_card
+            if candidate.manually_suspended:
+                active_slot_available = False
+                continue
+
+            force_suspend = (
+                candidate.auto_suspend
+                or has_review_card
+            )
             if active_slot_available and not force_suspend:
                 active_slot_available = False
                 if candidate.card.queue == QUEUE_TYPE_SUSPENDED:
