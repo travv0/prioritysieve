@@ -15,62 +15,11 @@ all the way to fluency.
 ## MT Sentence
 Abbreviation for “multi-target sentence”. A sentence that contains **more than** one unknown word or grammar structure.
 
-## Morph
+## Entry
 
-A morph is a basic unit of meaning in language. It's short for the word "morpheme," which is the smallest grammatical
-unit of speech. A morpheme can be a whole word, like "book" or "run," or a part of a word, like prefixes
-(re- in "rewrite") or suffixes (-ed in "walked").
-
-
-### Lemma
-
-A lemma is the base form of a word. It's the version you would typically find in a dictionary. For example:
-- The lemma for "running," "ran," and "runs" is "**run**."
-- The lemma for "better" and "best" is "**good**."
-
-### Inflection
-
-An inflection is a variation of the base form that shows different grammatical features such as tense, case, voice,
-aspect, person, number, gender, mood, or comparison. For example:
-- "run" (base form) can change to "running," "ran," or "runs" to show different tenses.
-- "good" (base form) can change to "better" or "best" to show comparison.
-
-### Morphs as tuples
-
-In many language learning systems, morphs are considered as tuples containing two values: a lemma (base form) and
-an inflection. Here's a simple example table showing different morphs for the verb "to break":
-
-<table>
-    <colgroup>
-    <col>
-    <col>
-  </colgroup>
-<tr>
-    <th>Lemma</th>
-    <th>Inflection</th>
-</tr>
-<tr>
-    <td>break</td>
-    <td>break</td>
-</tr>
-<tr>
-    <td>break</td>
-    <td>broke</td>
-</tr>
-<tr>
-    <td>break</td>
-    <td>breaking</td>
-</tr>
-<tr>
-    <td>break</td>
-    <td>broke</td>
-</tr>
-</table>
-
-Understanding and breaking down morphs into lemmas and inflections can be incredibly useful for language learning.
-It allows you to focus on the fundamental building blocks of words, making it easier to grasp new vocabulary and
-grammatical structures. This approach can help in creating more effective and personalized study methods, potentially
-leading to faster and more efficient learning.
+PrioritySieve tracks **entries**: a single expression (usually a sentence fragment or vocabulary item) and an optional
+reading. An entry is identified by the pair `(text, reading)` and shared by every card in your collection that contains
+the same expression. Recalc updates its lightweight database so each entry keeps one reviewed/pending state and priority.
 
 
 ## New cards
