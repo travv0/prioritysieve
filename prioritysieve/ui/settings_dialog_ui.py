@@ -994,7 +994,7 @@ class Ui_SettingsDialog(object):
         self.restorePreprocessPushButton.setText(_translate("SettingsDialog", "Restore Default Preprocess Settings"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.preprocess_tab), _translate("SettingsDialog", "Preprocess"))
         self.groupBox_13.setTitle(_translate("SettingsDialog", "On Recalc"))
-        self.autoSuspendBehaviorLabel.setText(_translate("SettingsDialog", "Cards without unknown entries and lower-priority duplicates are suspended automatically and tagged using the configured value."))
+        self.autoSuspendBehaviorLabel.setText(_translate("SettingsDialog", "Recalc keeps one active card per entry. Lower-priority duplicates and entries missing from priority files can be suspended automatically."))
         self.autoSuspendUnlistedEntriesCheckBox.setText(_translate("SettingsDialog", "Suspend cards whose entry is missing from priority files"))
         self.label_priorityDeck.setText(_translate("SettingsDialog", "Deck priority for unshifted card:"))
         self.priorityDecksHintLabel.setText(_translate("SettingsDialog", "Decks shown here currently contain cards from the configured note types. Higher items are preferred when preventing due date shifts."))

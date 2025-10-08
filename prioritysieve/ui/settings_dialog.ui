@@ -850,7 +850,7 @@
             <item>
              <widget class="QLabel" name="autoSuspendBehaviorLabel">
               <property name="text">
-               <string>Cards without unknown entries and lower-priority duplicates are suspended automatically and tagged using the configured value.</string>
+               <string>Recalc keeps one active card per entry. Lower-priority duplicates and entries missing from priority files can be suspended automatically.</string>
               </property>
               <property name="wordWrap">
                <bool>true</bool>
