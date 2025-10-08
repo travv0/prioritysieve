@@ -774,6 +774,8 @@ def _record_recent_changes(
 
 
 def _on_success() -> None:
+    assert mw is not None
+    mw.toolbar.draw()
     tooltip("PrioritySieve recalc complete", parent=mw)
 
 
