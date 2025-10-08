@@ -21,13 +21,24 @@ class StoredEntry:
         return Entry(text=self.text, reading=self.reading, reviewed=self.reviewed)
 
 
+def _profile_folder() -> Path:
+    assert mw is not None
+    return Path(mw.pm.profileFolder())
+
+
+def _default_db_path() -> Path:
+    return _profile_folder() / "prioritysieve.db"
+
+
 class EntryDB:
     """Lightweight storage for PrioritySieve entry metadata."""
 
     def __init__(self, db_path: Path | None = None) -> None:
         assert mw is not None
         if db_path is None:
-            db_path = Path(mw.pm.profileFolder()) / "prioritysieve.db"
+            db_path = _default_db_path()
+        db_path = Path(db_path)
+        db_path.parent.mkdir(parents=True, exist_ok=True)
         self.con = sqlite3.connect(db_path)
 
     def __enter__(self) -> "EntryDB":

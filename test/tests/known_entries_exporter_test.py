@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 from pytest import MonkeyPatch
@@ -8,6 +9,7 @@ from unittest.mock import MagicMock
 
 from prioritysieve.entry import Entry
 from prioritysieve.known_entries_exporter import KnownEntriesExporterDialog
+from test.fake_configs import default_config_dict
 
 
 def _collect_exported_rows(output_dir: Path) -> list[list[str]]:
@@ -35,6 +37,32 @@ def test_known_entries_exporter_writes_expected_columns(
         "prioritysieve.known_entries_exporter.EntryDB",
         lambda: fake_db,
     )
+
+    class DummyProgress:
+        def start(self, *args: object, **kwargs: object) -> None:  # noqa: D401
+            return None
+
+        def finish(self) -> None:  # noqa: D401
+            return None
+
+    mw_stub = SimpleNamespace(
+        progress=DummyProgress(),
+        pm=SimpleNamespace(profileFolder=lambda: str(tmp_path)),
+        addonManager=SimpleNamespace(
+            getConfig=lambda module: default_config_dict,
+            addonFromModule=lambda module: "prioritysieve",
+            addonConfigDefaults=lambda module: default_config_dict,
+            writeConfig=lambda module, cfg: None,
+        ),
+    )
+
+    monkeypatch.setattr("aqt.mw", mw_stub)
+    monkeypatch.setattr("prioritysieve.known_entries_exporter.mw", mw_stub)
+    monkeypatch.setattr("prioritysieve.entry_db.mw", mw_stub)
+    monkeypatch.setattr(
+        "prioritysieve.extra_settings.prioritysieve_extra_settings.mw", mw_stub
+    )
+    monkeypatch.setattr("prioritysieve.priority_files.mw", mw_stub)
 
     dialog = KnownEntriesExporterDialog()
     qtbot.addWidget(dialog)

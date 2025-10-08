@@ -53,6 +53,8 @@ def test_am_config_correct_values() -> None:
 
     for attr in dir(RawConfigKeys):
         if not attr.startswith("__") and attr.isupper():
+            if attr.startswith("LEGACY_"):
+                continue
             value = getattr(RawConfigKeys, attr)
             if value.upper() != attr:
                 print(f"attr: {attr} is not upper of value: {value}")
@@ -60,6 +62,8 @@ def test_am_config_correct_values() -> None:
 
     for attr in dir(RawConfigFilterKeys):
         if not attr.startswith("__") and attr.isupper():
+            if attr.startswith("LEGACY_"):
+                continue
             value = getattr(RawConfigFilterKeys, attr)
             if value.upper() != attr:
                 print(f"attr: {attr} is not upper of value: {value}")

@@ -175,6 +175,9 @@ def create_mock_mw(
     mock_mw.pm.profileFolder.return_value = os.path.join("test", "data")
     mock_mw.progress.want_cancel.return_value = False
     mock_mw.addonManager.getConfig.return_value = _config_data
+    mock_mw.addonManager.addonFromModule.return_value = "prioritysieve"
+    mock_mw.addonManager.addonConfigDefaults.return_value = default_config_dict
+    mock_mw.addonManager.writeConfig.return_value = None
     mock_mw.reviewer = Reviewer(mock_mw)
     mock_mw.reviewer._showQuestion = lambda: None
 

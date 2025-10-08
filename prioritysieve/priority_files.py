@@ -6,6 +6,8 @@ from typing import Iterable
 
 from aqt import mw
 
+from . import prioritysieve_globals
+
 DEFAULT_PRIORITY_DIR = "prioritysieve-priority-files"
 KNOWN_ENTRIES_DIR = "prioritysieve-known-entries"
 
@@ -17,13 +19,13 @@ PRIORITY_HEADERS = ("Priority", "Entry-Priority", "Lemma-Priority")
 def ensure_directories() -> None:
     assert mw is not None
     base = Path(mw.pm.profileFolder())
-    (base / DEFAULT_PRIORITY_DIR).mkdir(exist_ok=True)
+    (base / prioritysieve_globals.PRIORITY_FILES_DIR_NAME).mkdir(exist_ok=True)
     (base / KNOWN_ENTRIES_DIR).mkdir(exist_ok=True)
 
 
 def available_priority_files() -> list[str]:
     assert mw is not None
-    directory = Path(mw.pm.profileFolder()) / DEFAULT_PRIORITY_DIR
+    directory = Path(mw.pm.profileFolder()) / prioritysieve_globals.PRIORITY_FILES_DIR_NAME
     if not directory.exists():
         return []
     return sorted(file.name for file in directory.glob("*.csv"))
@@ -31,7 +33,7 @@ def available_priority_files() -> list[str]:
 
 def load_priority_map(priority_files: Iterable[str]) -> dict[tuple[str, str], int]:
     assert mw is not None
-    directory = Path(mw.pm.profileFolder()) / DEFAULT_PRIORITY_DIR
+    directory = Path(mw.pm.profileFolder()) / prioritysieve_globals.PRIORITY_FILES_DIR_NAME
     merged: dict[tuple[str, str], int] = {}
 
     for name in priority_files:
