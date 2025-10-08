@@ -24,6 +24,7 @@ from .. import (
 from ..entry import Entry
 from ..entry_db import EntryDB
 from ..priority_files import load_priority_map
+from ..extra_settings.prioritysieve_extra_settings import PrioritySieveExtraSettings
 from ..prioritysieve_config import PrioritySieveConfig, PrioritySieveConfigFilter
 from ..prioritysieve_globals import DEFAULT_REVIEW_DUE, GENERATOR_DIALOG_NAME
 from ..priority_files import ensure_directories
@@ -207,10 +208,11 @@ def recalc() -> None:
 
     mw.checkpoint("PrioritySieve Recalc")
 
+    start_time = time.time()
     operation = QueryOp(
         parent=mw,
         op=lambda _: _background_recalc(am_config, combined_filters, modify_filters),
-        success=lambda _: _on_success(),
+        success=lambda _: _on_success(start_time),
     )
     operation.failure(_on_failure)
     operation.with_progress().run_in_background()
@@ -379,7 +381,7 @@ def _filter_has_pending_changes(
         sample_sql = sql.replace(
             "SELECT 1",
             "SELECT cards.id, cards.usn, cards.queue, notes.usn, notes.tags",
-        ) + " LIMIT 5"
+        ).replace("LIMIT 1", "LIMIT 5")
         sample_rows = mw.col.db.all(sample_sql, *params)
     except Exception as error:  # pylint:disable=broad-except
         print(
@@ -739,6 +741,10 @@ def _apply_priorities(
         note_changes = mw.col.update_notes(list(notes_to_update.values()))
         notify_op_execution(note_changes)
 
+    global _last_modified_cards_count, _last_modified_notes_count
+    _last_modified_cards_count = len(cards_to_update)
+    _last_modified_notes_count = len(notes_to_update)
+
     _record_recent_changes(
         card_original_state,
         note_original_state,
@@ -899,13 +905,66 @@ def _record_recent_changes(
                 _recent_note_diffs.append(f"note {note_id}: " + "; ".join(changes))
 
 
-def _on_success() -> None:
+def _on_success(start_time: float | None = None) -> None:
     assert mw is not None
+
+    try:
+        filters_state = compute_modify_filters_state()
+        settings = PrioritySieveExtraSettings()
+        settings.set_recalc_collection_state(json.dumps(filters_state, sort_keys=True))
+        try:
+            settings_state = json.dumps(
+                prioritysieve_config.get_config_dict(), sort_keys=True
+            )
+        except Exception as error:  # pylint:disable=broad-except
+            print(
+                f"PrioritySieve: failed to cache settings state after recalc ({error})"
+            )
+        else:
+            settings.set_recalc_settings_state(settings_state)
+        settings.sync()
+    except Exception as error:  # pylint:disable=broad-except
+        print(f"PrioritySieve: failed to cache recalc state ({error})")
+
     mw.toolbar.draw()
-    tooltip("PrioritySieve recalc complete", parent=mw)
+
+    if _last_modified_cards_count or _last_modified_notes_count:
+        message = (
+            "PrioritySieve recalc complete - updated "
+            f"{_last_modified_cards_count} card(s) and {_last_modified_notes_count} note(s)"
+        )
+    else:
+        message = "PrioritySieve recalc complete"
+
+    tooltip(message, parent=mw)
+
+    if _recent_card_diffs:
+        print("PrioritySieve recalc modified cards sample:")
+        for entry in _recent_card_diffs:
+            print("  " + entry)
+
+    if _recent_note_diffs:
+        print("PrioritySieve recalc modified notes sample:")
+        for entry in _recent_note_diffs:
+            print("  " + entry)
+
+    if start_time is not None:
+        duration = time.time() - start_time
+        print(f"PrioritySieve recalc duration: {duration:.3f} seconds")
+
+    if _followup_sync_callback is not None:
+        callback = _followup_sync_callback
+        set_followup_sync_callback(None)
+        try:
+            callback()
+        except Exception as error:  # pylint:disable=broad-except
+            print(f"PrioritySieve: follow-up sync callback failed ({error})")
+    else:
+        set_followup_sync_callback(None)
 
 
 def _on_failure(error: Exception | PriorityFileMalformedException) -> None:
+    set_followup_sync_callback(None)
     if isinstance(error, CancelledOperationException):
         tooltip("PrioritySieve recalc cancelled", parent=mw)
         return
