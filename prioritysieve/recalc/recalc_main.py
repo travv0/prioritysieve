@@ -142,17 +142,15 @@ def _collect_filters_state(filters: list[PrioritySieveConfigFilter]) -> list[dic
         if card_stats is None or note_stats is None:
             continue
 
-        card_count, card_max_mod, card_max_id = card_stats
-        note_count, note_max_mod, note_max_id = note_stats
+        card_count, _card_max_mod, card_max_id = card_stats
+        note_count, _note_max_mod, note_max_id = note_stats
 
         state.append(
             {
                 "id": _get_filter_identifier(config_filter),
                 "card_count": int(card_count),
-                "card_max_mod": int(card_max_mod),
                 "card_max_id": int(card_max_id),
                 "note_count": int(note_count),
-                "note_max_mod": int(note_max_mod),
                 "note_max_id": int(note_max_id),
             }
         )
