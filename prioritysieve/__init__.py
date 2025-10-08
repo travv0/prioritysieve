@@ -762,9 +762,9 @@ class MissingPriorityEntriesDialog(QDialog):
     @staticmethod
     def _format_entries(entries: list[tuple[str, str, int]]) -> str:
         lines: list[str] = []
-        for index, (lemma, reading, priority) in enumerate(entries, start=1):
+        for index, (entry_text, reading, priority) in enumerate(entries, start=1):
             reading_suffix = f" [{reading}]" if reading else ""
-            lines.append(f"{index}. {lemma}{reading_suffix} — priority {priority}")
+            lines.append(f"{index}. {entry_text}{reading_suffix} — priority {priority}")
         return "\n".join(lines)
 
 
@@ -1027,7 +1027,7 @@ def create_browse_same_entry_unknowns_broad_action(
     action.setShortcut(am_config.shortcut_browse_same_unknown_broad)
     action.triggered.connect(
         partial(
-            browser_utils.run_browse_entry, search_unknowns=True, search_lemma_only=True
+            browser_utils.run_browse_entry, search_unknowns=True, match_text_only=True
         )
     )
     return action

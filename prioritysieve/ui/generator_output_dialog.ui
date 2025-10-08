@@ -40,39 +40,22 @@
    <item>
     <widget class="QGroupBox" name="groupBox">
      <property name="title">
-      <string>File Format</string>
+      <string>Columns</string>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout">
       <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_5">
-        <item>
-         <widget class="QRadioButton" name="storeMorphLemmaAndInflectionRadioButton">
-          <property name="text">
-           <string>Lemma and inflection</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QRadioButton" name="storeOnlyMorphLemmaRadioButton">
-          <property name="text">
-           <string>Only lemma</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <spacer name="horizontalSpacer_5">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>40</width>
-            <height>20</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-       </layout>
+       <widget class="QCheckBox" name="includeReadingCheckBox">
+        <property name="text">
+         <string>Include reading column</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="addOccurrencesColumnCheckBox">
+        <property name="text">
+         <string>Include occurrences column</string>
+        </property>
+       </widget>
       </item>
      </layout>
     </widget>

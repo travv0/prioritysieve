@@ -354,16 +354,16 @@
                </widget>
               </item>
               <item>
-               <widget class="QRadioButton" name="unknownsFieldShowsLemmasRadioButton">
+              <widget class="QRadioButton" name="unknownsFieldShowsLemmasRadioButton">
                 <property name="text">
-                 <string>Lemma</string>
+                 <string>Entry text</string>
                 </property>
                </widget>
               </item>
               <item>
                <widget class="QRadioButton" name="unknownsFieldShowsInflectionsRadioButton">
                 <property name="text">
-                 <string>Inflection</string>
+                 <string>Reading</string>
                 </property>
                </widget>
               </item>

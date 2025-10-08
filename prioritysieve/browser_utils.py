@@ -22,7 +22,7 @@ browser: Browser | None = None
 
 def run_browse_entry(
     search_unknowns: bool = False,
-    search_lemma_only: bool = False,
+    match_text_only: bool = False,
 ) -> None:
     assert mw is not None
     assert browser is not None
@@ -39,7 +39,7 @@ def run_browse_entry(
         card_id=card_id,
         note=note,
         search_unknowns=search_unknowns,
-        search_lemma_only=search_lemma_only,
+        match_text_only=match_text_only,
     )
 
 
@@ -49,14 +49,13 @@ def browse_same_entries(  # pylint:disable=too-many-arguments
     note: Note | None = None,
     search_unknowns: bool = False,
     search_ready_tag: bool = False,
-    search_lemma_only: bool = False,
+    match_text_only: bool = False,
 ) -> None:
     # Opens browser and displays all notes with the same focus entry.
     # Useful to quickly find alternative notes to learn focus from.
     #
-    # The query is a list of card ids. This might seem unnecessarily complicated, but
-    # if we were to only query the text on the cards themselves, we can get false positives
-    # because inflected morphs with different bases (lemmas) can be identical to each-other.
+    # The query is a list of card ids so we precisely target the stored entry metadata,
+    # avoiding false positives that could arise from identical display text with different readings.
 
     global browser
     assert mw is not None
@@ -80,7 +79,7 @@ def browse_same_entries(  # pylint:disable=too-many-arguments
         return
 
     include_reviewed = not search_unknowns
-    lookup_text_only = search_lemma_only
+    lookup_text_only = match_text_only
 
     with EntryDB() as entry_db:
         entry = entry_db.get_entry_for_card(card_id)

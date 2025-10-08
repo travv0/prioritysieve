@@ -2,68 +2,53 @@
 
 ## prioritysieve.db
 
-This is an sqlite database with three tables:
+This is an sqlite database with three tables that store cached entry metadata:
 
 ```
 'Cards'
-'Card_Morph_Map'
-'Morphs'
+'Entries'
+'CardEntries'
 ```
 
-A card can have many morphs,
-morphs can be on many cards,
-so we need a many-to-many db structure:
+Each card can reference a single focus entry, while the same entry can appear on many cards. The `CardEntries`
+table therefore links cards to entry rows and allows PrioritySieve to answer questions like “which other cards use the
+same expression + reading combination?” quickly.
 
-```
-Cards -> Card_Morph_Map <- Morphs
-```
-
-### Card table
+### Cards table
 
 ```roomsql
-card_id INTEGER PRIMARY KEY ASC,
-note_id INTEGER,
-note_type_id INTEGER,
-card_type INTEGER,
-tags TEXT
+card_id INTEGER PRIMARY KEY,
+note_id INTEGER NOT NULL,
+note_type_id INTEGER NOT NULL,
+card_type INTEGER NOT NULL,
+tags TEXT NOT NULL
 ```
 
-### Card_Morph_Map table
+The card metadata mirrors the information we need for duplicate detection and tagging.
 
-```roomsql 
-card_id INTEGER,
-morph_lemma TEXT,
-morph_inflection TEXT,
-FOREIGN KEY(card_id) REFERENCES card(id),
-FOREIGN KEY(morph_lemma, morph_inflection) REFERENCES morph(lemma, inflection)
-```
-
-### Morph table
+### Entries table
 
 ```roomsql
-lemma TEXT,
-inflection TEXT,
-highest_learning_interval INTEGER,
-PRIMARY KEY (lemma, inflection)
+text TEXT NOT NULL,
+reading TEXT NOT NULL,
+reviewed INTEGER NOT NULL,
+PRIMARY KEY (text, reading)
 ```
 
-To make sure the morphs are unique, we make the primary key the lemma AND inflection, since inflections
-can be identical even if they are derived from two different bases, eg:
+Entries are unique per `(text, reading)` pair. The `reviewed` flag indicates whether any card containing that entry
+has been seen.
 
+### CardEntries table
+
+```roomsql
+card_id INTEGER PRIMARY KEY,
+entry_text TEXT NOT NULL,
+entry_reading TEXT NOT NULL,
+FOREIGN KEY(card_id) REFERENCES Cards(card_id) ON DELETE CASCADE,
+FOREIGN KEY(entry_text, entry_reading) REFERENCES Entries(text, reading)
 ```
-Inflection : Lemma
-ある : 有る
-ある : 或る
-```
 
-Using an int as a primary key is preferable over text objects, but hashing the lemma and inflection would lead to a high
-likelihood of collisions because of the following:
-
-    # sqlite integers are max 2^(63)-1 = 9,223,372,036,854,775,807
-    # The chance of hash collision is 50% when sqrt(2^(n/2)) where n is bits of the hash
-    # With 64 bits the prob of collision becomes sqrt(2^(64/2)) = 65,536
-
-So if we have over 65,536 morphs we would likely experience bugs that are basically impossible to trace. 
+This table joins the two sets together so we can query by either direction efficiently.
 
 ## Anki dbs
 
@@ -160,4 +145,3 @@ QUEUE_TYPE_REV = CardQueue(2)
 QUEUE_TYPE_DAY_LEARN_RELEARN = CardQueue(3)
 QUEUE_TYPE_PREVIEW = CardQueue(4)
 ```
-
