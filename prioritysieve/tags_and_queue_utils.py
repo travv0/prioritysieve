@@ -117,13 +117,25 @@ def update_tags_and_queue_of_new_card(
     am_config: PrioritySieveConfig,
     note: Note,
     card: Card,
-    unknowns: int,
-    has_learning_morphs: bool,
+    pending_entries: int,
+    entry_reviewed: bool,
     force_auto_suspend: bool = False,
 ) -> None:
-    auto_suspend = force_auto_suspend or unknowns == 0
-    reviewed = unknowns == 0 and has_learning_morphs
-    apply_entry_tags(am_config, note, reviewed=reviewed, auto_suspend=auto_suspend)
+    """
+    Update tags and queue state for a new-entry card.
+
+    :param pending_entries: How many entries linked to the note remain unreviewed.
+    :param entry_reviewed: Whether the shared entry is already marked reviewed.
+    :param force_auto_suspend: Optionally suspend regardless of pending count.
+    """
+
+    auto_suspend = force_auto_suspend or pending_entries == 0
+    apply_entry_tags(
+        am_config,
+        note,
+        reviewed=entry_reviewed,
+        auto_suspend=auto_suspend,
+    )
     if auto_suspend:
         card.queue = QUEUE_TYPE_SUSPENDED
     elif card.queue == QUEUE_TYPE_SUSPENDED:
@@ -133,6 +145,13 @@ def update_tags_and_queue_of_new_card(
 def update_tags_of_review_cards(
     am_config: PrioritySieveConfig,
     note: Note,
-    has_learning_morphs: bool,
+    entry_reviewed: bool,
 ) -> None:
-    apply_entry_tags(am_config, note, reviewed=not has_learning_morphs, auto_suspend=False)
+    """Update tags for an existing review card without altering the queue."""
+
+    apply_entry_tags(
+        am_config,
+        note,
+        reviewed=entry_reviewed,
+        auto_suspend=False,
+    )
