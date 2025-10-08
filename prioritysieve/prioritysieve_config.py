@@ -36,9 +36,9 @@ class RawConfigFilterKeys:
     EXTRA_READING_FIELD = "extra_reading_field"
 
     # Legacy keys we still accept when loading stored configs
-    LEGACY_PRIORITY_SELECTION = "morph_priority_selection"
-    LEGACY_MORPHEMIZER_DESCRIPTION = "morphemizer_description"
-    LEGACY_EXTRA_READING_FIELD = "extra_morph_readings"
+    LegacyPrioritySelection = "morph_priority_selection"
+    LegacyMorphemizerDescription = "morphemizer_description"
+    LegacyExtraReadingField = "extra_morph_readings"
 
 
 class RawConfigKeys:
@@ -67,8 +67,8 @@ class RawConfigKeys:
     AUTO_SUSPEND_UNLISTED_ENTRIES = "auto_suspend_unlisted_entries"
     RECALC_OFFSET_PRIORITY_DECKS = "recalc_offset_priority_decks"
     HIDE_RECALC_TOOLBAR = "hide_recalc_toolbar"
-    HIDE_REVIEWED_COUNTER = "hide_lemma_toolbar"
-    HIDE_TRACKED_COUNTER = "hide_inflection_toolbar"
+    HIDE_REVIEWED_COUNTER = "hide_reviewed_counter"
+    HIDE_TRACKED_COUNTER = "hide_tracked_counter"
     TAG_READY = "tag_ready"
     TAG_NOT_READY = "tag_not_ready"
     TAG_KNOWN_AUTOMATICALLY = "tag_known_automatically"
@@ -82,6 +82,8 @@ LEGACY_KEY_RENAMES: dict[str, str] = {
     "shortcut_browse_all_same_unknown": RawConfigKeys.SHORTCUT_BROWSE_SAME_UNKNOWN,
     "shortcut_browse_ready_same_unknown_lemma": RawConfigKeys.SHORTCUT_BROWSE_SAME_UNKNOWN_BROAD,
     "shortcut_known_morphs_exporter": RawConfigKeys.SHORTCUT_KNOWN_ENTRIES_EXPORTER,
+    "hide_lemma_toolbar": RawConfigKeys.HIDE_REVIEWED_COUNTER,
+    "hide_inflection_toolbar": RawConfigKeys.HIDE_TRACKED_COUNTER,
 }
 
 LEGACY_KEYS_TO_DROP: set[str] = {
@@ -129,18 +131,18 @@ def _normalize_filter_dict(
 ) -> FilterTypeAlias:
     """Return the same dict with legacy keys stripped/converted."""
 
-    if RawConfigFilterKeys.LEGACY_MORPHEMIZER_DESCRIPTION in filter_dict:
-        filter_dict.pop(RawConfigFilterKeys.LEGACY_MORPHEMIZER_DESCRIPTION, None)
+    if RawConfigFilterKeys.LegacyMorphemizerDescription in filter_dict:
+        filter_dict.pop(RawConfigFilterKeys.LegacyMorphemizerDescription, None)
         prioritysieve_globals.new_config_found = True
 
-    if RawConfigFilterKeys.LEGACY_PRIORITY_SELECTION in filter_dict:
-        legacy_value = filter_dict.pop(RawConfigFilterKeys.LEGACY_PRIORITY_SELECTION)
+    if RawConfigFilterKeys.LegacyPrioritySelection in filter_dict:
+        legacy_value = filter_dict.pop(RawConfigFilterKeys.LegacyPrioritySelection)
         if RawConfigFilterKeys.PRIORITY_FILES not in filter_dict:
             filter_dict[RawConfigFilterKeys.PRIORITY_FILES] = legacy_value
         prioritysieve_globals.new_config_found = True
 
-    if RawConfigFilterKeys.LEGACY_EXTRA_READING_FIELD in filter_dict:
-        legacy_extra = filter_dict.pop(RawConfigFilterKeys.LEGACY_EXTRA_READING_FIELD)
+    if RawConfigFilterKeys.LegacyExtraReadingField in filter_dict:
+        legacy_extra = filter_dict.pop(RawConfigFilterKeys.LegacyExtraReadingField)
         if isinstance(legacy_extra, bool):
             filter_dict.setdefault(
                 RawConfigFilterKeys.EXTRA_READING_FIELD,

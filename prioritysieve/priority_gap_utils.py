@@ -74,13 +74,19 @@ def find_missing_priority_entries(
         readings = info["readings"]
         fallback_priority = info["fallback"]
 
-        if isinstance(readings, dict):
+        if isinstance(readings, dict) and readings:
+            reading_priorities = list(readings.values())
+            best_reading_priority = min(reading_priorities)
+
+            if isinstance(fallback_priority, int) and fallback_priority <= best_reading_priority:
+                missing_entries.append((text, "", fallback_priority))
+                continue
+
             for reading, priority in readings.items():
                 missing_entries.append((text, reading, priority))
+            continue
 
-        if isinstance(fallback_priority, int) and (
-            not isinstance(readings, dict) or not readings
-        ):
+        if isinstance(fallback_priority, int):
             missing_entries.append((text, "", fallback_priority))
 
     missing_entries.sort(key=lambda entry: (entry[2], entry[0], entry[1]))

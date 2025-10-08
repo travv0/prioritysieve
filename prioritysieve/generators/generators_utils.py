@@ -6,6 +6,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Iterable
 
+from aqt import mw  # pylint:disable=unused-import
 from ..entry_db import EntryDB
 from ..exceptions import UnicodeException
 from ..priority_files import ENTRY_HEADERS, READING_HEADERS

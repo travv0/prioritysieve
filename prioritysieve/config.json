@@ -46,6 +46,6 @@
   "tag_suspended_automatically": "ps-suspended-automatically",
   "tag_learn_card_now": "ps-learn-card-now",
   "hide_recalc_toolbar": false,
-  "hide_lemma_toolbar": false,
-  "hide_inflection_toolbar": false
+  "hide_reviewed_counter": false,
+  "hide_tracked_counter": false
 }

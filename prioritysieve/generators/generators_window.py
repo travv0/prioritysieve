@@ -8,7 +8,12 @@ import os
 import aqt
 from aqt import mw
 from aqt.operations import QueryOp
-from aqt.qt import QFileDialog, QMainWindow, QDialog, QtWidgets  # pylint:disable=no-name-in-module
+from aqt.qt import (  # pylint:disable=no-name-in-module
+    QFileDialog,
+    QMainWindow,
+    QDialog,
+    QTableWidgetItem,
+)
 from aqt.utils import tooltip
 
 from .. import message_box_utils, prioritysieve_globals as am_globals
@@ -161,8 +166,8 @@ class GeneratorWindow(QMainWindow):
 
         for row, file_path in enumerate(self._input_files):
             relative_name = str(file_path.relative_to(self._input_dir_root))
-            file_item_counts = QtWidgets.QTableWidgetItem(relative_name)
-            file_item_percents = QtWidgets.QTableWidgetItem(relative_name)
+            file_item_counts = QTableWidgetItem(relative_name)
+            file_item_percents = QTableWidgetItem(relative_name)
             self.ui.numericalTableWidget.setItem(row, 0, file_item_counts)
             self.ui.percentTableWidget.setItem(row, 0, file_item_percents)
 

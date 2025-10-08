@@ -195,6 +195,14 @@ def _merge_unique_filters(
     return unique
 
 
+def _filters_requiring_state_snapshot() -> list[PrioritySieveConfigFilter]:
+    """Return filters used to snapshot collection state before recalc."""
+
+    modify_filters = prioritysieve_config.get_modify_enabled_filters()
+    read_filters = prioritysieve_config.get_read_enabled_filters()
+    return _merge_unique_filters(modify_filters + read_filters)
+
+
 def _validate_filters(filters: list[PrioritySieveConfigFilter]) -> None:
     assert mw is not None
     model_manager = mw.col.models
