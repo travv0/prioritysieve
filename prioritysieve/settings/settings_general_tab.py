@@ -25,10 +25,6 @@ class GeneralTab(SettingsTab):
     ) -> None:
         super().__init__(parent, ui, config, default_config)
 
-        # Hide deprecated morph evaluation controls and retired recalc options.
-        self.ui.groupBox_4.hide()
-        self.ui.groupBox_3.hide()
-
         self._raw_config_key_to_radio_button: dict[str, QRadioButton] = {
             RawConfigKeys.TOOLBAR_STATS_USE_SEEN: self.ui.toolbarStatsUseSeenRadioButton,
             RawConfigKeys.TOOLBAR_STATS_USE_KNOWN: self.ui.toolbarStatsUseKnownRadioButton,
