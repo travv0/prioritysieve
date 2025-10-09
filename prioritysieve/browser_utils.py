@@ -164,12 +164,6 @@ def run_learn_card_now() -> None:
         f"select distinct nid from cards where id in {ids2str(selected_cards)}"
     )
 
-    # We give the cards the 'learn-now' tag to make sure that they are
-    # not skipped, even if other skip conditions are met.
-    # The recalc routine already keeps duplicate entries suspended.
-    tag_changes = mw.col.tags.bulk_add(note_ids, am_config.tag_learn_card_now)
-    notify_op_execution(tag_changes)
-
     reposition_changes = mw.col.sched.reposition_new_cards(
         selected_cards,
         starting_from=0,

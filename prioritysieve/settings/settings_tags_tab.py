@@ -21,10 +21,9 @@ class TagsTab(SettingsTab):
         self._raw_config_key_to_line_edit: dict[str, QLineEdit] = {
             RawConfigKeys.TAG_READY: self.ui.tagReadyLineEdit,
             RawConfigKeys.TAG_NOT_READY: self.ui.tagNotReadyLineEdit,
+            RawConfigKeys.TAG_KNOWN_MANUALLY: self.ui.tagKnownManuallyLineEdit,
             RawConfigKeys.TAG_KNOWN_AUTOMATICALLY: self.ui.tagKnownAutomaticallyLineEdit,
             RawConfigKeys.TAG_SUSPENDED_AUTOMATICALLY: self.ui.tagSuspendedAutomaticallyLineEdit,
-            RawConfigKeys.TAG_KNOWN_MANUALLY: self.ui.tagKnownManuallyLineEdit,
-            RawConfigKeys.TAG_LEARN_CARD_NOW: self.ui.tagLearnCardNowLineEdit,
         }
         self.populate()
         self.setup_buttons()

@@ -74,7 +74,6 @@ class RawConfigKeys:
     TAG_KNOWN_AUTOMATICALLY = "tag_known_automatically"
     TAG_KNOWN_MANUALLY = "tag_known_manually"
     TAG_SUSPENDED_AUTOMATICALLY = "tag_suspended_automatically"
-    TAG_LEARN_CARD_NOW = "tag_learn_card_now"
 
 
 LEGACY_KEY_RENAMES: dict[str, str] = {
@@ -122,6 +121,7 @@ LEGACY_KEYS_TO_DROP: set[str] = {
     "algorithm_lower_target_learning_morphs_coefficient_a",
     "algorithm_lower_target_learning_morphs_coefficient_b",
     "algorithm_lower_target_learning_morphs_coefficient_c",
+    "tag_learn_card_now",
 }
 
 
@@ -455,11 +455,6 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes
             )
             self.tag_suspended_automatically: str = self._get_config_item(
                 key=RawConfigKeys.TAG_SUSPENDED_AUTOMATICALLY,
-                expected_type=str,
-                use_default=is_default,
-            )
-            self.tag_learn_card_now: str = self._get_config_item(
-                key=RawConfigKeys.TAG_LEARN_CARD_NOW,
                 expected_type=str,
                 use_default=is_default,
             )

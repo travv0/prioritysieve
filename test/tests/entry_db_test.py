@@ -43,14 +43,14 @@ def test_entry_db_replace_and_fetch(tmp_path, monkeypatch) -> None:
             "card_queue": 0,
         },
     ]
-    card_entries = [
+    card_entry_links = [
         {"card_id": 1, "entry_text": "alpha", "entry_reading": "reading1"},
         {"card_id": 2, "entry_text": "alpha", "entry_reading": "reading2"},
         {"card_id": 3, "entry_text": "beta", "entry_reading": ""},
     ]
 
     with EntryDB(db_path=db_path) as db:
-        db.replace_data(entries=entries, cards=cards, card_entries=card_entries)
+        db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
 
         stored_entries = db.get_entries()
         assert {entry.text for entry in stored_entries} == {"alpha", "beta"}

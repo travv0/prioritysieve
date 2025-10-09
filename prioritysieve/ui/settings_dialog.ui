@@ -447,33 +447,26 @@
                 <item>
                  <widget class="QLabel" name="label_2">
                   <property name="text">
-                   <string>One unknown entry</string></property>
+                   <string>Ready</string></property>
                  </widget>
                 </item>
                 <item>
                  <widget class="QLabel" name="label_3">
                   <property name="text">
-                   <string>Multiple unknown entries</string></property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QLabel" name="label_6">
-                  <property name="text">
-                   <string>Learn card now</string>
-                  </property>
+                   <string>Not ready</string></property>
                  </widget>
                 </item>
                 <item>
                  <widget class="QLabel" name="label_5">
                   <property name="text">
-                   <string>Set known and skip</string>
+                   <string>Known manually</string>
                   </property>
                  </widget>
                 </item>
                 <item>
                  <widget class="QLabel" name="label_4">
                   <property name="text">
-                   <string>All entries known</string></property>
+                   <string>Known automatically</string></property>
                  </widget>
                 </item>
                 <item>
@@ -492,9 +485,6 @@
                 </item>
                 <item>
                  <widget class="QLineEdit" name="tagNotReadyLineEdit" />
-                </item>
-                <item>
-                 <widget class="QLineEdit" name="tagLearnCardNowLineEdit" />
                 </item>
                 <item>
                  <widget class="QLineEdit" name="tagKnownManuallyLineEdit" />

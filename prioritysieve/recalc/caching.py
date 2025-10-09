@@ -50,7 +50,7 @@ def cache_entries(
         db.replace_data(
             entries=entry_rows,
             cards=cards_rows.values(),
-            card_entries=(
+            card_entry_links=(
                 {
                     "card_id": card_id,
                     "entry_text": key[0],

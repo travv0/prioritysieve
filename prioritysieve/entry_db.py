@@ -99,7 +99,7 @@ class EntryDB:
         self,
         entries: Iterable[dict[str, object]],
         cards: Iterable[dict[str, object]],
-        card_entries: Iterable[dict[str, object]],
+        card_entry_links: Iterable[dict[str, object]],
     ) -> None:
         with self.con:
             self.drop_schema()
@@ -114,7 +114,7 @@ class EntryDB:
             )
             self.con.executemany(
                 "INSERT OR REPLACE INTO CardEntries (card_id, entry_text, entry_reading) VALUES (:card_id, :entry_text, :entry_reading)",
-                card_entries,
+                card_entry_links,
             )
 
     def get_card_entry_cache(self) -> dict[int, Entry]:
