@@ -893,6 +893,7 @@ def _apply_duplicate_rules(
                 not force_suspend
                 and unsuspended_candidate is not None
                 and _get_candidate_deck_id(candidate) == _get_candidate_deck_id(unsuspended_candidate)
+                and candidate.deck_priority == unsuspended_candidate.deck_priority
                 and _get_candidate_creation_ts(candidate) > _get_candidate_creation_ts(unsuspended_candidate)
             )
 
