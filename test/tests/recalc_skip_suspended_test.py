@@ -41,8 +41,8 @@ def test_do_not_skip_active_cards() -> None:
 
 def test_keep_suspended_when_exception_tag_present() -> None:
     auto_tag = "ps-auto"
-    exception_tags = {"kanjicards_unreviewed"}
+    exception_tags = {"kanjicards_new"}
     card = _card(QUEUE_TYPE_SUSPENDED)
-    note = _note(tags=["manual", "kanjicards_unreviewed"])
+    note = _note(tags=["manual", "kanjicards_new"])
 
     assert not _should_skip_card(card, note, auto_tag, exception_tags)

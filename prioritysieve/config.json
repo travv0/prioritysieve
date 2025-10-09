@@ -32,7 +32,7 @@
   "preprocess_ignore_numbers": false,
   "preprocess_ignore_custom_characters": false,
   "preprocess_custom_characters_to_ignore": "",
-  "preprocess_ignore_suspended_unless_tags": "kanjicards_unreviewed",
+  "preprocess_ignore_suspended_unless_tags": "kanjicards_new",
   "recalc_on_sync": false,
   "recalc_after_sync": false,
   "auto_suspend_unlisted_entries": false,
