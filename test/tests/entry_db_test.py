@@ -18,9 +18,30 @@ def test_entry_db_replace_and_fetch(tmp_path, monkeypatch) -> None:
         {"text": "beta", "reading": "", "reviewed": 0},
     ]
     cards = [
-        {"card_id": 1, "note_id": 10, "note_type_id": 100, "card_type": 0, "tags": "alpha"},
-        {"card_id": 2, "note_id": 11, "note_type_id": 100, "card_type": 0, "tags": "alpha"},
-        {"card_id": 3, "note_id": 12, "note_type_id": 100, "card_type": 0, "tags": "beta"},
+        {
+            "card_id": 1,
+            "note_id": 10,
+            "note_type_id": 100,
+            "card_type": 0,
+            "tags": "alpha",
+            "card_queue": 0,
+        },
+        {
+            "card_id": 2,
+            "note_id": 11,
+            "note_type_id": 100,
+            "card_type": 0,
+            "tags": "alpha",
+            "card_queue": 0,
+        },
+        {
+            "card_id": 3,
+            "note_id": 12,
+            "note_type_id": 100,
+            "card_type": 0,
+            "tags": "beta",
+            "card_queue": 0,
+        },
     ]
     card_entries = [
         {"card_id": 1, "entry_text": "alpha", "entry_reading": "reading1"},
