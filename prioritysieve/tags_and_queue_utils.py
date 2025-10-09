@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 
-from typing import Any
+from typing import Any, Iterable
 
 from anki.cards import Card
 from anki.consts import QUEUE_TYPE_NEW, QUEUE_TYPE_SUSPENDED
@@ -18,18 +18,28 @@ from .anki_op_utils import notify_op_execution
 suspended_queue = QUEUE_TYPE_SUSPENDED
 
 
-def apply_entry_tags(
+def _sanitize_tags(tags: Iterable[str]) -> list[str]:
+    sanitized: list[str] = []
+    for raw in tags:
+        if not isinstance(raw, str):
+            continue
+        value = raw.strip()
+        if value:
+            sanitized.append(value)
+    return sanitized
+
+
+def compute_entry_tags(
     am_config: PrioritySieveConfig,
-    note: Note,
-    reviewed: bool,
+    tags: Sequence[str],
     auto_suspend: bool,
-) -> None:
-    """Apply tags for a single entry-based note."""
+) -> list[str]:
+    """Return the new tag list for a note given the recalc inputs."""
 
     def _is_valid(tag: str) -> bool:
         return isinstance(tag, str) and tag.strip()
 
-    tags = [tag for tag in note.tags if _is_valid(tag)]
+    cleaned_tags = [tag for tag in tags if _is_valid(tag)]
 
     tracked_tags = {
         am_config.tag_ready,
@@ -40,26 +50,26 @@ def apply_entry_tags(
     tracked_tags.update(am_globals.legacy_known_automatically_tags)
 
     original_positions: dict[str, int] = {}
-    for index, tag in enumerate(note.tags):
+    for index, tag in enumerate(tags):
         if tag in tracked_tags and tag not in original_positions:
             original_positions[tag] = index
 
     def _remove_tag(tag: str) -> None:
         if not _is_valid(tag):
             return
-        while tag in tags:
-            tags.remove(tag)
+        while tag in cleaned_tags:
+            cleaned_tags.remove(tag)
 
     def _insert_tag(tag: str) -> None:
         if not _is_valid(tag):
             return
-        if tag in tags:
+        if tag in cleaned_tags:
             return
         position = original_positions.get(tag)
-        if position is None or position >= len(tags):
-            tags.append(tag)
+        if position is None or position >= len(cleaned_tags):
+            cleaned_tags.append(tag)
         else:
-            tags.insert(position, tag)
+            cleaned_tags.insert(position, tag)
 
     removal_tags = [
         am_config.tag_ready,
@@ -72,16 +82,28 @@ def apply_entry_tags(
 
     if auto_suspend:
         _insert_tag(am_config.tag_suspended_automatically)
-    else:
-        _remove_tag(am_config.tag_suspended_automatically)
-
-    if auto_suspend:
         _insert_tag(am_config.tag_not_ready)
     else:
+        _remove_tag(am_config.tag_suspended_automatically)
         _remove_tag(am_config.tag_not_ready)
         _insert_tag(am_config.tag_ready)
 
-    note.tags = tags
+    return cleaned_tags
+
+
+def apply_entry_tags(
+    am_config: PrioritySieveConfig,
+    note: Note,
+    reviewed: bool,
+    auto_suspend: bool,
+) -> None:
+    """Apply tags for a single entry-based note."""
+
+    note.tags = compute_entry_tags(
+        am_config=am_config,
+        tags=note.tags,
+        auto_suspend=auto_suspend,
+    )
 
 
 def ensure_tag_preserving_order(
@@ -89,44 +111,49 @@ def ensure_tag_preserving_order(
 ) -> None:
     """Ensure `tag` exists on `note` using the order from `original_tags`."""
 
+    note.tags = ensure_tag_preserving_order_list(note.tags, tag, original_tags)
+
+
+def ensure_tag_preserving_order_list(
+    current_tags: Sequence[str], tag: str, original_tags: Sequence[str]
+) -> list[str]:
+    """Return a tag list that guarantees ``tag`` is present using the original ordering."""
+
     if not isinstance(tag, str):
-        return
+        return list(current_tags)
     tag = tag.strip()
     if not tag:
-        return
+        return list(current_tags)
 
-    current_tags = [
-        existing for existing in note.tags if isinstance(existing, str) and existing.strip()
+    sanitized_current = [
+        existing
+        for existing in current_tags
+        if isinstance(existing, str) and existing.strip()
     ]
 
-    if tag in current_tags:
-        if current_tags != note.tags:
-            note.tags = current_tags
-        return
+    if tag in sanitized_current:
+        return sanitized_current
 
-    sanitized_original = [
-        value for value in original_tags if isinstance(value, str) and value.strip()
-    ]
+    sanitized_original = _sanitize_tags(original_tags)
 
     try:
         target_index = sanitized_original.index(tag)
     except ValueError:
-        current_tags.append(tag)
-        note.tags = current_tags
-        return
+        sanitized_current.append(tag)
+        return sanitized_current
 
     original_positions = {
         value: index for index, value in enumerate(sanitized_original)
     }
     insert_position = len(current_tags)
-    for index, existing_tag in enumerate(current_tags):
+    for index, existing_tag in enumerate(sanitized_current):
         original_index = original_positions.get(existing_tag)
         if original_index is not None and original_index > target_index:
             insert_position = index
             break
 
-    current_tags.insert(insert_position, tag)
-    note.tags = current_tags
+    sanitized_current.insert(insert_position, tag)
+    return sanitized_current
 
 
 def _resolve_field_map(note: Note) -> dict[str, tuple[int, Any]]:

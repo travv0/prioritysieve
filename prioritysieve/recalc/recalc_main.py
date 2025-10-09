@@ -48,15 +48,25 @@ _followup_sync_callback: Callable[[], None] | None = None
 
 
 @dataclass(slots=True)
-class DuplicateCandidate:
-    card: Card
-    note: Note
-    due: int
-    auto_suspend: bool
+class CardPlan:
+    card_id: int
+    note_id: int
+    entry_key: tuple[str, str]
     is_new_card: bool
     entry_reviewed: bool
     deck_priority: int
     manually_suspended: bool
+    original_due: int
+    desired_due: int
+    original_queue: int
+    desired_queue: int
+    auto_suspend: bool
+    deck_id: int
+    original_deck_id: int
+    original_tags: list[str]
+    desired_tags: list[str]
+    extra_reading_field_index: int | None
+    desired_reading: str | None
 
 
 def set_followup_sync_callback(callback: Callable[[], None] | None) -> None:
@@ -256,6 +266,28 @@ def _get_deck_priority_for_card(
         raise CancelledOperationException()
 
     deck_id = getattr(card, "odid", 0) or card.did
+    deck_name = deck_name_cache.get(deck_id)
+    if deck_name is None:
+        deck_dict = mw.col.decks.get(deck_id)
+        name = deck_dict.get("name") if isinstance(deck_dict, dict) else None
+        deck_name = name if isinstance(name, str) else ""
+        deck_name_cache[deck_id] = deck_name
+
+    default_priority = len(deck_priority_lookup)
+    return deck_priority_lookup.get(deck_name, default_priority)
+
+
+def _get_deck_priority_for_ids(
+    deck_priority_lookup: dict[str, int],
+    deck_name_cache: dict[int, str],
+    original_deck_id: int,
+    current_deck_id: int,
+) -> int:
+    assert mw is not None
+    if mw.col is None:
+        raise CancelledOperationException()
+
+    deck_id = original_deck_id or current_deck_id
     deck_name = deck_name_cache.get(deck_id)
     if deck_name is None:
         deck_dict = mw.col.decks.get(deck_id)
@@ -485,11 +517,6 @@ def _apply_priorities(
     card_original_state: dict[int, tuple[int, int]] = {}
     note_original_state: dict[int, tuple[list[str], list[str]]] = {}
 
-    duplicates: defaultdict[
-        tuple[str, str],
-        list[DuplicateCandidate],
-    ] = defaultdict(list)
-
     card_change_stats: dict[str, int] = {
         "total": 0,
         "due": 0,
@@ -512,6 +539,8 @@ def _apply_priorities(
     suspended_exception_tags = set(am_config.get_preprocess_ignore_suspended_unless_tag_list())
     deck_priority_lookup = _build_deck_priority_lookup(am_config.recalc_offset_priority_decks)
     deck_name_cache: dict[int, str] = {}
+    plans: dict[int, CardPlan] = {}
+    duplicates: defaultdict[tuple[str, str], list[CardPlan]] = defaultdict(list)
 
     for config_filter in modify_filters:
         priority_map = load_priority_map(config_filter.priority_files)
@@ -525,39 +554,25 @@ def _apply_priorities(
                 max_value=total_cards,
             )
 
-            card = mw.col.get_card(card_id)
-            note = card.note()
-
-            has_exception_tag = any(tag in note.tags for tag in suspended_exception_tags)
-            if _should_skip_card(
-                card,
-                note,
-                am_config.tag_suspended_automatically,
-                suspended_exception_tags,
+            tags_list = list(card_data.original_tags)
+            tags_set = {tag for tag in tags_list if tag}
+            has_exception_tag = any(tag in tags_set for tag in suspended_exception_tags)
+            if (
+                card_data.queue == QUEUE_TYPE_SUSPENDED
+                and am_config.tag_suspended_automatically not in tags_set
+                and not has_exception_tag
             ):
                 continue
-
-            deck_priority = _get_deck_priority_for_card(
-                card,
-                deck_priority_lookup,
-                deck_name_cache,
-            )
-
-            manually_suspended_exception = (
-                card.queue == QUEUE_TYPE_SUSPENDED
-                and am_config.tag_suspended_automatically not in note.tags
-                and has_exception_tag
-            )
 
             entry = entry_cache.get(card_id)
             if entry is None:
                 entry = Entry(
                     text=card_data.expression,
                     reading="",
-                    reviewed=card.type != CARD_TYPE_NEW,
+                    reviewed=card_data.type != CARD_TYPE_NEW,
                 )
 
-            is_new_card = card.type == CARD_TYPE_NEW
+            is_new_card = card_data.type == CARD_TYPE_NEW
             entry_reviewed = entry.reviewed
             base_auto_suspend = (
                 am_config.auto_suspend_unlisted_entries
@@ -565,59 +580,140 @@ def _apply_priorities(
             )
             auto_suspend = base_auto_suspend or (entry_reviewed and is_new_card)
 
+            manually_suspended_exception = (
+                card_data.queue == QUEUE_TYPE_SUSPENDED
+                and am_config.tag_suspended_automatically not in tags_set
+                and has_exception_tag
+            )
+
+            desired_due = card_data.due
+            desired_queue = card_data.queue
+            desired_tags: list[str] = list(tags_list)
+            desired_reading: str | None = None
+
             if is_new_card:
-                card_original_state.setdefault(card_id, (card.due, card.queue))
+                card_original_state.setdefault(card_id, (card_data.due, card_data.queue))
                 note_original_state.setdefault(
-                    note.id,
-                    (note.fields.copy(), note.tags.copy()),
+                    card_data.note_id,
+                    (card_data.fields.copy(), card_data.original_tags.copy()),
                 )
 
                 if entry_reviewed or auto_suspend:
-                    due = DEFAULT_REVIEW_DUE
+                    desired_due = DEFAULT_REVIEW_DUE
                 else:
-                    due = priority_map.get(entry.key(), DEFAULT_REVIEW_DUE)
-                card.due = due
+                    desired_due = priority_map.get(entry.key(), DEFAULT_REVIEW_DUE)
 
                 allowed_new_queues = (QUEUE_TYPE_NEW, QUEUE_TYPE_SUSPENDED)
                 if (
                     not entry_reviewed
-                    and card.queue in allowed_new_queues
+                    and card_data.queue in allowed_new_queues
                     and not manually_suspended_exception
                 ):
-                    card.queue = QUEUE_TYPE_NEW
+                    desired_queue = QUEUE_TYPE_NEW
 
-                tags_and_queue_utils.apply_entry_tags(
+                desired_tags = tags_and_queue_utils.compute_entry_tags(
                     am_config=am_config,
-                    note=note,
-                    reviewed=entry.reviewed,
+                    tags=card_data.original_tags,
                     auto_suspend=auto_suspend,
                 )
 
                 if config_filter.extra_reading_field and entry.reading:
-                    tags_and_queue_utils.update_entry_reading_field(note, entry.reading)
-
-                touched_cards[card_id] = card
-                touched_notes[note.id] = note
+                    reading_index = card_data.extra_reading_field_index
+                    if reading_index is None or reading_index >= len(card_data.fields):
+                        desired_reading = entry.reading
+                    else:
+                        current_reading = card_data.fields[reading_index]
+                        if entry.reading != current_reading:
+                            desired_reading = entry.reading
             else:
-                due = card.due
+                manually_suspended_exception = False
 
-            duplicates[entry.key()].append(
-                DuplicateCandidate(
-                    card=card,
-                    note=note,
-                    due=due,
-                    auto_suspend=auto_suspend,
-                    is_new_card=is_new_card,
-                    entry_reviewed=entry_reviewed,
-                    deck_priority=deck_priority,
-                    manually_suspended=manually_suspended_exception,
-                )
+            deck_priority = _get_deck_priority_for_ids(
+                deck_priority_lookup=deck_priority_lookup,
+                deck_name_cache=deck_name_cache,
+                original_deck_id=card_data.original_deck_id,
+                current_deck_id=card_data.deck_id,
             )
+
+            plan = CardPlan(
+                card_id=card_id,
+                note_id=card_data.note_id,
+                entry_key=entry.key(),
+                is_new_card=is_new_card,
+                entry_reviewed=entry_reviewed,
+                deck_priority=deck_priority,
+                manually_suspended=manually_suspended_exception,
+                original_due=card_data.due,
+                desired_due=desired_due,
+                original_queue=card_data.queue,
+                desired_queue=desired_queue,
+                auto_suspend=auto_suspend,
+                deck_id=card_data.deck_id,
+                original_deck_id=card_data.original_deck_id,
+                original_tags=list(card_data.original_tags),
+                desired_tags=list(desired_tags),
+                extra_reading_field_index=card_data.extra_reading_field_index,
+                desired_reading=desired_reading,
+            )
+
+            plans[card_id] = plan
+            card_original_state.setdefault(card_id, (plan.original_due, plan.original_queue))
+            duplicates[entry.key()].append(plan)
 
     _apply_duplicate_rules(am_config, duplicates, note_original_state)
 
+    card_cache: dict[int, Card] = {}
+    note_cache: dict[int, Note] = {}
+
     cards_to_update: dict[int, Card] = {}
     notes_to_update: dict[int, Note] = {}
+    touched_cards.clear()
+    touched_notes.clear()
+
+    for plan in plans.values():
+        card_needs_update = (
+            plan.desired_due != plan.original_due
+            or plan.desired_queue != plan.original_queue
+        )
+        note_needs_update = (
+            plan.desired_tags != plan.original_tags
+            or plan.desired_reading is not None
+        )
+
+        if not card_needs_update and not note_needs_update:
+            continue
+
+        if card_needs_update:
+            card = card_cache.get(plan.card_id)
+            if card is None:
+                card = mw.col.get_card(plan.card_id)
+                card_cache[plan.card_id] = card
+            touched_cards[plan.card_id] = card
+            card.due = plan.desired_due
+            card.queue = plan.desired_queue
+            cards_to_update[plan.card_id] = card
+        note: Note | None = None
+        if note_needs_update:
+            note = note_cache.get(plan.note_id)
+            if note is None:
+                note = mw.col.get_note(plan.note_id)
+                note_cache[plan.note_id] = note
+            touched_notes[plan.note_id] = note
+            note_original_state.setdefault(
+                plan.note_id,
+                (note.fields.copy(), note.tags.copy()),
+            )
+
+            if plan.desired_tags != note.tags:
+                note.tags = list(plan.desired_tags)
+
+            if plan.desired_reading is not None:
+                tags_and_queue_utils.update_entry_reading_field(
+                    note,
+                    plan.desired_reading,
+                )
+
+            notes_to_update[plan.note_id] = note
 
     for card_id, card in touched_cards.items():
         original_due, original_queue = card_original_state.get(
@@ -812,49 +908,42 @@ def _apply_priorities(
 
 def _apply_duplicate_rules(
     am_config: PrioritySieveConfig,
-    duplicates: defaultdict[tuple[str, str], list[DuplicateCandidate]],
+    duplicates: defaultdict[tuple[str, str], list[CardPlan]],
     note_original_state: dict[int, tuple[list[str], list[str]]],
 ) -> None:
-    def _get_candidate_deck_id(candidate: DuplicateCandidate) -> int:
-        card = candidate.card
-        odid = getattr(card, "odid", 0)
-        did = getattr(card, "did", 0)
-        return int(odid or did or 0)
+    def _get_candidate_deck_id(candidate: CardPlan) -> int:
+        return int(candidate.original_deck_id or candidate.deck_id or 0)
 
-    def _get_candidate_creation_ts(candidate: DuplicateCandidate) -> int:
-        card_id = getattr(candidate.card, "id", 0)
+    def _get_candidate_creation_ts(candidate: CardPlan) -> int:
         try:
-            return int(card_id)
+            return int(candidate.card_id)
         except (TypeError, ValueError):
             return 0
 
-    def _unsuspend_candidate(candidate: DuplicateCandidate) -> None:
-        if candidate.card.queue == QUEUE_TYPE_SUSPENDED:
-            candidate.card.queue = QUEUE_TYPE_NEW
-        if (
-            am_config.tag_suspended_automatically
-            and am_config.tag_suspended_automatically in candidate.note.tags
-        ):
-            candidate.note.tags.remove(am_config.tag_suspended_automatically)
+    def _remove_auto_tag(candidate: CardPlan) -> None:
+        if not am_config.tag_suspended_automatically:
+            return
+        candidate.desired_tags = [
+            tag for tag in candidate.desired_tags if tag != am_config.tag_suspended_automatically
+        ]
 
-    def _force_suspend_candidate(candidate: DuplicateCandidate) -> None:
+    def _unsuspend_candidate(candidate: CardPlan) -> None:
+        if candidate.desired_queue == QUEUE_TYPE_SUSPENDED:
+            candidate.desired_queue = QUEUE_TYPE_NEW
+        _remove_auto_tag(candidate)
+
+    def _force_suspend_candidate(candidate: CardPlan) -> None:
         candidate.auto_suspend = True
-        candidate.card.queue = QUEUE_TYPE_SUSPENDED
-        if (
-            candidate.card.type == CARD_TYPE_NEW
-            and candidate.card.due != DEFAULT_REVIEW_DUE
-        ):
-            candidate.card.due = DEFAULT_REVIEW_DUE
-        if (
-            am_config.tag_suspended_automatically
-            and am_config.tag_suspended_automatically not in candidate.note.tags
-        ):
+        candidate.desired_queue = QUEUE_TYPE_SUSPENDED
+        if candidate.is_new_card and candidate.desired_due != DEFAULT_REVIEW_DUE:
+            candidate.desired_due = DEFAULT_REVIEW_DUE
+        if am_config.tag_suspended_automatically:
             original_tags = note_original_state.get(
-                candidate.note.id,
+                candidate.note_id,
                 ([], []),
             )[1]
-            tags_and_queue_utils.ensure_tag_preserving_order(
-                candidate.note,
+            candidate.desired_tags = tags_and_queue_utils.ensure_tag_preserving_order_list(
+                candidate.desired_tags,
                 am_config.tag_suspended_automatically,
                 original_tags,
             )
@@ -863,13 +952,13 @@ def _apply_duplicate_rules(
         items.sort(
             key=lambda item: (
                 item.deck_priority,
-                item.due,
-                getattr(item.card, "id", 0),
+                item.desired_due,
+                item.card_id,
             )
         )
         has_review_card = any(not candidate.is_new_card for candidate in items)
         active_slot_available = True
-        unsuspended_candidate: DuplicateCandidate | None = None
+        unsuspended_candidate: CardPlan | None = None
 
         for candidate in items:
             if not candidate.is_new_card:
