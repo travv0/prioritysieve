@@ -22,7 +22,6 @@ class TagsTab(SettingsTab):
             RawConfigKeys.TAG_READY: self.ui.tagReadyLineEdit,
             RawConfigKeys.TAG_NOT_READY: self.ui.tagNotReadyLineEdit,
             RawConfigKeys.TAG_KNOWN_MANUALLY: self.ui.tagKnownManuallyLineEdit,
-            RawConfigKeys.TAG_KNOWN_AUTOMATICALLY: self.ui.tagKnownAutomaticallyLineEdit,
             RawConfigKeys.TAG_SUSPENDED_AUTOMATICALLY: self.ui.tagSuspendedAutomaticallyLineEdit,
         }
         self.populate()

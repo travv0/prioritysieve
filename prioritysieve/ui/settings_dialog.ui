@@ -464,12 +464,6 @@
                  </widget>
                 </item>
                 <item>
-                 <widget class="QLabel" name="label_4">
-                  <property name="text">
-                   <string>Known automatically</string></property>
-                 </widget>
-                </item>
-                <item>
                  <widget class="QLabel" name="label_7">
                   <property name="text">
                    <string>Suspended automatically</string>
@@ -488,9 +482,6 @@
                 </item>
                 <item>
                  <widget class="QLineEdit" name="tagKnownManuallyLineEdit" />
-                </item>
-                <item>
-                 <widget class="QLineEdit" name="tagKnownAutomaticallyLineEdit" />
                 </item>
                 <item>
                  <widget class="QLineEdit" name="tagSuspendedAutomaticallyLineEdit" />
