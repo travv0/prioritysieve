@@ -1,273 +1,137 @@
 from __future__ import annotations
 
-from functools import partial
 from pathlib import Path
 
 from aqt import mw
 from aqt.qt import Qt, QTableWidgetItem  # pylint:disable=no-name-in-module
 
-from ..prioritysieve_config import PrioritySieveConfig
-from ..prioritysieve_db import PrioritySieveDB
 from ..exceptions import EmptyFileSelectionException
-from ..morpheme import MorphOccurrence
-from ..morphemizers.morphemizer import Morphemizer
 from ..table_utils import QTableWidgetIntegerItem, QTableWidgetPercentItem
 from ..ui.generators_window_ui import Ui_GeneratorsWindow
 from . import generators_utils
-from .generators_utils import Column, FileMorphsStats
+from .generators_utils import CountColumn, PercentColumn, FileEntryStats
 
 
 def background_generate_report(
     ui: Ui_GeneratorsWindow,
-    morphemizers: list[Morphemizer],
     input_dir_root: Path,
     input_files: list[Path],
 ) -> None:
     assert mw is not None
 
-    mw.progress.start(label="Generating readability report")
-
-    if len(input_files) == 0:
+    if not input_files:
         raise EmptyFileSelectionException
 
-    morph_occurrences_by_file: dict[Path, dict[str, MorphOccurrence]] = (
-        generators_utils.generate_morph_occurrences_by_file(
-            ui=ui,
-            morphemizers=morphemizers,
-            input_dir_root=input_dir_root,
-            input_files=input_files,
-        )
-    )
+    mw.progress.start(label="Generating readability report")
 
-    mw.taskman.run_on_main(
-        partial(
-            mw.progress.update,
-            label="Filling out report",
-        )
-    )
+    entries_by_file = generators_utils.read_entries_for_files(input_files)
+    reviewed_lookup = generators_utils.build_reviewed_lookup()
 
-    # sorting has to be disabled before populating because bugs can occur
+    stats_by_file: dict[Path, FileEntryStats] = {}
+    for path in input_files:
+        stats_by_file[path] = generators_utils.compute_file_stats(
+            entries_by_file[path], reviewed_lookup
+        )
+
+    total_stats = generators_utils.combine_totals(entries_by_file, reviewed_lookup)
+
+    mw.taskman.run_on_main(lambda: _populate_tables(ui, input_dir_root, stats_by_file, total_stats))
+
+
+def _populate_tables(
+    ui: Ui_GeneratorsWindow,
+    input_dir_root: Path,
+    stats_by_file: dict[Path, FileEntryStats],
+    total_stats: FileEntryStats,
+) -> None:
     ui.numericalTableWidget.setSortingEnabled(False)
     ui.percentTableWidget.setSortingEnabled(False)
 
-    # clear previous results
-    ui.numericalTableWidget.clearContents()
-    ui.percentTableWidget.clearContents()
+    row_count = len(stats_by_file) + 1
+    ui.numericalTableWidget.setRowCount(row_count)
+    ui.percentTableWidget.setRowCount(row_count)
 
-    _populate_tables_with_report(
-        ui=ui,
-        input_dir_root=input_dir_root,
-        input_files=input_files,
-        morph_occurrences_by_file=morph_occurrences_by_file,
-    )
+    for row, (path, stats) in enumerate(stats_by_file.items()):
+        relative = str(path.relative_to(input_dir_root))
+        _populate_counts_row(ui, row, relative, stats)
+        _populate_percent_row(ui, row, relative, stats)
+
+    _populate_counts_row(ui, len(stats_by_file), "Total", total_stats)
+    _populate_percent_row(ui, len(stats_by_file), "Total", total_stats)
 
     ui.numericalTableWidget.setSortingEnabled(True)
     ui.percentTableWidget.setSortingEnabled(True)
 
 
-def _populate_tables_with_report(
+def _populate_counts_row(
     ui: Ui_GeneratorsWindow,
-    input_dir_root: Path,
-    input_files: list[Path],
-    morph_occurrences_by_file: dict[Path, dict[str, MorphOccurrence]],
-) -> None:
-    am_config = PrioritySieveConfig()
-    am_db = PrioritySieveDB()
-
-    ui.numericalTableWidget.setRowCount(len(input_files) + 1)
-    ui.percentTableWidget.setRowCount(len(input_files) + 1)
-
-    # the global report will be presented as a "Total" file in the table
-    global_report_morph_stats = FileMorphsStats()
-
-    for row, input_file in enumerate(input_files):
-        file_morphs = morph_occurrences_by_file[input_file]
-        file_morphs_stats = generators_utils.get_morph_stats_from_file(
-            am_config, am_db, file_morphs
-        )
-        global_report_morph_stats += file_morphs_stats
-
-        _populate_numerical_table(
-            ui=ui,
-            input_dir_root=input_dir_root,
-            input_file=input_file,
-            row=row,
-            file_morphs_stats=file_morphs_stats,
-        )
-        _populate_percentage_table(
-            ui=ui,
-            input_dir_root=input_dir_root,
-            input_file=input_file,
-            row=row,
-            file_morphs_stats=file_morphs_stats,
-        )
-
-    _add_total_row_to_tables(
-        ui=ui,
-        input_dir_root=input_dir_root,
-        input_files=input_files,
-        global_report_morph_stats=global_report_morph_stats,
-    )
-
-    am_db.con.close()
-
-
-def _populate_numerical_table(  # pylint:disable=too-many-locals
-    ui: Ui_GeneratorsWindow,
-    input_dir_root: Path,
-    input_file: Path,
     row: int,
-    file_morphs_stats: FileMorphsStats,
+    filename: str,
+    stats: FileEntryStats,
 ) -> None:
-    file_name = str(input_file.relative_to(input_dir_root))
+    filename_item = QTableWidgetItem(filename)
+    filename_item.setFlags(filename_item.flags() ^ Qt.ItemFlag.ItemIsEditable)
+    ui.numericalTableWidget.setItem(row, CountColumn.FILE_NAME.value, filename_item)
 
-    unique_morphs: int = (
-        len(file_morphs_stats.unique_known)
-        + len(file_morphs_stats.unique_learning)
-        + len(file_morphs_stats.unique_unknowns)
+    ui.numericalTableWidget.setItem(
+        row, CountColumn.UNIQUE_ENTRIES.value, QTableWidgetIntegerItem(stats.unique_entries)
+    )
+    ui.numericalTableWidget.setItem(
+        row, CountColumn.UNIQUE_REVIEWED.value, QTableWidgetIntegerItem(stats.unique_reviewed)
+    )
+    ui.numericalTableWidget.setItem(
+        row, CountColumn.UNIQUE_UNREVIEWED.value, QTableWidgetIntegerItem(stats.unique_unreviewed)
+    )
+    ui.numericalTableWidget.setItem(
+        row, CountColumn.TOTAL_OCCURRENCES.value, QTableWidgetIntegerItem(stats.total_occurrences)
+    )
+    ui.numericalTableWidget.setItem(
+        row,
+        CountColumn.REVIEWED_OCCURRENCES.value,
+        QTableWidgetIntegerItem(stats.reviewed_occurrences),
+    )
+    ui.numericalTableWidget.setItem(
+        row,
+        CountColumn.UNREVIEWED_OCCURRENCES.value,
+        QTableWidgetIntegerItem(stats.unreviewed_occurrences),
     )
 
-    total_morphs: int = (
-        file_morphs_stats.total_known
-        + file_morphs_stats.total_learning
-        + file_morphs_stats.total_unknowns
-    )
 
-    # fmt: off
-    file_name_item = QTableWidgetItem(file_name)
-
-    unique_morphs_item = QTableWidgetIntegerItem(unique_morphs)
-    unique_known_item = QTableWidgetIntegerItem(len(file_morphs_stats.unique_known))
-    unique_learning_item = QTableWidgetIntegerItem(len(file_morphs_stats.unique_learning))
-    unique_unknowns_item = QTableWidgetIntegerItem(len(file_morphs_stats.unique_unknowns))
-
-    total_morphs_item = QTableWidgetIntegerItem(total_morphs)
-    total_known_item = QTableWidgetIntegerItem(file_morphs_stats.total_known)
-    total_learning_item = QTableWidgetIntegerItem(file_morphs_stats.total_learning)
-    total_unknown_item = QTableWidgetIntegerItem(file_morphs_stats.total_unknowns)
-
-    unique_morphs_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-    unique_known_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-    unique_learning_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-    unique_unknowns_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-
-    total_morphs_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-    total_known_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-    total_learning_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-    total_unknown_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-
-    ui.numericalTableWidget.setItem(row, Column.FILE_NAME.value, file_name_item)
-    ui.numericalTableWidget.setItem(row, Column.UNIQUE_MORPHS.value, unique_morphs_item)
-    ui.numericalTableWidget.setItem(row, Column.UNIQUE_KNOWN.value, unique_known_item)
-    ui.numericalTableWidget.setItem(row, Column.UNIQUE_LEARNING.value, unique_learning_item)
-    ui.numericalTableWidget.setItem(row, Column.UNIQUE_UNKNOWNS.value, unique_unknowns_item)
-    ui.numericalTableWidget.setItem(row, Column.TOTAL_MORPHS.value, total_morphs_item)
-    ui.numericalTableWidget.setItem(row, Column.TOTAL_KNOWN.value, total_known_item)
-    ui.numericalTableWidget.setItem(row, Column.TOTAL_LEARNING.value, total_learning_item)
-    ui.numericalTableWidget.setItem(row, Column.TOTAL_UNKNOWNS.value, total_unknown_item)
-    # fmt: on
-
-
-def _populate_percentage_table(  # pylint:disable=too-many-locals
+def _populate_percent_row(
     ui: Ui_GeneratorsWindow,
-    input_dir_root: Path,
-    input_file: Path,
     row: int,
-    file_morphs_stats: FileMorphsStats,
+    filename: str,
+    stats: FileEntryStats,
 ) -> None:
-    file_name = str(input_file.relative_to(input_dir_root))
+    filename_item = QTableWidgetItem(filename)
+    filename_item.setFlags(filename_item.flags() ^ Qt.ItemFlag.ItemIsEditable)
+    ui.percentTableWidget.setItem(row, PercentColumn.FILE_NAME.value, filename_item)
 
-    unique_morphs: int = (
-        len(file_morphs_stats.unique_known)
-        + len(file_morphs_stats.unique_learning)
-        + len(file_morphs_stats.unique_unknowns)
+    unique_total = max(stats.unique_entries, 1)
+    occurrences_total = max(stats.total_occurrences, 1)
+
+    reviewed_entries_percent = stats.unique_reviewed / unique_total * 100
+    unreviewed_entries_percent = stats.unique_unreviewed / unique_total * 100
+    reviewed_occurrences_percent = stats.reviewed_occurrences / occurrences_total * 100
+    unreviewed_occurrences_percent = stats.unreviewed_occurrences / occurrences_total * 100
+
+    ui.percentTableWidget.setItem(
+        row,
+        PercentColumn.REVIEWED_ENTRIES.value,
+        QTableWidgetPercentItem(reviewed_entries_percent),
     )
-
-    total_morphs: int = (
-        file_morphs_stats.total_known
-        + file_morphs_stats.total_learning
-        + file_morphs_stats.total_unknowns
+    ui.percentTableWidget.setItem(
+        row,
+        PercentColumn.UNREVIEWED_ENTRIES.value,
+        QTableWidgetPercentItem(unreviewed_entries_percent),
     )
-
-    unique_known_percent: float = 0
-    unique_learning_percent: float = 0
-    unique_unknown_percent: float = 0
-
-    total_known_percent: float = 0
-    total_learning_percent: float = 0
-    total_unknown_percent: float = 0
-
-    if unique_morphs != 0:
-        unique_known_percent = (
-            len(file_morphs_stats.unique_known) / unique_morphs
-        ) * 100
-
-        unique_learning_percent = (
-            len(file_morphs_stats.unique_learning) / unique_morphs
-        ) * 100
-
-        unique_unknown_percent = (
-            len(file_morphs_stats.unique_unknowns) / unique_morphs
-        ) * 100
-
-    if total_morphs != 0:
-        total_known_percent = (file_morphs_stats.total_known / total_morphs) * 100
-        total_learning_percent = (file_morphs_stats.total_learning / total_morphs) * 100
-        total_unknown_percent = (file_morphs_stats.total_unknowns / total_morphs) * 100
-
-    # fmt: off
-    file_name_item = QTableWidgetItem(file_name)
-
-    unique_morphs_item = QTableWidgetIntegerItem(unique_morphs)
-    unique_known_item = QTableWidgetPercentItem(round(unique_known_percent, 1))
-    unique_learning_item = QTableWidgetPercentItem(round(unique_learning_percent, 1))
-    unique_unknowns_item = QTableWidgetPercentItem(round(unique_unknown_percent, 1))
-
-    total_morphs_item = QTableWidgetIntegerItem(total_morphs)
-    total_known_item = QTableWidgetPercentItem(round(total_known_percent, 1))
-    total_learning_item = QTableWidgetPercentItem(round(total_learning_percent, 1))
-    total_unknown_item = QTableWidgetPercentItem(round(total_unknown_percent, 1))
-
-    unique_morphs_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-    unique_known_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-    unique_learning_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-    unique_unknowns_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-    total_morphs_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-    total_known_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-    total_learning_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-    total_unknown_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-
-    ui.percentTableWidget.setItem(row, Column.FILE_NAME.value, file_name_item)
-    ui.percentTableWidget.setItem(row, Column.UNIQUE_MORPHS.value, unique_morphs_item)
-    ui.percentTableWidget.setItem(row, Column.UNIQUE_KNOWN.value, unique_known_item)
-    ui.percentTableWidget.setItem(row, Column.UNIQUE_LEARNING.value, unique_learning_item)
-    ui.percentTableWidget.setItem(row, Column.UNIQUE_UNKNOWNS.value, unique_unknowns_item)
-    ui.percentTableWidget.setItem(row, Column.TOTAL_MORPHS.value, total_morphs_item)
-    ui.percentTableWidget.setItem(row, Column.TOTAL_KNOWN.value, total_known_item)
-    ui.percentTableWidget.setItem(row, Column.TOTAL_LEARNING.value, total_learning_item)
-    ui.percentTableWidget.setItem(row, Column.TOTAL_UNKNOWNS.value, total_unknown_item)
-    # fmt: on
-
-
-def _add_total_row_to_tables(
-    ui: Ui_GeneratorsWindow,
-    input_dir_root: Path,
-    input_files: list[Path],
-    global_report_morph_stats: FileMorphsStats,
-) -> None:
-    fake_input_file = Path(input_dir_root, "Total")
-
-    _populate_numerical_table(
-        ui=ui,
-        input_dir_root=input_dir_root,
-        input_file=fake_input_file,
-        row=len(input_files),
-        file_morphs_stats=global_report_morph_stats,
+    ui.percentTableWidget.setItem(
+        row,
+        PercentColumn.REVIEWED_OCCURRENCES.value,
+        QTableWidgetPercentItem(reviewed_occurrences_percent),
     )
-    _populate_percentage_table(
-        ui=ui,
-        input_dir_root=input_dir_root,
-        input_file=fake_input_file,
-        row=len(input_files),
-        file_morphs_stats=global_report_morph_stats,
+    ui.percentTableWidget.setItem(
+        row,
+        PercentColumn.UNREVIEWED_OCCURRENCES.value,
+        QTableWidgetPercentItem(unreviewed_occurrences_percent),
     )

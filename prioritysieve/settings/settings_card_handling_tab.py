@@ -27,9 +27,6 @@ class CardHandlingTab(SettingsTab):
         super().__init__(parent, ui, config, default_config)
 
         self._raw_config_key_to_check_box: dict[str, QCheckBox] = {
-            RawConfigKeys.SKIP_NO_UNKNOWN_MORPHS: self.ui.skipNoUnKnownMorphsCheckBox,
-            RawConfigKeys.SKIP_UNKNOWN_MORPH_SEEN_TODAY_CARDS: self.ui.skipAlreadySeenCheckBox,
-            RawConfigKeys.SKIP_SHOW_NUM_OF_SKIPPED_CARDS: self.ui.skipNotificationsCheckBox,
             RawConfigKeys.AUTO_SUSPEND_UNLISTED_ENTRIES: self.ui.autoSuspendUnlistedEntriesCheckBox,
         }
 
@@ -227,4 +224,4 @@ class CardHandlingTab(SettingsTab):
         return sorted(deck_names)
 
     def get_confirmation_text(self) -> str:
-        return "Are you sure you want to restore default skip settings?"
+        return "Are you sure you want to restore default card handling settings?"

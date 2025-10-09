@@ -1,188 +1,150 @@
 from __future__ import annotations
 
+from typing import Any
+
+import pytest
+
+from prioritysieve.entry_db import StoredEntry
+from prioritysieve.progression.progression_window import ProgressionWindow
+
 from test.fake_environment_module import (  # pylint:disable=unused-import
     FakeEnvironment,
     FakeEnvironmentParams,
     fake_environment_fixture,
 )
-from typing import Any
 
-import pytest
-from aqt.qt import QTableWidgetItem  # pylint:disable=no-name-in-module
+SAMPLE_PRIORITY_FILES = ["Collection frequency"]
+SAMPLE_PRIORITY_MAP = {
+    "Collection frequency": {
+        ("alpha", "-"): 1,
+        ("beta", "-"): 2,
+        ("gamma", "-"): 3,
+    }
+}
+SAMPLE_ENTRIES = [
+    StoredEntry(text="alpha", reading="-", reviewed=True),
+    StoredEntry(text="beta", reading="-", reviewed=False),
+]
 
-from prioritysieve.progression.progression_window import ProgressionWindow
-
-################################################################
-# Checks if progression is properly reported with a specified
-# db/collection and the various evaluation/statistics options;
-# various table entries are checked.
-################################################################
-
-case_big_japanese_collection_params = FakeEnvironmentParams(
-    actual_col="big_japanese_collection",
-    expected_col="big_japanese_collection",
-    am_db="big_japanese_collection.db",
-)
-
-case_some_studied_japanese_params = FakeEnvironmentParams(
-    actual_col="some_studied_japanese_collection",
-    expected_col="some_studied_japanese_collection",
-    am_db="some_studied_japanese.db",
-)
+default_fake_environment = FakeEnvironmentParams()
 
 
 @pytest.mark.parametrize(
-    "fake_environment_fixture, evaluate_lemmas, priority_mode,"  # inputs
-    "cumulative, min_priority, max_priority, bin_size,"  # inputs
-    "k_priority_range, k_unique_morphs, k_total_known,"  # knowns
-    "k_percent_unknown, k_lemma_list, k_inflection_list,"  # knowns
-    "k_morph_statuses",  # knowns
+    "fake_environment_fixture, priority_mode, cumulative, min_priority, max_priority, bin_size, "
+    "k_priority_range, k_unique_entries, k_total_reviewed, k_percent_missing, "
+    "k_entry_texts, k_entry_readings, k_statuses",
     [
         (
-            case_big_japanese_collection_params,  # fake_environment_fixture
-            True,  # evaluate_lemmas
-            "Collection frequency",  # priority_mode
-            False,  # cumulative
-            1,  # min_priority
-            50000,  # max_priority
-            500,  # bin_size
-            "11501-12000",  # k_priority_range
-            357,  # k_unique_morphs
-            0,  # k_total_known
-            "100.0 %",  # k_percent_unknown
-            ["の", "は", "た"],  # k_lemma_list
-            ["-", "-", "-"],  # k_inflection_list
-            ["unknown", "unknown", "unknown"],  # k_morph_statuses
+            default_fake_environment,
+            "Collection frequency",
+            False,
+            1,
+            3,
+            2,
+            "1-3",
+            3,
+            1,
+            "33.4 %",
+            ["alpha", "beta", "gamma"],
+            ["-", "-", "-"],
+            ["reviewed", "pending", "missing"],
         ),
         (
-            case_big_japanese_collection_params,  # fake_environment_fixture
-            False,  # evaluate_lemmas
-            "Collection frequency",  # priority_mode
-            True,  # cumulative
-            1001,  # min_priority
-            1500,  # max_priority
-            1600,  # bin_size
-            "1001-1500",  # k_priority_range
-            500,  # k_unique_morphs
-            0,  # k_total_known
-            "100.0 %",  # k_percent_unknown
-            ["難しい", "面白い", "頑張る"],  # k_lemma_list
-            ["難しい", "面白い", "頑張れ"],  # k_inflection_list
-            ["unknown", "unknown", "unknown"],  # k_morph_statuses
-        ),
-        (
-            case_some_studied_japanese_params,  # fake_environment_fixture
-            True,  # evaluate_lemmas
-            "ja_core_news_sm_freq_inflection_min_occurrence.csv",  # priority_mode
-            False,  # cumulative
-            1,  # min_priority
-            500,  # max_priority
-            100,  # bin_size
-            "401-500",  # k_priority_range
-            100,  # k_unique_morphs
-            4,  # k_total_known
-            "0.0 %",  # k_percent_unknown
-            ["の", "に", "は"],  # k_lemma_list
-            ["-", "-", "-"],  # k_inflection_list
-            ["missing", "missing", "learning"],  # k_morph_statuses
-        ),
-        (
-            case_some_studied_japanese_params,  # fake_environment_fixture
-            False,  # evaluate_lemmas
-            "ja_core_news_sm_freq_inflection_min_occurrence.csv",  # priority_mode
-            True,  # cumulative
-            1,  # min_priority
-            10,  # max_priority
-            100,  # bin_size
-            "1-10",  # k_priority_range
-            10,  # k_unique_morphs
-            0,  # k_total_known
-            "0.0 %",  # k_percent_unknown
-            ["だ", "に", "は"],  # k_lemma_list
-            ["だ", "に", "は"],  # k_inflection_list
-            ["missing", "missing", "learning"],  # k_morph_statuses
+            default_fake_environment,
+            "Collection frequency",
+            True,
+            1,
+            3,
+            2,
+            "1-3",
+            3,
+            1,
+            "33.4 %",
+            ["alpha", "beta", "gamma"],
+            ["-", "-", "-"],
+            ["reviewed", "pending", "missing"],
         ),
     ],
     indirect=["fake_environment_fixture"],
 )
-def test_progression(  # pylint:disable=too-many-arguments, unused-argument, too-many-locals too-many-statements
-    fake_environment_fixture: FakeEnvironment,
-    evaluate_lemmas: bool,
+def test_progression(
+    fake_environment_fixture: FakeEnvironment,  # pylint:disable=unused-argument
     priority_mode: str,
     cumulative: bool,
     min_priority: int,
     max_priority: int,
     bin_size: int,
     k_priority_range: str,
-    k_unique_morphs: int,
-    k_total_known: int,
-    k_percent_unknown: str,
-    k_lemma_list: list[str],
-    k_inflection_list: list[str],
-    k_morph_statuses: list[str],
-    qtbot: Any,
+    k_unique_entries: int,
+    k_total_reviewed: int,
+    k_percent_missing: str,
+    k_entry_texts: list[str],
+    k_entry_readings: list[str],
+    k_statuses: list[str],
+    qtbot: Any,  # pylint:disable=unused-argument
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    class DummyEntryDB:
+        def __enter__(self) -> DummyEntryDB:
+            return self
 
-    # Set window and options
+        def __exit__(self, exc_type, exc_value, traceback) -> None:  # noqa: D401
+            return None
+
+        def get_entries(self) -> list[StoredEntry]:
+            return SAMPLE_ENTRIES
+
+    def fake_available_priority_files() -> list[str]:
+        return SAMPLE_PRIORITY_FILES.copy()
+
+    def fake_load_priority_map(
+        priority_files: list[str] | str,
+    ) -> dict[tuple[str, str], int]:
+        if isinstance(priority_files, str):
+            key = priority_files
+        else:
+            key = priority_files[0] if priority_files else ""
+        return SAMPLE_PRIORITY_MAP.get(key, {}).copy()
+
+    monkeypatch.setattr(
+        "prioritysieve.progression.progression_window.EntryDB",
+        lambda: DummyEntryDB(),
+    )
+    monkeypatch.setattr(
+        "prioritysieve.progression.progression_window.available_priority_files",
+        fake_available_priority_files,
+    )
+    monkeypatch.setattr(
+        "prioritysieve.progression.progression_window.load_priority_map",
+        fake_load_priority_map,
+    )
+
     pw = ProgressionWindow()
-    pw.ui.lemmaRadioButton.setChecked(evaluate_lemmas)
-    pw.ui.inflectionRadioButton.setChecked(not evaluate_lemmas)
-    pw.ui.morphPriorityCBox.setCurrentText(priority_mode)
+    pw.ui.priorityFileComboBox.setCurrentText(priority_mode)
     pw.ui.cumulativeRadioButton.setChecked(cumulative)
     pw.ui.minPrioritySpinBox.setValue(min_priority)
     pw.ui.maxPrioritySpinBox.setValue(max_priority)
     pw.ui.binSizeSpinBox.setValue(bin_size)
 
-    # Calculate progress
-    pw._background_process_and_populate_tables()
+    pw._background_process_and_populate_tables()  # pylint:disable=protected-access
 
-    # Compare to known output
-    _item: QTableWidgetItem | None
+    last_row = pw.ui.numericalTableWidget.rowCount() - 1
 
-    _row = pw.ui.numericalTableWidget.rowCount() - 1
-    _column = 0
-    _item = pw.ui.numericalTableWidget.item(_row, _column)
-    assert _item is not None
-    assert _item.text() == k_priority_range
+    assert pw.ui.numericalTableWidget.item(last_row, 0).text() == k_priority_range
+    assert int(pw.ui.numericalTableWidget.item(last_row, 1).text()) == k_unique_entries
+    assert int(pw.ui.numericalTableWidget.item(0, 2).text()) == k_total_reviewed
+    assert pw.ui.percentTableWidget.item(0, 4).text() == k_percent_missing
 
-    _row = pw.ui.numericalTableWidget.rowCount() - 1
-    _column = 1
-    _item = pw.ui.numericalTableWidget.item(_row, _column)
-    assert _item is not None
-    assert int(_item.text()) == k_unique_morphs
+    observed_texts = [
+        pw.ui.entryTableWidget.item(row, 1).text() for row in range(3)
+    ]
+    observed_readings = [
+        pw.ui.entryTableWidget.item(row, 2).text() for row in range(3)
+    ]
+    observed_statuses = [
+        pw.ui.entryTableWidget.item(row, 3).text() for row in range(3)
+    ]
 
-    _row = 0
-    _column = 2
-    _item = pw.ui.numericalTableWidget.item(_row, _column)
-    assert _item is not None
-    assert int(_item.text()) == k_total_known
-
-    _row = 0
-    _column = 4
-    _item = pw.ui.percentTableWidget.item(_row, _column)
-    assert _item is not None
-    assert _item.text() == k_percent_unknown
-
-    _lemma_list: list[str] = []
-    for _row in [0, 1, 2]:
-        _column = 1
-        _item = pw.ui.morphTableWidget.item(_row, _column)
-        assert _item is not None
-        _lemma_list.append(_item.text())
-    assert _lemma_list == k_lemma_list
-
-    _inflection_list: list[str] = []
-    for _row in [0, 1, 2]:
-        _column = 2
-        _item = pw.ui.morphTableWidget.item(_row, _column)
-        assert _item is not None
-        _inflection_list.append(_item.text())
-    assert _inflection_list == k_inflection_list
-
-    _morph_statuses: list[str] = []
-    for _row in [0, 1, 2]:
-        _column = 3
-        _item = pw.ui.morphTableWidget.item(_row, _column)
-        assert _item is not None
-        _morph_statuses.append(_item.text())
-    assert _morph_statuses == k_morph_statuses
+    assert observed_texts == k_entry_texts
+    assert observed_readings == k_entry_readings
+    assert observed_statuses == k_statuses

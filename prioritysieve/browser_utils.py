@@ -8,27 +8,21 @@ from anki.notes import Note
 from anki.utils import ids2str
 from aqt import dialogs, mw
 from aqt.browser.browser import Browser
-from aqt.qt import (  # pylint:disable=no-name-in-module
-    QAbstractItemView,
-    QDialog,
-    QLineEdit,
-    QTableWidgetItem,
-)
+from aqt.qt import QLineEdit  # pylint:disable=no-name-in-module
 from aqt.reviewer import RefreshNeeded
 from aqt.utils import tooltip
 
 from . import prioritysieve_config, prioritysieve_globals
 from .prioritysieve_config import PrioritySieveConfig, PrioritySieveConfigFilter
-from .prioritysieve_db import PrioritySieveDB
+from .entry_db import EntryDB
 from .anki_op_utils import notify_op_execution
-from .ui.view_morphs_dialog_ui import Ui_ViewMorphsDialog
 
 browser: Browser | None = None
 
 
-def run_browse_morph(
+def run_browse_entry(
     search_unknowns: bool = False,
-    search_lemma_only: bool = False,
+    match_text_only: bool = False,
 ) -> None:
     assert mw is not None
     assert browser is not None
@@ -40,29 +34,28 @@ def run_browse_morph(
 
     card = mw.col.get_card(card_id)
     note = card.note()
-    browse_same_morphs(
+    browse_same_entries(
         am_config,
         card_id=card_id,
         note=note,
         search_unknowns=search_unknowns,
-        search_lemma_only=search_lemma_only,
+        match_text_only=match_text_only,
     )
 
 
-def browse_same_morphs(  # pylint:disable=too-many-arguments
+def browse_same_entries(  # pylint:disable=too-many-arguments
     am_config: PrioritySieveConfig,
     card_id: CardId | None = None,
     note: Note | None = None,
     search_unknowns: bool = False,
     search_ready_tag: bool = False,
-    search_lemma_only: bool = False,
+    match_text_only: bool = False,
 ) -> None:
-    # Opens browser and displays all notes with the same focus morph.
+    # Opens browser and displays all notes with the same focus entry.
     # Useful to quickly find alternative notes to learn focus from.
     #
-    # The query is a list of card ids. This might seem unnecessarily complicated, but
-    # if we were to only query the text on the cards themselves, we can get false positives
-    # because inflected morphs with different bases (lemmas) can be identical to each-other.
+    # The query is a list of card ids so we precisely target the stored entry metadata,
+    # avoiding false positives that could arise from identical display text with different readings.
 
     global browser
     assert mw is not None
@@ -77,7 +70,6 @@ def browse_same_morphs(  # pylint:disable=too-many-arguments
         assert mw.reviewer.card is not None
         note = mw.reviewer.card.note()
 
-    am_db = PrioritySieveDB()
     am_filter = prioritysieve_config.get_matching_read_filter(note)
 
     if am_filter is None:
@@ -86,35 +78,24 @@ def browse_same_morphs(  # pylint:disable=too-many-arguments
         )
         return
 
-    card_ids: set[CardId] | None
+    include_reviewed = not search_unknowns
+    lookup_text_only = match_text_only
 
-    # These branches are simplified by the fact that we have not exhaustively
-    # added all combinations of known/unknown and inflection/lemma.
-    # If someone searched for lemma only, then they also are only searching
-    # through unknowns.
-    #
-    # It's implemented in a non-exhaustive manner like this mainly because
-    # the menus get cluttered and the modifier keys combinations get unwieldy.
+    with EntryDB() as entry_db:
+        entry = entry_db.get_entry_for_card(card_id)
+        if entry is None:
+            tooltip("Run PrioritySieve → Recalc before browsing matching entries.")
+            return
 
-    if search_lemma_only:
-        card_ids = am_db.get_ids_of_cards_with_same_morphs(
-            card_id,
-            search_unknowns=True,
-            search_lemma_only=True,
+        matching_ids = entry_db.get_card_ids_for_entry(
+            entry,
+            include_reviewed=include_reviewed,
+            text_only=lookup_text_only,
         )
-        error_text = "No unknown entries"
-    elif search_unknowns:
-        # only matches morph inflections
-        card_ids = am_db.get_ids_of_cards_with_same_morphs(
-            card_id, search_unknowns=True
-        )
-        error_text = "No unknown entries"
-    else:
-        # only matches morph inflections
-        card_ids = am_db.get_ids_of_cards_with_same_morphs(card_id)
-        error_text = "No entries"
 
-    if card_ids is None:
+    card_ids: set[CardId] = {CardId(cid) for cid in matching_ids}
+    if not card_ids:
+        error_text = "No entries" if include_reviewed else "No unknown entries"
         tooltip(error_text)
         return
 
@@ -183,12 +164,6 @@ def run_learn_card_now() -> None:
         f"select distinct nid from cards where id in {ids2str(selected_cards)}"
     )
 
-    # We give the cards the 'learn-now' tag to make sure that they are
-    # not skipped, even if other skip conditions are met.
-    # Note: this is done in SkippedCards.process_skip_conditions_of_card()
-    tag_changes = mw.col.tags.bulk_add(note_ids, am_config.tag_learn_card_now)
-    notify_op_execution(tag_changes)
-
     reposition_changes = mw.col.sched.reposition_new_cards(
         selected_cards,
         starting_from=0,
@@ -207,57 +182,4 @@ def run_learn_card_now() -> None:
 
 
 def run_view_morphs() -> None:  # pylint:disable=too-many-locals
-    assert mw is not None
-    assert browser is not None
-
-    am_db = PrioritySieveDB()
-
-    for cid in browser.selectedCards():
-        card = mw.col.get_card(cid)
-        note = card.note()
-
-        am_config_filter: PrioritySieveConfigFilter | None = (
-            prioritysieve_config.get_matching_read_filter(note)
-        )
-        if am_config_filter is None:
-            tooltip("Card does not match any 'Note Filters' that has 'Read' enabled")
-            return
-
-        morphs: list[tuple[str, str, str]] = am_db.get_readable_card_morphs(cid)
-
-        if len(morphs) == 0:
-            tooltip("No entries found")
-        else:
-            dialog = QDialog(parent=None)
-            ui = Ui_ViewMorphsDialog()
-            ui.setupUi(dialog)  # type: ignore[no-untyped-call]
-
-            ui.tableWidget.setAlternatingRowColors(True)
-            ui.tableWidget.setRowCount(len(morphs))
-            ui.tableWidget.setColumnCount(3)
-
-            # disables manual editing of the table
-            ui.tableWidget.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-
-            ui.tableWidget.setHorizontalHeaderLabels(
-                ["Inflection", "Lemma", "Reading"]
-            )
-
-            inflection_column = 0
-            lemma_column = 1
-            reading_column = 2
-
-            for row, morph in enumerate(morphs):
-                inflection = morph[1]
-                lemma = morph[0]
-                reading = morph[2]
-
-                inflection_item = QTableWidgetItem(inflection)
-                lemma_item = QTableWidgetItem(lemma)
-                reading_item = QTableWidgetItem(reading)
-
-                ui.tableWidget.setItem(row, inflection_column, inflection_item)
-                ui.tableWidget.setItem(row, lemma_column, lemma_item)
-                ui.tableWidget.setItem(row, reading_column, reading_item)
-
-            dialog.exec()
+    tooltip("Entry breakdown view is no longer available.")

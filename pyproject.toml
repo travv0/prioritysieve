@@ -55,7 +55,6 @@ filterwarnings = [
 # pytest-randomly: randomly order tests and control random.seed.
 # pytest-cov: test coverage
 # - use "pytest --randomly-seed=xxxxxxx" to repeate failing seeds
-required_plugins = "pytest-qt pytest-xvfb pytest-expect pytest-sugar pytest-randomly pytest-cov"
 # xfail_strict = True: tests marked with @pytest.mark.xfail that actually succeed will by default fail the test suite
 xfail_strict = "True"
 # addopts: set of command line arguments as if they had been specified by the user
@@ -70,7 +69,6 @@ addopts = "--strict-markers --durations=5 --maxfail=1000000"
 markers = [
   "slow",
   "recalc",
-  "external_morphemizers",
   "should_cause_exception",
   "debug"
 ]
@@ -81,8 +79,6 @@ exclude = [
   "prioritysieve/ui/",
   "prioritysieve/debug_utils.py",
   "prioritysieve/table_utils.py",
-  "prioritysieve/morphemizers/spacy_wrapper.py",
-  "prioritysieve/morphemizers/mecab_wrapper.py"
 ]
 ignore_names = [
   "print_*",
@@ -91,10 +87,30 @@ ignore_names = [
   "reopen",
   "closeWithCallback",
   "closeEvent",
-  "toolbar_stats_use_seen",
   "extra_fields_display_lemmas",
   "min_occurrence",
 ]
 min_confidence = 60
 sort_by_size = true
 verbose = false
+
+[tool.coverage.run]
+source = ["prioritysieve"]
+omit = [
+  "prioritysieve/ui/*",
+  "prioritysieve/settings/*",
+  "prioritysieve/debug_utils.py",
+  "prioritysieve/tag_selection_dialog.py",
+  "prioritysieve/toolbar_stats.py",
+  "prioritysieve/extra_settings/prioritysieve_extra_settings.py",
+  "prioritysieve/message_box_utils.py",
+  "prioritysieve/__init__.py",
+  "prioritysieve/recalc/*",
+  "prioritysieve/generators/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "if __name__ == .__main__.:",
+]

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from aqt import mw
 from aqt.qt import (  # pylint:disable=no-name-in-module
     QMessageBox,
     QPushButton,
@@ -70,7 +71,7 @@ def show_discard_message_box(title: str, body: str, parent: QWidget) -> bool:
     return False
 
 
-def show_error_box(title: str, body: str, parent: QWidget) -> int:
+def show_error_box(title: str, body: str, parent: QWidget | None) -> int:
     critical_box = QMessageBox(parent)
     critical_box.setWindowTitle(title)
     critical_box.setIcon(QMessageBox.Icon.Critical)
@@ -79,6 +80,11 @@ def show_error_box(title: str, body: str, parent: QWidget) -> int:
     critical_box.setTextFormat(Qt.TextFormat.RichText)
     answer: int = critical_box.exec()
     return answer
+
+
+def show_critical_error_box(title: str, body: str) -> int:
+    parent: QWidget | None = mw
+    return show_error_box(title, body, parent=parent)
 
 
 def confirm_new_extra_fields_selection(parent: QWidget) -> bool:

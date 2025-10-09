@@ -13,8 +13,7 @@ Each note filter contains:
 * [Note Type](note-filter.md#note-type)
 * [Tags](note-filter.md#tags) (optional)
 * [Field](note-filter.md#field)
-* [Morphemizer](note-filter.md#morphemizer)
-* [Morph Priority](note-filter.md#morph-priority)
+* [Priority Files](note-filter.md#priority-files)
 * [Read & Modify](note-filter.md#read--modify) (optional)
 
 ## Note Type
@@ -84,42 +83,21 @@ This is the field on the card PrioritySieve reads and analyzes, which is then us
 
 In my case the field I'm interested in is `Japanese`
 
-> **Note**: Fields with complete sentences are preferable over fields that only have isolated words. The more context 
-> the morphemizers are given, the less likely they are to produce false positives.
+> **Note**: Choose a field that already contains the exact expression you want to track. PrioritySieve now treats the
+> entire field as a single entry, so make sure it holds the text (and optional reading) you want to drive scheduling.
 
-## Morphemizer
+## Priority Files
 
-This is the tool PrioritySieve uses to split text into morphs. See the [installation section](../../installation.md) for 
-how to add morphemizers. 
+The calculated [score](../../usage/recalc.md#scoring-algorithm) of the card—and therefore its scheduling—depends on the
+[priority](../prioritizing.md) assigned to each entry. You can either set the priorities to be `Collection
+frequency` (how often the entry appears in your collection) or use a [custom priority file](../prioritizing.md#custom-priority-files)
+that specifies priorities for each entry you care about.
 
-![morphemizer-selection.png](../../../img/morphemizer-selection.png)
-
-
-### “(none)” option
-Leaving the morphemizer as `(none)` skips external analysers and treats the entire (preprocessed) field as a single morph. This is useful when you already have hand-crafted segments or want the raw field contents tracked without additional tokenization.
-
-
-### Simple Space Splitter
-As the name suggests, this morphemizer just splits words based on whitespace and does not perform any
-linguistic analysis, meaning they won't provide accurate [lemmas](../../glossary.md#lemma). You should only
-use this if no other morphemizers are available for your particular target language.
-
-If you use this morphemizer, punctuation and other unwanted characters will likely be included in the morphs. To fix this,
-you can specify custom characters to ignore in [the preprocess settings](preprocess.md).
-
-
-## Morph Priority
-
-The calculated [score](../../usage/recalc.md#scoring-algorithm) of the card, and as a result, the sorting of the card, depends on
-the [priority](../prioritizing.md) you give the morphs. You can either set the priorities to be `Collection frequency` (how often the
-morphs occur in your card collection), or you could use a [custom priority file](../prioritizing.md#custom-priority-files) that specifies the priorities of
-the morphs.
-
-PrioritySieve automatically finds `.csv` files placed
-in [[anki profile folder](../../glossary.md#profile-folder)]`/priority-files/`.
+PrioritySieve automatically loads `.csv` files placed in
+[[anki profile folder](../../glossary.md#profile-folder)]`/prioritysieve-priority-files/`.
 
 > **Note:** using `Collection frequency` is not recommended because it can be volatile; if you make any changes to your
-> cards (delete, suspend, move, etc.), then a cascade of sorting changes can occur.
+> cards (delete, suspend, move, etc.), a cascade of sorting changes can occur.
 
 ## Read & Modify
 
@@ -127,7 +105,7 @@ If, for whatever reason, you don't want PrioritySieve to read one of the note fi
 can uncheck the `Read` option.
 
 If you uncheck `Modify`, PrioritySieve will analyze the
-specified fields of cards (and update the database of known morphs based on them), but won’t reorder
+specified fields of cards (and update the database of known entries based on them), but won’t reorder
 or change the cards in any way.
 
 <br>

@@ -1,178 +1,79 @@
 from __future__ import annotations
 
 import csv
-from functools import partial
 from pathlib import Path
 
 from aqt import mw
 
-from .. import prioritysieve_globals as am_globals
-from ..morpheme import MorphOccurrence
-from ..reading_utils import normalize_reading
-from ..morphemizers.morphemizer import Morphemizer
-from ..ui.generators_window_ui import Ui_GeneratorsWindow
+from ..prioritysieve_globals import PRIORITY_FILES_DIR_NAME
 from . import generators_utils
 from .generators_output_dialog import OutputOptions
 
 
 def background_generate_priority_file(
     selected_output_options: OutputOptions,
-    ui: Ui_GeneratorsWindow,
-    morphemizers: list[Morphemizer],
     input_dir_root: Path,
     input_files: list[Path],
 ) -> None:
     assert mw is not None
 
+    if not input_files:
+        return
+
     mw.progress.start(label="Generating priority file")
 
-    # pylint: disable=duplicate-code
-    morph_occurrences_by_file: dict[
-        Path, dict[tuple[str, str, str], MorphOccurrence]
-    ] = (
-        generators_utils.generate_morph_occurrences_by_file(
-            ui=ui,
-            morphemizers=morphemizers,
-            input_dir_root=input_dir_root,
-            input_files=input_files,
-        )
-    )
-    # pylint: enable=duplicate-code
+    entries_by_file = generators_utils.read_entries_for_files(input_files)
+    combined = generators_utils.build_global_aggregates(entries_by_file)
+    sorted_aggregates = generators_utils.sort_aggregates_desc(combined)
 
-    mw.taskman.run_on_main(
-        partial(
-            mw.progress.update,
-            label="Sorting morphs",
-        )
-    )
-
-    # key: lemma + inflection
-    total_morph_occurrences: dict[str, MorphOccurrence] = (
-        generators_utils.get_total_morph_occurrences_dict(morph_occurrences_by_file)
-    )
-
-    write_out_priority_file(selected_output_options, total_morph_occurrences)
-
-
-def write_out_priority_file(
-    selected_output_options: OutputOptions,
-    total_morph_occurrences: dict[tuple[str, str, str], MorphOccurrence],
-) -> None:
-
-    output_file: Path = selected_output_options.output_path
-
-    # make sure the parent dirs exist before creating the file
-    Path(output_file).parent.mkdir(parents=True, exist_ok=True)
-
-    if selected_output_options.store_only_lemma:
-        lemma_only_writer(
-            selected_output_options=selected_output_options,
-            total_morph_occurrences=total_morph_occurrences,
+    if selected_output_options.comprehension_selected:
+        cutoff = generators_utils.comprehension_cutoff_index(
+            sorted_aggregates,
+            selected_output_options.comprehension_threshold,
         )
     else:
-        lemma_and_inflection_writer(
-            selected_output_options=selected_output_options,
-            total_morph_occurrences=total_morph_occurrences,
+        cutoff = generators_utils.min_occurrence_cutoff_index(
+            sorted_aggregates,
+            selected_output_options.min_occurrence_threshold,
         )
 
+    if cutoff > len(sorted_aggregates):
+        cutoff = len(sorted_aggregates)
 
-def lemma_and_inflection_writer(  # pylint:disable=too-many-locals
+    entries_to_write = sorted_aggregates[:cutoff]
+    _write_priority_file(selected_output_options, entries_to_write)
+
+
+def _write_priority_file(
     selected_output_options: OutputOptions,
-    total_morph_occurrences: dict[tuple[str, str, str], MorphOccurrence],
+    aggregates: list[generators_utils.EntryAggregate],
 ) -> None:
     output_file: Path = selected_output_options.output_path
+    if not output_file.name.endswith(".csv"):
+        output_file = output_file.with_suffix(".csv")
 
-    headers = [
-        am_globals.LEMMA_HEADER,
-        am_globals.INFLECTION_HEADER,
-        am_globals.LEMMA_PRIORITY_HEADER,
-        am_globals.INFLECTION_PRIORITY_HEADER,
-    ]
+    if not output_file.parent.is_absolute():
+        assert mw is not None
+        output_file = Path(mw.pm.profileFolder()) / PRIORITY_FILES_DIR_NAME / output_file.name
 
-    sorted_inflection_occurrences = dict(
-        sorted(
-            total_morph_occurrences.items(),
-            key=lambda item: item[1].occurrence,
-            reverse=True,
-        )
-    )
+    output_file.parent.mkdir(parents=True, exist_ok=True)
 
-    sorted_lemma_occurrences: dict[tuple[str, str, str], MorphOccurrence] = (
-        generators_utils.get_sorted_lemma_occurrence_dict(total_morph_occurrences)
-    )
-    sorted_index_replaced_lemma_dict: dict[tuple[str, str, str], int] = {
-        lemma_key: index
-        for index, lemma_key in enumerate(sorted_lemma_occurrences)
-    }
+    headers = ["Entry"]
+    if selected_output_options.include_reading:
+        headers.append("Reading")
+    headers.append("Priority")
+    if selected_output_options.include_occurrences_column:
+        headers.append("Occurrences")
 
-    if selected_output_options.selected_extra_occurrences_column:
-        headers.append("Occurrence")
+    with output_file.open(mode="w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(headers)
 
-    morph_key_cutoff = generators_utils.get_morph_key_cutoff(
-        selected_output_options, sorted_inflection_occurrences
-    )
-
-    with open(output_file, mode="w+", encoding="utf-8", newline="") as csvfile:
-        morph_writer = csv.writer(csvfile)
-        morph_writer.writerow(headers)
-
-        for index, (key, morph_occurrence) in enumerate(
-            sorted_inflection_occurrences.items()
-        ):
-            if key == morph_key_cutoff:
-                break
-
-            morph = morph_occurrence.morph
-            occurrence = morph_occurrence.occurrence
-            row_values: list[str | int] = [morph.lemma]
-
-            if selected_output_options.store_lemma_and_inflection:
-                row_values.append(morph.inflection)
-                lemma_key = (
-                    morph.lemma,
-                    morph.lemma,
-                    normalize_reading(morph.reading),
-                )
-                row_values.append(sorted_index_replaced_lemma_dict.get(lemma_key, index))
-                row_values.append(index)
-
-            if selected_output_options.selected_extra_occurrences_column:
-                row_values.append(occurrence)
-
-            morph_writer.writerow(row_values)
-
-
-def lemma_only_writer(
-    selected_output_options: OutputOptions,
-    total_morph_occurrences: dict[tuple[str, str, str], MorphOccurrence],
-) -> None:
-    output_file: Path = selected_output_options.output_path
-
-    headers = [am_globals.LEMMA_HEADER]
-
-    if selected_output_options.selected_extra_occurrences_column:
-        headers.append(am_globals.OCCURRENCES_HEADER)
-
-    sorted_lemma_occurrences: dict[str, MorphOccurrence] = (
-        generators_utils.get_sorted_lemma_occurrence_dict(total_morph_occurrences)
-    )
-    morph_key_cutoff = generators_utils.get_morph_key_cutoff(
-        selected_output_options, sorted_lemma_occurrences
-    )
-
-    with open(output_file, mode="w+", encoding="utf-8", newline="") as csvfile:
-        morph_writer = csv.writer(csvfile)
-        morph_writer.writerow(headers)
-
-        for key, morph_occurrence in sorted_lemma_occurrences.items():
-            if key == morph_key_cutoff:
-                break
-
-            morph = morph_occurrence.morph
-            occurrence = morph_occurrence.occurrence
-            row_values: list[str | int] = [morph.lemma]
-
-            if selected_output_options.selected_extra_occurrences_column:
-                row_values.append(occurrence)
-
-            morph_writer.writerow(row_values)
+        for priority, aggregate in enumerate(aggregates):
+            row: list[str | int] = [aggregate.text]
+            if selected_output_options.include_reading:
+                row.append(aggregate.reading)
+            row.append(priority)
+            if selected_output_options.include_occurrences_column:
+                row.append(aggregate.occurrences)
+            writer.writerow(row)

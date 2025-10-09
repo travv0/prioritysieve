@@ -14,16 +14,11 @@ import json
 import sqlite3
 from functools import partial
 from pathlib import Path
-from typing import Literal
-
 import aqt
 from anki import hooks
-from anki.cards import Card
-from anki.collection import OpChangesAfterUndo
 from anki.utils import ids2str
 from aqt import gui_hooks, mw
 from aqt.browser.browser import Browser
-from aqt.overview import Overview
 from aqt.qt import (  # pylint:disable=no-name-in-module
     QAction,
     QDesktopServices,
@@ -39,42 +34,33 @@ from aqt.qt import (  # pylint:disable=no-name-in-module
     QUrl,
     QVBoxLayout,
 )
-from aqt.reviewer import Reviewer
 from aqt.toolbar import Toolbar
 from aqt.utils import tooltip
 from aqt.webview import AnkiWebView
 
-from . import (
-    prioritysieve_config,
-)
+from . import prioritysieve_config
 from . import prioritysieve_globals as ps_globals
 from . import (
     browser_utils,
     debug_utils,
     message_box_utils,
     priority_gap_utils,
-    morph_priority_utils,
     name_file_utils,
-    reviewing_utils,
     tags_and_queue_utils,
     text_preprocessing,
     toolbar_stats,
 )
+from .entry_db import EntryDB
 from .prioritysieve_config import PrioritySieveConfig, PrioritySieveConfigFilter
-from .prioritysieve_db import PrioritySieveDB
 from .extra_settings import prioritysieve_extra_settings, extra_settings_keys
 from .extra_settings.prioritysieve_extra_settings import PrioritySieveExtraSettings
-from .generators.generators_window import GeneratorWindow
-from .highlighting.highlight_just_in_time import highlight_morphs_jit
-from .known_morphs_exporter import KnownMorphsExporterDialog
-from .morphemizers import spacy_wrapper
-from .progression.progression_window import ProgressionWindow
 from .reading_utils import normalize_reading
 from .recalc import recalc_main
 from .settings import settings_dialog
 from .settings.settings_dialog import SettingsDialog
 from .tag_selection_dialog import TagSelectionDialog
-from .toolbar_stats import MorphToolbarStats
+from .toolbar_stats import EntryToolbarStats
+from .priority_files import load_priority_map, KNOWN_ENTRIES_DIR
 
 _TOOL_MENU: str = "ps_tool_menu"
 _BROWSE_MENU: str = "ps_browse_menu"
@@ -82,7 +68,6 @@ _CONTEXT_MENU: str = "ps_context_menu"
 
 _startup_sync: bool = True
 _showed_update_warning: bool = False
-_updated_seen_morphs_for_profile: bool = False
 _state_before_sync_recalc: str | None = None
 
 
@@ -106,23 +91,13 @@ def main() -> None:
     gui_hooks.profile_did_open.append(redraw_toolbar)
     gui_hooks.profile_did_open.append(init_tool_menu_and_actions)
     gui_hooks.profile_did_open.append(init_browser_menus_and_actions)
-    gui_hooks.profile_did_open.append(replace_card_reviewer)
     gui_hooks.profile_did_open.append(text_preprocessing.update_translation_table)
-    gui_hooks.profile_did_open.append(spacy_wrapper.maybe_delete_spacy_venv)
     gui_hooks.profile_did_open.append(maybe_show_version_warning_wrapper)
 
     gui_hooks.sync_will_start.append(recalc_on_sync)
     gui_hooks.sync_did_finish.append(recalc_after_sync)
 
-    hooks.field_filter.append(highlight_morphs_jit)
-
     gui_hooks.webview_will_show_context_menu.append(add_text_as_name_action)
-
-    gui_hooks.overview_did_refresh.append(update_seen_morphs)
-
-    gui_hooks.reviewer_did_answer_card.append(insert_seen_morphs)
-
-    gui_hooks.state_did_undo.append(rebuild_seen_morphs)
 
     gui_hooks.profile_will_close.append(cleanup_profile_session)
 
@@ -130,12 +105,8 @@ def main() -> None:
 def init_toolbar_items(links: list[str], toolbar: Toolbar) -> None:
     # Adds the 'L: V:' and 'Recalc' to the toolbar
 
-    morph_toolbar_stats = MorphToolbarStats()
+    entry_toolbar_stats = EntryToolbarStats()
     am_config = PrioritySieveConfig()
-
-    known_entries_tooltip_message = (
-        "L = Known entry base forms<br>V = Known entry variants"
-    )
 
     if am_config.hide_recalc_toolbar is False:
         links.append(
@@ -148,25 +119,26 @@ def init_toolbar_items(links: list[str], toolbar: Toolbar) -> None:
             )
         )
 
-    if am_config.hide_lemma_toolbar is False:
-        links.append(
-            toolbar.create_link(
-                cmd="known_lemmas",
-                label=morph_toolbar_stats.lemmas,
-                func=lambda: tooltip(known_entries_tooltip_message),
-                tip="L = Known entry base forms",
-                id="known_lemmas",
-            )
-        )
+    counter_definitions = [
+        ("tracked", am_config.hide_tracked_counter, "tracked_entries"),
+        ("reviewed", am_config.hide_reviewed_counter, "reviewed_entries"),
+        ("pending", am_config.hide_pending_counter, "pending_entries"),
+    ]
 
-    if am_config.hide_inflection_toolbar is False:
+    for key, is_hidden, command in counter_definitions:
+        if is_hidden:
+            continue
+        counter = entry_toolbar_stats.get_counter(key)
+        if counter is None:
+            continue
+        message = counter.tooltip
         links.append(
             toolbar.create_link(
-                cmd="known_variants",
-                label=morph_toolbar_stats.variants,
-                func=lambda: tooltip(known_entries_tooltip_message),
-                tip="V = Known entry variants",
-                id="known_variants",
+                cmd=command,
+                label=counter.label,
+                func=lambda msg=message: tooltip(msg),
+                tip=message,
+                id=command,
             )
         )
 
@@ -199,16 +171,16 @@ def reset_startup_sync_variable() -> None:
 
 
 def init_db() -> None:
-    with PrioritySieveDB() as am_db:
-        am_db.create_all_tables()
+    with EntryDB() as entry_db:
+        entry_db.create_schema()
 
 
 def create_am_directories_and_files() -> None:
     assert mw is not None
 
     names_file_path: Path = Path(mw.pm.profileFolder(), ps_globals.NAMES_TXT_FILE_NAME)
-    known_morphs_dir_path: Path = Path(
-        mw.pm.profileFolder(), ps_globals.KNOWN_MORPHS_DIR_NAME
+    known_entries_dir_path: Path = Path(
+        mw.pm.profileFolder(), KNOWN_ENTRIES_DIR
     )
     priority_files_dir_path: Path = Path(
         mw.pm.profileFolder(), ps_globals.PRIORITY_FILES_DIR_NAME
@@ -217,8 +189,8 @@ def create_am_directories_and_files() -> None:
     # Create the file if it doesn't exist
     names_file_path.touch(exist_ok=True)
 
-    if not known_morphs_dir_path.exists():
-        Path(known_morphs_dir_path).mkdir()
+    if not known_entries_dir_path.exists():
+        Path(known_entries_dir_path).mkdir()
 
     if not priority_files_dir_path.exists():
         Path(priority_files_dir_path).mkdir()
@@ -226,6 +198,10 @@ def create_am_directories_and_files() -> None:
 
 def register_addon_dialogs() -> None:
     # We use the Anki dialog manager to handle our dialogs
+
+    from .generators.generators_window import GeneratorWindow
+    from .progression.progression_window import ProgressionWindow
+    from .known_entries_exporter import KnownEntriesExporterDialog
 
     aqt.dialogs.register_dialog(
         name=ps_globals.SETTINGS_DIALOG_NAME,
@@ -240,8 +216,8 @@ def register_addon_dialogs() -> None:
         creator=ProgressionWindow,
     )
     aqt.dialogs.register_dialog(
-        name=ps_globals.KNOWN_MORPHS_EXPORTER_DIALOG_NAME,
-        creator=KnownMorphsExporterDialog,
+        name=ps_globals.KNOWN_ENTRIES_EXPORTER_DIALOG_NAME,
+        creator=KnownEntriesExporterDialog,
     )
 
 
@@ -265,7 +241,6 @@ def init_tool_menu_and_actions() -> None:
     recalc_action = create_recalc_action(am_config)
     generators_action = create_generators_dialog_action(am_config)
     progression_action = create_progression_dialog_action(am_config)
-    known_morphs_exporter_action = create_known_morphs_exporter_action(am_config)
     reset_tags_action = create_tag_reset_action()
     duplicate_entries_action = create_duplicate_entries_action()
     missing_priority_cards_action = create_missing_priority_cards_action()
@@ -278,7 +253,8 @@ def init_tool_menu_and_actions() -> None:
     am_tool_menu.addAction(recalc_action)
     am_tool_menu.addAction(generators_action)
     am_tool_menu.addAction(progression_action)
-    am_tool_menu.addAction(known_morphs_exporter_action)
+    known_entries_exporter_action = create_known_entries_exporter_action(am_config)
+    am_tool_menu.addAction(known_entries_exporter_action)
     am_tool_menu.addAction(reset_tags_action)
     am_tool_menu.addAction(duplicate_entries_action)
     am_tool_menu.addAction(missing_priority_cards_action)
@@ -295,9 +271,9 @@ def init_browser_menus_and_actions() -> None:
     am_config = PrioritySieveConfig()
 
     learn_now_action = create_learn_now_action(am_config)
-    browse_morph_action = create_browse_same_morph_action()
-    browse_morph_unknowns_action = create_browse_same_morph_unknowns_action(am_config)
-    browse_morph_unknowns_lemma_action = create_browse_same_morph_unknowns_lemma_action(
+    browse_entry_action = create_browse_same_entry_action()
+    browse_entry_unknowns_action = create_browse_same_entry_unknowns_action(am_config)
+    browse_entry_unknowns_broad_action = create_browse_same_entry_unknowns_broad_action(
         am_config
     )
     already_known_tagger_action = create_already_known_tagger_action(am_config)
@@ -317,9 +293,9 @@ def init_browser_menus_and_actions() -> None:
         am_browse_menu_creation_action.setObjectName(_BROWSE_MENU)
 
         am_browse_menu.addAction(learn_now_action)
-        am_browse_menu.addAction(browse_morph_action)
-        am_browse_menu.addAction(browse_morph_unknowns_action)
-        am_browse_menu.addAction(browse_morph_unknowns_lemma_action)
+        am_browse_menu.addAction(browse_entry_action)
+        am_browse_menu.addAction(browse_entry_unknowns_action)
+        am_browse_menu.addAction(browse_entry_unknowns_broad_action)
         am_browse_menu.addAction(already_known_tagger_action)
 
     def setup_context_menu(_browser: Browser, context_menu: QMenu) -> None:
@@ -331,9 +307,9 @@ def init_browser_menus_and_actions() -> None:
         assert context_menu_creation_action is not None
 
         context_menu.addAction(learn_now_action)
-        context_menu.addAction(browse_morph_action)
-        context_menu.addAction(browse_morph_unknowns_action)
-        context_menu.addAction(browse_morph_unknowns_lemma_action)
+        context_menu.addAction(browse_entry_action)
+        context_menu.addAction(browse_entry_unknowns_action)
+        context_menu.addAction(browse_entry_unknowns_broad_action)
         context_menu.addAction(already_known_tagger_action)
         context_menu_creation_action.setObjectName(_CONTEXT_MENU)
 
@@ -385,11 +361,11 @@ def recalc_on_sync() -> None:
         )
         current_settings_state_json = extra_settings.get_recalc_settings_state()
 
-    print(
-        "PrioritySieve pre-sync settings snapshot state:",
-        current_settings_state_json,
-    )
     if not am_config.recalc_on_sync:
+        if current_state_json is not None:
+            extra_settings.set_recalc_collection_state(current_state_json)
+        if current_settings_state_json is not None:
+            extra_settings.set_recalc_settings_state(current_settings_state_json)
         _state_before_sync_recalc = current_state_json
         return
 
@@ -405,11 +381,52 @@ def recalc_on_sync() -> None:
         or current_settings_state_json != previous_settings_state
     )
 
+    relevant_filters = recalc_main._filters_requiring_state_snapshot()
+    pending_changes = recalc_main.filters_have_pending_changes(
+        am_config,
+        relevant_filters,
+    )
+
+    print(
+        "PrioritySieve pre-sync settings snapshot state:",
+        current_settings_state_json,
+    )
+    print(
+        "PrioritySieve pre-sync change flags:",
+        {
+            "collection_state_changed": collection_state_changed,
+            "settings_state_changed": settings_state_changed,
+        },
+    )
+    print(
+        "PrioritySieve pre-sync pending change scan:", pending_changes
+    )
+
+    if (
+        not pending_changes
+        and not settings_state_changed
+        and previous_state is not None
+    ):
+        print(
+            "PrioritySieve: skipping pre-sync recalc"
+            " (no relevant card/note changes)"
+        )
+        if current_state_json is not None:
+            extra_settings.set_recalc_collection_state(current_state_json)
+        if current_settings_state_json is not None:
+            extra_settings.set_recalc_settings_state(current_settings_state_json)
+        _state_before_sync_recalc = current_state_json
+        return
+
     if not collection_state_changed and not settings_state_changed:
         print(
             "PrioritySieve: skipping pre-sync recalc"
             " (collection and settings unchanged)"
         )
+        if current_state_json is not None:
+            extra_settings.set_recalc_collection_state(current_state_json)
+        if current_settings_state_json is not None:
+            extra_settings.set_recalc_settings_state(current_settings_state_json)
         _state_before_sync_recalc = current_state_json
         return
 
@@ -427,18 +444,28 @@ def recalc_on_sync() -> None:
     def _cache_post_recalc_state() -> None:
         global _state_before_sync_recalc
 
-        updated_state: str | None = None
         try:
-            updated_state = extra_settings.get_recalc_collection_state()
-            if updated_state is None:
-                updated_state = json.dumps(
-                    recalc_main.compute_modify_filters_state(), sort_keys=True
-                )
+            updated_state = json.dumps(
+                recalc_main.compute_modify_filters_state(), sort_keys=True
+            )
+            extra_settings.set_recalc_collection_state(updated_state)
         except Exception as error:  # pylint:disable=broad-except
             print(
                 f"PrioritySieve: unable to cache pre-sync state after recalc ({error})"
             )
             updated_state = current_state_json
+            if updated_state is not None:
+                extra_settings.set_recalc_collection_state(updated_state)
+
+        try:
+            settings_state = json.dumps(
+                prioritysieve_config.get_config_dict(), sort_keys=True
+            )
+            extra_settings.set_recalc_settings_state(settings_state)
+        except Exception as error:  # pylint:disable=broad-except
+            print(
+                f"PrioritySieve: unable to cache settings state after recalc ({error})"
+            )
 
         _state_before_sync_recalc = updated_state
         print(
@@ -494,6 +521,13 @@ def recalc_after_sync(success: bool | None = None) -> None:
 
     print("PrioritySieve post-sync baseline state:", baseline_state)
     print("PrioritySieve post-sync observed state:", post_state_json)
+    print(
+        "PrioritySieve post-sync state change:",
+        {
+            "states_equal": baseline_state == post_state_json,
+            "recalc_after_sync": am_config.recalc_after_sync,
+        },
+    )
 
     if not am_config.recalc_after_sync:
         if post_state_json is not None:
@@ -553,19 +587,6 @@ def recalc_after_sync(success: bool | None = None) -> None:
     )
 
 
-def replace_card_reviewer() -> None:
-    assert mw is not None
-
-    reviewing_utils.init_undo_targets()
-
-    mw.reviewer.nextCard = reviewing_utils.am_next_card
-    mw.reviewer._shortcutKeys = partial(
-        reviewing_utils.am_reviewer_shortcut_keys,
-        self=mw.reviewer,
-        _old=Reviewer._shortcutKeys,  # type: ignore[arg-type]
-    )
-
-
 def maybe_show_version_warning_wrapper() -> None:
     assert mw is not None
     assert mw.pm is not None
@@ -609,86 +630,7 @@ def maybe_show_version_warning() -> None:
         pass
 
 
-def insert_seen_morphs(
-    _reviewer: Reviewer, card: Card, _ease: Literal[1, 2, 3, 4]
-) -> None:
-    """
-    The '_reviewer' and '_ease' arguments are unused
-    """
-    with PrioritySieveDB() as am_db:
-        am_db.update_seen_morphs_today_single_card(card.id)
-
-
-def update_seen_morphs(_overview: Overview) -> None:
-    """
-    The '_overview' argument is unused
-    """
-    # Overview is NOT the starting screen; it's the screen you see
-    # when you click on a deck. This is a good time to run this function,
-    # as 'seen morphs' only needs to be known before starting a review.
-    # Previously, this function ran on the profile_did_open hook,
-    # but that sometimes caused interference with the add-on updater
-    # since both occurred simultaneously.
-
-    global _updated_seen_morphs_for_profile
-
-    if _updated_seen_morphs_for_profile:
-        return
-
-    has_active_note_filter = False
-    read_config_filters: list[PrioritySieveConfigFilter] = (
-        prioritysieve_config.get_read_enabled_filters()
-    )
-
-    for config_filter in read_config_filters:
-        if config_filter.note_type != "":
-            has_active_note_filter = True
-
-    if has_active_note_filter:
-        PrioritySieveDB.rebuild_seen_morphs_today()
-
-    _updated_seen_morphs_for_profile = True
-
-
-def rebuild_seen_morphs(_changes: OpChangesAfterUndo) -> None:
-    """
-    The '_changes' argument is unused
-    """
-
-    ################################################################
-    #                      TRACKING SEEN MORPHS
-    ################################################################
-    # We need to keep track of which morphs have been seen today,
-    # which gets complicated when a user undos or redos cards.
-    #
-    # When a card is answered/set known, we insert all the card's
-    # morphs into the 'Seen_Morphs'-table. If a morph is already
-    # in the table, we just ignore the insert error. This makes
-    # it tricky to remove morphs from the table when undo is used
-    # because we don't track if the morphs were already in the table
-    # or not. To not deal with this removal problem, we just drop
-    # the entire table and rebuild it with the morphs of all the
-    # studied cards. This is costly, but it only happens on 'undo',
-    # which should be a rare occurrence.
-    #
-    # REDO:
-    # Redoing, i.e., undoing an undo (Ctrl+Shift+Z), is almost
-    # impossible to distinguish from a regular forward operation.
-    # Since this is such a nightmare to deal with (and is hopefully
-    # a rare occurrence), this will just be left as unexpected behavior.
-    ################################################################
-    PrioritySieveDB.rebuild_seen_morphs_today()
-
-    if ps_globals.DEV_MODE:
-        with PrioritySieveDB() as am_db:
-            print("Seen_Morphs:")
-            am_db.print_table("Seen_Morphs")
-
-
 def cleanup_profile_session() -> None:
-    global _updated_seen_morphs_for_profile
-    _updated_seen_morphs_for_profile = False
-    PrioritySieveDB.drop_seen_morphs_table()
     PrioritySieveExtraSettings().save_current_prioritysieve_version()
 
 
@@ -698,15 +640,24 @@ def reset_am_tags() -> None:
     am_config = PrioritySieveConfig()
 
     title = "Reset Tags?"
+    core_tags = [
+        am_config.tag_ready,
+        am_config.tag_not_ready,
+        am_config.tag_suspended_automatically,
+    ]
+    legacy_tags = sorted(
+        {
+            *ps_globals.legacy_fresh_tags,
+            *ps_globals.legacy_known_automatically_tags,
+        }
+    )
+    combined_items = "".join(f"<li> {tag}" for tag in [*core_tags, *legacy_tags])
     body = (
         'Clicking "Yes" will remove the following tags from all cards:'
         "<ul>"
-        f"<li> {am_config.tag_known_automatically}"
-        f"<li> {am_config.tag_ready}"
-        f"<li> {am_config.tag_not_ready}"
-        f"<li> {am_config.tag_fresh}"
-        "</ul>"
+        + combined_items
     )
+    body += "</ul>"
     want_reset = message_box_utils.show_warning_box(title, body, parent=mw)
     if want_reset:
         tags_and_queue_utils.reset_am_tags(parent=mw)
@@ -718,8 +669,8 @@ def find_duplicate_non_new_entry_cards() -> None:
     assert mw.col.db is not None
 
     try:
-        with PrioritySieveDB() as am_db:
-            entry_map = am_db.get_non_new_card_ids_grouped_by_entry()
+        with EntryDB() as entry_db:
+            entry_map = entry_db.get_non_new_card_ids_grouped_by_entry()
     except sqlite3.OperationalError:
         tooltip("Run Recalc before searching for duplicate entries.")
         return
@@ -784,7 +735,7 @@ def show_missing_priority_cards() -> None:
 
     selections: set[str] = set()
     for config_filter in am_config.filters:
-        selections.update(config_filter.morph_priority_selections)
+        selections.update(config_filter.priority_files)
 
     normalized_selections = [
         selection
@@ -797,14 +748,17 @@ def show_missing_priority_cards() -> None:
         return
 
     try:
-        with PrioritySieveDB() as am_db:
-            missing_entries = priority_gap_utils.find_missing_priority_entries(
-                am_db=am_db,
-                morph_priority_selection=normalized_selections,
-            )
+        with EntryDB() as entry_db:
+            stored_entries = entry_db.get_entries()
     except sqlite3.OperationalError:
         tooltip("Run Recalc before searching for missing priority cards.")
         return
+
+    entries = [stored.to_entry() for stored in stored_entries]
+    missing_entries = priority_gap_utils.find_missing_priority_entries(
+        entries=entries,
+        priority_files=normalized_selections,
+    )
 
     if not missing_entries:
         tooltip("Every configured priority entry already has a corresponding card.")
@@ -872,9 +826,9 @@ class MissingPriorityEntriesDialog(QDialog):
     @staticmethod
     def _format_entries(entries: list[tuple[str, str, int]]) -> str:
         lines: list[str] = []
-        for index, (lemma, reading, priority) in enumerate(entries, start=1):
+        for index, (entry_text, reading, priority) in enumerate(entries, start=1):
             reading_suffix = f" [{reading}]" if reading else ""
-            lines.append(f"{index}. {lemma}{reading_suffix} — priority {priority}")
+            lines.append(f"{index}. {entry_text}{reading_suffix} — priority {priority}")
         return "\n".join(lines)
 
 
@@ -937,7 +891,7 @@ def find_entries_missing_priority_lists() -> None:
     am_config = PrioritySieveConfig()
     selections: set[str] = set()
     for config_filter in am_config.filters:
-        selections.update(config_filter.morph_priority_selections)
+        selections.update(config_filter.priority_files)
 
     normalized_selections = [
         selection
@@ -946,16 +900,15 @@ def find_entries_missing_priority_lists() -> None:
     ]
 
     try:
-        with PrioritySieveDB() as am_db:
-            entry_map = am_db.get_non_new_card_ids_grouped_by_entry()
-            priority_map = (
-                morph_priority_utils.get_morph_priority(am_db, normalized_selections)
-                if normalized_selections
-                else {}
-            )
+        with EntryDB() as entry_db:
+            entry_map = entry_db.get_non_new_card_ids_grouped_by_entry()
     except sqlite3.OperationalError:
         tooltip("Run Recalc before searching for missing priorities.")
         return
+
+    priority_map = (
+        load_priority_map(normalized_selections) if normalized_selections else {}
+    )
 
     if not entry_map:
         tooltip("No cached entries found. Run Recalc first.")
@@ -977,7 +930,10 @@ def find_entries_missing_priority_lists() -> None:
 
     missing_entries: dict[tuple[str, str], list[int]] = {}
 
-    priority_keys = set(priority_map.keys())
+    priority_keys = {
+        (text, normalize_reading(reading))
+        for text, reading in priority_map.keys()
+    }
 
     for entry_key, card_ids in entry_map.items():
         active_cards: list[int] = []
@@ -993,13 +949,13 @@ def find_entries_missing_priority_lists() -> None:
         if not active_cards:
             continue
 
-        lemma, reading = entry_key
+        text, reading = entry_key
         normalized_reading = normalize_reading(reading)
-        key_exact = (lemma, lemma, normalized_reading)
+        key_exact = (text, normalized_reading)
         has_priority = key_exact in priority_keys
 
         if not normalized_reading:
-            key_fallback = (lemma, lemma, "")
+            key_fallback = (text, "")
             has_priority = has_priority or key_fallback in priority_keys
 
         if has_priority:
@@ -1113,29 +1069,29 @@ def create_learn_now_action(am_config: PrioritySieveConfig) -> QAction:
     return action
 
 
-def create_browse_same_morph_action() -> QAction:
+def create_browse_same_entry_action() -> QAction:
     action = QAction("&Browse Same Entries", mw)
-    action.triggered.connect(browser_utils.run_browse_morph)
+    action.triggered.connect(browser_utils.run_browse_entry)
     return action
 
 
-def create_browse_same_morph_unknowns_action(am_config: PrioritySieveConfig) -> QAction:
+def create_browse_same_entry_unknowns_action(am_config: PrioritySieveConfig) -> QAction:
     action = QAction("&Browse Same Unknown Entries", mw)
-    action.setShortcut(am_config.shortcut_browse_ready_same_unknown)
+    action.setShortcut(am_config.shortcut_browse_same_unknown)
     action.triggered.connect(
-        partial(browser_utils.run_browse_morph, search_unknowns=True)
+        partial(browser_utils.run_browse_entry, search_unknowns=True)
     )
     return action
 
 
-def create_browse_same_morph_unknowns_lemma_action(
+def create_browse_same_entry_unknowns_broad_action(
     am_config: PrioritySieveConfig,
 ) -> QAction:
     action = QAction("&Browse Same Unknown Entries (broad match)", mw)
-    action.setShortcut(am_config.shortcut_browse_ready_same_unknown_lemma)
+    action.setShortcut(am_config.shortcut_browse_same_unknown_broad)
     action.triggered.connect(
         partial(
-            browser_utils.run_browse_morph, search_unknowns=True, search_lemma_only=True
+            browser_utils.run_browse_entry, search_unknowns=True, match_text_only=True
         )
     )
     return action
@@ -1154,10 +1110,8 @@ def add_text_as_name_action(web_view: AnkiWebView, menu: QMenu) -> None:
     selected_text = web_view.selectedText()
     if selected_text == "":
         return
-    action = QAction("Mark as name", menu)
+    action = QAction("Add selection to names.txt", menu)
     action.triggered.connect(lambda: name_file_utils.add_name_to_file(selected_text))
-    action.triggered.connect(PrioritySieveDB.insert_names_to_seen_morphs)
-    action.triggered.connect(mw.reviewer.bury_current_card)
     menu.addAction(action)
 
 
@@ -1188,13 +1142,13 @@ def create_progression_dialog_action(am_config: PrioritySieveConfig) -> QAction:
     return action
 
 
-def create_known_morphs_exporter_action(am_config: PrioritySieveConfig) -> QAction:
+def create_known_entries_exporter_action(am_config: PrioritySieveConfig) -> QAction:
     action = QAction("&Known Entries Exporter", mw)
-    action.setShortcut(am_config.shortcut_known_morphs_exporter)
+    action.setShortcut(am_config.shortcut_known_entries_exporter)
     action.triggered.connect(
         partial(
             aqt.dialogs.open,
-            name=ps_globals.KNOWN_MORPHS_EXPORTER_DIALOG_NAME,
+            name=ps_globals.KNOWN_ENTRIES_EXPORTER_DIALOG_NAME,
         )
     )
     return action
@@ -1215,13 +1169,6 @@ def test_function() -> None:
 
     assert mw is not None
     assert mw.col.db is not None
-
-    # with PrioritySieveDB() as am_db:
-    #     print("Seen_Morphs:")
-    #     am_db.print_table("Seen_Morphs")
-    #
-    #     print("Morphs:")
-    #     am_db.print_table("Morphs")
 
     # print(f"card: {Card}")
     # mid: NotetypeId = card.note().mid

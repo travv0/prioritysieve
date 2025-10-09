@@ -10,6 +10,7 @@
 
 # virtusl environments
 .venv
+.venv-tests
 venv
 .designer-venv
 
@@ -28,3 +29,7 @@ test/data/tests_outputs/*
 # pytest-cov
 .coverage
 htmlcov/
+.pytest_cache/
+test/data/temp_card_collections/
+test/data/prioritysieve*.db
+test/data/prioritysieve.db

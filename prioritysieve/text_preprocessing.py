@@ -3,9 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from . import name_file_utils
 from .prioritysieve_config import PrioritySieveConfig
-from .morpheme import Morpheme
 
 square_brackets_regex = re.compile(r"\[[^]]*]")
 round_brackets_regex = re.compile(r"（[^）]*）")
@@ -57,14 +55,3 @@ def get_processed_text(
         text = text.translate(translation_table)
 
     return text
-
-
-def remove_names_textfile(morphs: list[Morpheme]) -> list[Morpheme]:
-    names = name_file_utils.get_names_from_file()
-    non_name_morphs: list[Morpheme] = []
-
-    for morph in morphs:
-        if morph.inflection not in names:
-            non_name_morphs.append(morph)
-
-    return non_name_morphs

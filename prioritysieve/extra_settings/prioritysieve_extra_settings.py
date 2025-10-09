@@ -6,18 +6,14 @@ from aqt.qt import QByteArray, QSettings  # pylint:disable=no-name-in-module
 from .. import prioritysieve_globals
 from ..ui.generator_output_dialog_ui import Ui_GeneratorOutputDialog
 from ..ui.generators_window_ui import Ui_GeneratorsWindow
-from ..ui.known_morphs_exporter_dialog_ui import Ui_KnownMorphsExporterDialog
+from ..ui.known_entries_exporter_dialog_ui import Ui_KnownEntriesExporterDialog
 from ..ui.progression_window_ui import Ui_ProgressionWindow
 from . import extra_settings_keys as keys  # pylint:disable=no-name-in-module
 from .extra_settings_keys import (
-    FileFormatsKeys,
     GeneratorsOutputKeys,
     GeneratorsWindowKeys,
-    KnownMorphsExporterKeys,
-    PreprocessKeys,
+    KnownEntriesExporterKeys,
     ProgressionWindowKeys,
-    SpacyManagerWindowKeys,
-    SudachiManagerWindowKeys,
 )
 
 
@@ -35,46 +31,21 @@ class PrioritySieveExtraSettings(QSettings):
     def save_generators_window_settings(
         self, ui: Ui_GeneratorsWindow, geometry: QByteArray
     ) -> None:
-        # fmt: off
         self.beginGroup(keys.Dialogs.GENERATORS_WINDOW)
         self.setValue(GeneratorsWindowKeys.WINDOW_GEOMETRY, geometry)
-        self.setValue(GeneratorsWindowKeys.MORPHEMIZER, ui.morphemizerComboBox.currentText())
         self.setValue(GeneratorsWindowKeys.INPUT_DIR, ui.inputDirLineEdit.text())
+        self.endGroup()
 
-        self.beginGroup(GeneratorsWindowKeys.FILE_FORMATS)
-        self.setValue(FileFormatsKeys.ASS, ui.assFilesCheckBox.isChecked())
-        self.setValue(FileFormatsKeys.EPUB, ui.epubFilesCheckBox.isChecked())
-        self.setValue(FileFormatsKeys.HTML, ui.htmlFilesCheckBox.isChecked())
-        self.setValue(FileFormatsKeys.MD, ui.mdFilesCheckBox.isChecked())
-        self.setValue(FileFormatsKeys.SRT, ui.srtFilesCheckBox.isChecked())
-        self.setValue(FileFormatsKeys.TXT, ui.txtFilesCheckBox.isChecked())
-        self.setValue(FileFormatsKeys.VTT, ui.vttFilesCheckBox.isChecked())
-        self.endGroup()  # file format group
-
-        self.beginGroup(GeneratorsWindowKeys.PREPROCESS)
-        self.setValue(PreprocessKeys.IGNORE_SQUARE_BRACKETS, ui.squareBracketsCheckBox.isChecked())
-        self.setValue(PreprocessKeys.IGNORE_ROUND_BRACKETS, ui.roundBracketsCheckBox.isChecked())
-        self.setValue(PreprocessKeys.IGNORE_SLIM_ROUND_BRACKETS, ui.slimRoundBracketsCheckBox.isChecked())
-        self.setValue(PreprocessKeys.IGNORE_NAMES_MORPHEMIZER, ui.namesMorphemizerCheckBox.isChecked())
-        self.setValue(PreprocessKeys.IGNORE_NAMES_IN_FILE, ui.namesFileCheckBox.isChecked())
-        self.setValue(PreprocessKeys.IGNORE_NUMBERS, ui.numbersCheckBox.isChecked())
-        self.setValue(PreprocessKeys.IGNORE_CUSTOM_CHARS, ui.customCharactersCheckBox.isChecked())
-        self.setValue(PreprocessKeys.CHARS_TO_IGNORE, ui.customCharactersLineEdit.text())
-        self.endGroup()  # preprocess group
-        self.endGroup()  # generators window group
-        # fmt: on
-
-    def save_known_morphs_exporter_settings(
-        self, ui: Ui_KnownMorphsExporterDialog, geometry: QByteArray
+    def save_known_entries_exporter_settings(
+        self, ui: Ui_KnownEntriesExporterDialog, geometry: QByteArray
     ) -> None:
         # fmt: off
-        self.beginGroup(keys.Dialogs.KNOWN_MORPHS_EXPORTER)
-        self.setValue(KnownMorphsExporterKeys.WINDOW_GEOMETRY, geometry)
-        self.setValue(KnownMorphsExporterKeys.OUTPUT_DIR, ui.outputLineEdit.text())
-        self.setValue(KnownMorphsExporterKeys.LEMMA, ui.storeOnlyMorphLemmaRadioButton.isChecked())
-        self.setValue(KnownMorphsExporterKeys.INFLECTION, ui.storeMorphLemmaAndInflectionRadioButton.isChecked())
-        self.setValue(KnownMorphsExporterKeys.INTERVAL, ui.knownIntervalSpinBox.value())
-        self.setValue(KnownMorphsExporterKeys.OCCURRENCES, ui.addOccurrencesColumnCheckBox.isChecked())
+        self.beginGroup(keys.Dialogs.KNOWN_ENTRIES_EXPORTER)
+        self.setValue(KnownEntriesExporterKeys.WINDOW_GEOMETRY, geometry)
+        self.setValue(KnownEntriesExporterKeys.OUTPUT_DIR, ui.outputLineEdit.text())
+        self.setValue(KnownEntriesExporterKeys.INCLUDE_READING, ui.includeReadingCheckBox.isChecked())
+        self.setValue(KnownEntriesExporterKeys.REVIEWED_ONLY, ui.includeReviewedOnlyCheckBox.isChecked())
+        self.setValue(KnownEntriesExporterKeys.OCCURRENCES, ui.addOccurrencesColumnCheckBox.isChecked())
         self.endGroup()
         # fmt: on
 
@@ -95,31 +66,13 @@ class PrioritySieveExtraSettings(QSettings):
             self.remove(keys.General.RECALC_SETTINGS_STATE)
         else:
             self.setValue(keys.General.RECALC_SETTINGS_STATE, state)
-
-
-    def spacy_manager_window_settings(self, geometry: QByteArray) -> None:
-        # fmt: off
-        self.beginGroup(keys.Dialogs.SPACY_MANAGER_WINDOW)
-        self.setValue(SpacyManagerWindowKeys.WINDOW_GEOMETRY, geometry)
-        self.endGroup()
-        # fmt: on
-
-    def sudachi_manager_window_settings(self, geometry: QByteArray) -> None:
-        # fmt: off
-        self.beginGroup(keys.Dialogs.SUDACHI_MANAGER_WINDOW)
-        self.setValue(SudachiManagerWindowKeys.WINDOW_GEOMETRY, geometry)
-        self.endGroup()
-        # fmt: on
-
     def save_progression_window_settings(
         self, ui: Ui_ProgressionWindow, geometry: QByteArray
     ) -> None:
         # fmt: off
         self.beginGroup(keys.Dialogs.PROGRESSION_WINDOW)
-        self.setValue(KnownMorphsExporterKeys.WINDOW_GEOMETRY, geometry)
-        self.setValue(ProgressionWindowKeys.PRIORITY_FILE, ui.morphPriorityCBox.currentText())
-        self.setValue(ProgressionWindowKeys.LEMMA_EVALUATION, ui.lemmaRadioButton.isChecked())
-        self.setValue(ProgressionWindowKeys.INFLECTION_EVALUATION, ui.inflectionRadioButton.isChecked())
+        self.setValue(ProgressionWindowKeys.WINDOW_GEOMETRY, geometry)
+        self.setValue(ProgressionWindowKeys.PRIORITY_FILE, ui.priorityFileComboBox.currentText())
         self.setValue(ProgressionWindowKeys.PRIORITY_RANGE_START, ui.minPrioritySpinBox.value())
         self.setValue(ProgressionWindowKeys.PRIORITY_RANGE_END, ui.maxPrioritySpinBox.value())
         self.setValue(ProgressionWindowKeys.BIN_SIZE, ui.binSizeSpinBox.value())
@@ -135,8 +88,7 @@ class PrioritySieveExtraSettings(QSettings):
         self.beginGroup(keys.Dialogs.GENERATOR_OUTPUT_PRIORITY_FILE)
         self.setValue(GeneratorsOutputKeys.WINDOW_GEOMETRY, geometry)
         self.setValue(GeneratorsOutputKeys.OUTPUT_FILE_PATH, ui.outputLineEdit.text())
-        self.setValue(GeneratorsOutputKeys.LEMMA_FORMAT, ui.storeOnlyMorphLemmaRadioButton.isChecked())
-        self.setValue(GeneratorsOutputKeys.INFLECTION_FORMAT, ui.storeMorphLemmaAndInflectionRadioButton.isChecked())
+        self.setValue(GeneratorsOutputKeys.INCLUDE_READING, ui.includeReadingCheckBox.isChecked())
         self.setValue(GeneratorsOutputKeys.MIN_OCCURRENCE_SELECTED, ui.minOccurrenceRadioButton.isChecked())
         self.setValue(GeneratorsOutputKeys.MIN_OCCURRENCE_CUTOFF, ui.minOccurrenceSpinBox.value())
         self.setValue(GeneratorsOutputKeys.COMPREHENSION_SELECTED, ui.comprehensionRadioButton.isChecked())
@@ -152,8 +104,7 @@ class PrioritySieveExtraSettings(QSettings):
         self.beginGroup(keys.Dialogs.GENERATOR_OUTPUT_STUDY_PLAN)
         self.setValue(GeneratorsOutputKeys.WINDOW_GEOMETRY, geometry)
         self.setValue(GeneratorsOutputKeys.OUTPUT_FILE_PATH, ui.outputLineEdit.text())
-        self.setValue(GeneratorsOutputKeys.LEMMA_FORMAT, ui.storeOnlyMorphLemmaRadioButton.isChecked())
-        self.setValue(GeneratorsOutputKeys.INFLECTION_FORMAT, ui.storeMorphLemmaAndInflectionRadioButton.isChecked())
+        self.setValue(GeneratorsOutputKeys.INCLUDE_READING, ui.includeReadingCheckBox.isChecked())
         self.setValue(GeneratorsOutputKeys.MIN_OCCURRENCE_SELECTED, ui.minOccurrenceRadioButton.isChecked())
         self.setValue(GeneratorsOutputKeys.MIN_OCCURRENCE_CUTOFF, ui.minOccurrenceSpinBox.value())
         self.setValue(GeneratorsOutputKeys.COMPREHENSION_SELECTED, ui.comprehensionRadioButton.isChecked())

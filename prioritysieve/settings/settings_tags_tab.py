@@ -19,15 +19,11 @@ class TagsTab(SettingsTab):
         super().__init__(parent, ui, config, default_config)
 
         self._raw_config_key_to_line_edit: dict[str, QLineEdit] = {
-            RawConfigKeys.TAG_FRESH: self.ui.tagfreshLineEdit,
             RawConfigKeys.TAG_READY: self.ui.tagReadyLineEdit,
             RawConfigKeys.TAG_NOT_READY: self.ui.tagNotReadyLineEdit,
-            RawConfigKeys.TAG_KNOWN_AUTOMATICALLY: self.ui.tagKnownAutomaticallyLineEdit,
-            RawConfigKeys.TAG_SUSPENDED_AUTOMATICALLY: self.ui.tagSuspendedAutomaticallyLineEdit,
             RawConfigKeys.TAG_KNOWN_MANUALLY: self.ui.tagKnownManuallyLineEdit,
-            RawConfigKeys.TAG_LEARN_CARD_NOW: self.ui.tagLearnCardNowLineEdit,
+            RawConfigKeys.TAG_SUSPENDED_AUTOMATICALLY: self.ui.tagSuspendedAutomaticallyLineEdit,
         }
-
         self.populate()
         self.setup_buttons()
         self.update_previous_state()

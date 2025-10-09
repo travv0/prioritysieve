@@ -52,25 +52,22 @@ Run: `pytest --cov=prioritysieve --cov-report html` and click on `index.html` in
 ## Card collections
 
 Note:
-  - all of these collections have all the extra fields selected
-  - the extra fields contain inflections unless stated otherwise
-  - morphs are evaluated based on inflections unless stated otherwise
-  - morphs priority is 'Collection Frequency' unless stated otherwise
+  - the legacy collections listed below shipped with earlier morph/lemma support; they remain in the repo so older tests
+    and migration scenarios have reproducible data.
+  - in the entry-only implementation, these files are treated as generic entry decks. Any references to “lemmas” or
+    “inflections” in their names are historical.
 
 Current card collections (test/data/card_collections):
+The following collection files are legacy fixtures that still carry the old morph-centric names:
 - `lemma_evaluation_lemma_extra_fields_collection.anki2`
-  - contains two "known" cards ("the", "man"), and then 9 cards with 4 lemmas and 9 inflections.
-  this is used for testing if the inflections are given the scores of their respective lemmas and
-  the inflections are skipped on review.
-  - the extra fields contain lemmas
-  - morphs are evaluated based on lemma
-  - morphemizer: 'spaCy: en_core_web_sm'
 - `some_studied_lemmas_collection.anki2`
-  - duplicate of `lemma_evaluation_lemma_extra_fields_collection.anki2`, but one card for each lemma
-  has been studied, so the other cards that have those lemmas should contain no unknowns.
-  - the extra fields contain lemmas
-  - morphs are evaluated based on lemma
-  - morphemizer: 'spaCy: en_core_web_sm'
+- `offset_new_cards_inflection_collection.anki2`
+- `offset_new_cards_lemma_collection.anki2`
+
+They remain in `test/data/card_collections` for regression coverage but are interpreted as entry-only data when the tests
+run.
+
+Other entry-focused fixtures include:
 - `big_japanese_collection.anki2`
   - monolithic card collection (https://github.com/mortii/anki-decks)
   - morphemizer: 'Ankimorphs Japanese'
@@ -80,14 +77,6 @@ Current card collections (test/data/card_collections):
 - `known-morphs-collection.anki2`
   - contains one card with 7 morphs, 6 of which are found in the 'known-morphs-valid' directory
   - morphemizer: 'PrioritySieve: Language w/ Spaces'
-- `offset_new_cards_inflection_collection.anki2`
-  - Contains two cards that share the same unknown morph and are used to verify automatic suspension of lower-priority duplicates.
-  - morphemizer: 'PrioritySieve: Language w/ Spaces'
-- `offset_new_cards_lemma_collection.anki2`
-  - Duplicate of `lemma_evaluation_lemma_extra_fields_collection.anki2`, used to confirm duplicate handling when evaluating by lemma.
-  - the extra fields contain lemmas
-  - morphs are evaluated based on lemma
-  - morphemizer: 'spaCy: en_core_web_sm'
 - `some_studied_japanese_collection.anki2`
   - contains three cards:
     - one that has the tag 'am-known-manually'

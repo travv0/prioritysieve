@@ -16,9 +16,9 @@ from aqt.qt import (  # pylint:disable=no-name-in-module
 )
 from aqt.utils import tooltip
 
-from .. import prioritysieve_globals, morph_priority_utils
-from ..prioritysieve_config import PrioritySieveConfig
-from ..prioritysieve_db import PrioritySieveDB
+from .. import prioritysieve_globals
+from ..entry_db import EntryDB
+from ..priority_files import available_priority_files, load_priority_map
 from ..exceptions import (
     CancelledOperationException,
     InvalidBinsException,
@@ -31,7 +31,7 @@ from ..ui.progression_window_ui import Ui_ProgressionWindow
 from .progression_utils import (
     Bins,
     ProgressReport,
-    get_priority_ordered_morph_statuses,
+    get_priority_ordered_entry_statuses,
     get_progress_reports,
 )
 
@@ -53,27 +53,25 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
 
         self._columns = {}
         # For all tables
-        self._columns["morph_priorities"] = 0
+        self._columns["priority"] = 0
         # For numerical and percentage tables
         self._columns["total_entries"] = 1
-        self._columns["known"] = 2
-        self._columns["learning"] = 3
-        self._columns["unknowns"] = 4
-        self._columns["missing"] = 5
-        # For morph lists
-        self._columns["lemma"] = 1
-        self._columns["inflection"] = 2
+        self._columns["reviewed"] = 2
+        self._columns["pending"] = 3
+        self._columns["missing"] = 4
+        # For entry lists
+        self._columns["text"] = 1
+        self._columns["reading"] = 2
         self._columns["status"] = 3
-
-        self.num_numerical_percent_columns = 6
-        self.num_morph_columns = 4
+        self.num_numerical_percent_columns = 5
+        self.num_entry_columns = 4
 
         self._setup_numerical_percent_table(self.ui.numericalTableWidget)
         self._setup_numerical_percent_table(self.ui.percentTableWidget)
-        self._setup_morph_table(self.ui.morphTableWidget)
+        self._setup_entry_table(self.ui.entryTableWidget)
         self._setup_buttons()
         self._setup_spin_boxes()
-        self._setup_morph_priority_cbox()
+        self._setup_priority_file_cbox()
         self._setup_geometry()
 
         self.am_extra_settings.endGroup()
@@ -84,11 +82,10 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
         table.setSortingEnabled(False)
         table.setColumnCount(self.num_numerical_percent_columns)
 
-        table.setColumnWidth(self._columns["morph_priorities"], 130)
+        table.setColumnWidth(self._columns["priority"], 130)
         table.setColumnWidth(self._columns["total_entries"], 120)
-        table.setColumnWidth(self._columns["known"], 110)
-        table.setColumnWidth(self._columns["learning"], 110)
-        table.setColumnWidth(self._columns["unknowns"], 120)
+        table.setColumnWidth(self._columns["reviewed"], 120)
+        table.setColumnWidth(self._columns["pending"], 120)
         table.setColumnWidth(self._columns["missing"], 110)
 
         table_horizontal_headers: QHeaderView | None = table.horizontalHeader()
@@ -98,14 +95,14 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
         # disables manual editing of the table
         table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
 
-    def _setup_morph_table(self, table: QTableWidget) -> None:
+    def _setup_entry_table(self, table: QTableWidget) -> None:
         table.setAlternatingRowColors(True)
         table.setSortingEnabled(False)
-        table.setColumnCount(self.num_morph_columns)
+        table.setColumnCount(self.num_entry_columns)
 
-        table.setColumnWidth(self._columns["morph_priorities"], 90)
-        table.setColumnWidth(self._columns["lemma"], 90)
-        table.setColumnWidth(self._columns["inflection"], 90)
+        table.setColumnWidth(self._columns["priority"], 90)
+        table.setColumnWidth(self._columns["text"], 120)
+        table.setColumnWidth(self._columns["reading"], 120)
         table.setColumnWidth(self._columns["status"], 90)
 
         table_horizontal_headers: QHeaderView | None = table.horizontalHeader()
@@ -120,8 +117,6 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
             self._on_view_progress_button_clicked
         )
 
-        am_config = PrioritySieveConfig()
-
         stored_normal_bin_type: bool = self.am_extra_settings.value(
             extra_settings_keys.ProgressionWindowKeys.BIN_TYPE_NORMAL,
             defaultValue=True,
@@ -132,9 +127,6 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
             defaultValue=False,
             type=bool,
         )
-
-        self.ui.lemmaRadioButton.setChecked(True)
-        self.ui.inflectionRadioButton.hide()
 
         self.ui.normalRadioButton.setChecked(stored_normal_bin_type)
         self.ui.cumulativeRadioButton.setChecked(stored_cumulative_bin_type)
@@ -160,12 +152,10 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
         self.ui.maxPrioritySpinBox.setValue(stored_range_end)
         self.ui.binSizeSpinBox.setValue(stored_bin_size)
 
-    def _setup_morph_priority_cbox(self) -> None:
-        priority_files: list[str] = [
-            prioritysieve_globals.COLLECTION_FREQUENCY_OPTION,
-        ]
-        priority_files += morph_priority_utils.get_priority_files()
-        self.ui.morphPriorityCBox.addItems(priority_files)
+    def _setup_priority_file_cbox(self) -> None:
+        priority_files: list[str] = [prioritysieve_globals.NONE_OPTION]
+        priority_files += available_priority_files()
+        self.ui.priorityFileComboBox.addItems(priority_files)
 
         stored_priority_file: str = self.am_extra_settings.value(
             extra_settings_keys.ProgressionWindowKeys.PRIORITY_FILE, type=str
@@ -173,7 +163,7 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
 
         for index, file in enumerate(priority_files):
             if file == stored_priority_file:
-                self.ui.morphPriorityCBox.setCurrentIndex(index)
+                self.ui.priorityFileComboBox.setCurrentIndex(index)
                 break
 
     def _setup_geometry(self) -> None:
@@ -208,13 +198,16 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
     def _background_process_and_populate_tables(self) -> None:
         assert mw is not None
 
-        am_db = PrioritySieveDB()
         bins = self._get_selected_bins()
+        selected_file = self.ui.priorityFileComboBox.currentText()
 
-        morph_priorities = morph_priority_utils.get_morph_priority(
-            am_db=am_db,
-            morph_priority_selection=[self.ui.morphPriorityCBox.currentText()],
-        )
+        if selected_file == prioritysieve_globals.NONE_OPTION:
+            priority_map: dict[tuple[str, str], int] = {}
+        else:
+            priority_map = load_priority_map([selected_file])
+
+        with EntryDB() as entry_db:
+            stored_entries = entry_db.get_entries()
 
         mw.taskman.run_on_main(
             partial(
@@ -223,11 +216,13 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
             )
         )
 
-        reports = get_progress_reports(am_db, bins, morph_priorities)
+        entry_iterable = (stored_entry.to_entry() for stored_entry in stored_entries)
+        reports = get_progress_reports(entry_iterable, bins, priority_map)
 
         if mw.progress.want_cancel():
-            am_db.con.close()
             raise CancelledOperationException
+
+        entry_iterable = (stored_entry.to_entry() for stored_entry in stored_entries)
 
         mw.taskman.run_on_main(
             partial(
@@ -235,11 +230,9 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
                 label="Processing entry statuses",
             )
         )
-        morph_statuses = get_priority_ordered_morph_statuses(
-            am_db, bins, morph_priorities
+        entry_statuses = get_priority_ordered_entry_statuses(
+            entry_iterable, bins, priority_map
         )
-
-        am_db.con.close()
 
         if mw.progress.want_cancel():
             raise CancelledOperationException
@@ -250,23 +243,23 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
                 label="Populating tables",
             )
         )
-        self._populate_tables(reports, morph_statuses)
+        self._populate_tables(reports, entry_statuses)
 
     def _populate_tables(
         self,
         reports: list[ProgressReport],
-        morph_statuses: list[tuple[int, str, str, str]],
+        entry_statuses: list[tuple[int, str, str, str]],
     ) -> None:
         assert mw is not None
         assert isinstance(self.ui, Ui_ProgressionWindow)
 
         self.ui.numericalTableWidget.clearContents()
         self.ui.percentTableWidget.clearContents()
-        self.ui.morphTableWidget.clearContents()
+        self.ui.entryTableWidget.clearContents()
 
         self.ui.numericalTableWidget.setRowCount(len(reports))
         self.ui.percentTableWidget.setRowCount(len(reports))
-        self.ui.morphTableWidget.setRowCount(len(morph_statuses))
+        self.ui.entryTableWidget.setRowCount(len(entry_statuses))
 
         error_indexes: tuple[int, int] | None = None
 
@@ -279,8 +272,8 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
             self._populate_numerical_table(report, row)
             self._populate_percent_table(report, row)
 
-        for row, morph_status in enumerate(morph_statuses):
-            self._populate_morph_table(morph_status, row)
+        for row, entry_status in enumerate(entry_statuses):
+            self._populate_entry_table(entry_status, row)
 
         if error_indexes is not None:
             mw.taskman.run_on_main(
@@ -291,108 +284,97 @@ class ProgressionWindow(QMainWindow):  # pylint:disable=too-many-instance-attrib
             )
 
     def _populate_numerical_table(self, report: ProgressReport, row: int) -> None:
-        morph_priorities_item = QTableWidgetItem(
+        priority_item = QTableWidgetItem(
             f"{report.min_priority}-{report.max_priority}"
         )
         total_entries_item = QTableWidgetIntegerItem(report.get_total_entries())
-        known_item = QTableWidgetIntegerItem(report.get_total_known())
-        learning_item = QTableWidgetIntegerItem(report.get_total_learning())
-        unknowns_item = QTableWidgetIntegerItem(report.get_total_unknowns())
+        reviewed_item = QTableWidgetIntegerItem(report.get_total_reviewed())
+        pending_item = QTableWidgetIntegerItem(report.get_total_pending())
         missing_item = QTableWidgetIntegerItem(report.get_total_missing())
 
-        morph_priorities_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        priority_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         total_entries_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        known_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        learning_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        unknowns_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        reviewed_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        pending_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         missing_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.ui.numericalTableWidget.setItem(
-            row, self._columns["morph_priorities"], morph_priorities_item
+            row, self._columns["priority"], priority_item
         )
         self.ui.numericalTableWidget.setItem(
             row, self._columns["total_entries"], total_entries_item
         )
-        self.ui.numericalTableWidget.setItem(row, self._columns["known"], known_item)
         self.ui.numericalTableWidget.setItem(
-            row, self._columns["learning"], learning_item
+            row, self._columns["reviewed"], reviewed_item
         )
         self.ui.numericalTableWidget.setItem(
-            row, self._columns["unknowns"], unknowns_item
+            row, self._columns["pending"], pending_item
         )
         self.ui.numericalTableWidget.setItem(
             row, self._columns["missing"], missing_item
         )
 
     def _populate_percent_table(self, report: ProgressReport, row: int) -> None:
-        known_percent = round(
-            report.get_total_known() / report.get_total_entries() * 100, 1
+        reviewed_percent = round(
+            report.get_total_reviewed() / report.get_total_entries() * 100, 1
         )
-        learning_percent = round(
-            report.get_total_learning() / report.get_total_entries() * 100, 1
+        pending_percent = round(
+            report.get_total_pending() / report.get_total_entries() * 100, 1
         )
-        unknowns_percent = round(
-            report.get_total_unknowns() / report.get_total_entries() * 100, 1
-        )
-
-        # Eliminates any possibility of strange rounding
         missing_percent = round(
-            100 - known_percent - learning_percent - unknowns_percent, 1
+            100 - reviewed_percent - pending_percent, 1
         )
 
-        morph_priorities_item = QTableWidgetItem(
+        priority_item = QTableWidgetItem(
             f"{report.min_priority}-{report.max_priority}"
         )
         total_entries_item = QTableWidgetIntegerItem(report.get_total_entries())
-        known_item = QTableWidgetPercentItem(known_percent)
-        learning_item = QTableWidgetPercentItem(learning_percent)
-        unknowns_item = QTableWidgetPercentItem(unknowns_percent)
+        reviewed_item = QTableWidgetPercentItem(reviewed_percent)
+        pending_item = QTableWidgetPercentItem(pending_percent)
         missing_item = QTableWidgetPercentItem(missing_percent)
 
-        morph_priorities_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        priority_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         total_entries_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        known_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        learning_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        unknowns_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        reviewed_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        pending_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         missing_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.ui.percentTableWidget.setItem(
-            row, self._columns["morph_priorities"], morph_priorities_item
+            row, self._columns["priority"], priority_item
         )
         self.ui.percentTableWidget.setItem(
             row, self._columns["total_entries"], total_entries_item
         )
-        self.ui.percentTableWidget.setItem(row, self._columns["known"], known_item)
         self.ui.percentTableWidget.setItem(
-            row, self._columns["learning"], learning_item
+            row, self._columns["reviewed"], reviewed_item
         )
         self.ui.percentTableWidget.setItem(
-            row, self._columns["unknowns"], unknowns_item
+            row, self._columns["pending"], pending_item
         )
         self.ui.percentTableWidget.setItem(row, self._columns["missing"], missing_item)
 
-    def _populate_morph_table(
-        self, morph_status: tuple[int, str, str, str], row: int
+    def _populate_entry_table(
+        self, entry_status: tuple[int, str, str, str], row: int
     ) -> None:
 
-        morph_priorities_item = QTableWidgetIntegerItem(morph_status[0])
-        lemma_item = QTableWidgetItem(morph_status[1])
-        inflection_item = QTableWidgetItem(morph_status[2])
-        status_item = QTableWidgetItem(morph_status[3])
+        priority_item = QTableWidgetIntegerItem(entry_status[0])
+        text_item = QTableWidgetItem(entry_status[1])
+        reading_item = QTableWidgetItem(entry_status[2])
+        status_item = QTableWidgetItem(entry_status[3])
 
-        morph_priorities_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        lemma_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        inflection_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        priority_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        text_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        reading_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         status_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.ui.morphTableWidget.setItem(
-            row, self._columns["morph_priorities"], morph_priorities_item
+        self.ui.entryTableWidget.setItem(
+            row, self._columns["priority"], priority_item
         )
-        self.ui.morphTableWidget.setItem(row, self._columns["lemma"], lemma_item)
-        self.ui.morphTableWidget.setItem(
-            row, self._columns["inflection"], inflection_item
+        self.ui.entryTableWidget.setItem(row, self._columns["text"], text_item)
+        self.ui.entryTableWidget.setItem(
+            row, self._columns["reading"], reading_item
         )
-        self.ui.morphTableWidget.setItem(row, self._columns["status"], status_item)
+        self.ui.entryTableWidget.setItem(row, self._columns["status"], status_item)
 
     def closeWithCallback(  # pylint:disable=invalid-name
         self, callback: Callable[[], None]

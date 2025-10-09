@@ -1,26 +1,6 @@
-###################################################################################
-#                               ADDON SETTINGS/CONFIGS
-###################################################################################
-
-# Addons essentially only have one settings file that is shared
-# across all anki profiles, that file is found here:
-#    'Anki2/addons21/[addon]/meta.json'
-#
-# We extract the dictionary found in that file by using:
-#   mw.addonManager.getConfig(__name__)
-# where '__name__' is the module name of the addon
-# (ankiweb switches the module name to a number, so it's necessary for this to be dynamic)
-#
-# We can update meta.json with this:
-#   mw.addonManager.writeConfig(__name__, new_json_dict)
-#
-# We want to have individual profile settings, and we achieve this by storing
-# a file ("prioritysieve_profile_settings.json") in the individual profile folders.
-# When a profile is loaded by anki, that file is used to overwrite/update meta.json.
-###################################################################################
-
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 from typing import Any, Union
@@ -37,12 +17,9 @@ from aqt.qt import (  # pylint:disable=no-name-in-module
 
 from . import prioritysieve_globals
 
-# Unfortunately, 'TypeAlias' is introduced in python 3.10 so for now
-# we can only create implicit type aliases. We also have to use the
-# 'Union' notation even though we use '__future__ import annotations'.
 FilterTypeAlias = dict[
     str,
-    Union[str, bool, int, list[str], dict[str, str], None],
+    Union[str, bool, int, list[str], dict[str, Any], None],
 ]
 
 
@@ -53,98 +30,157 @@ class RawConfigFilterKeys:
     FURIGANA_FIELD = "furigana_field"
     READING_FIELD = "reading_field"
     READING_PRIORITY = "reading_priority"
-    MORPHEMIZER_DESCRIPTION = "morphemizer_description"
-    MORPH_PRIORITY_SELECTION = "morph_priority_selection"
+    PRIORITY_FILES = "priority_files"
     READ = "read"
     MODIFY = "modify"
     EXTRA_READING_FIELD = "extra_reading_field"
 
+    # Legacy keys we still accept when loading stored configs
+    LegacyPrioritySelection = "morph_priority_selection"
+    LegacyMorphemizerDescription = "morphemizer_description"
+    LegacyExtraReadingField = "extra_morph_readings"
+
 
 class RawConfigKeys:
-    # fmt: off
     FILTERS = "filters"
     SHORTCUT_RECALC = "shortcut_recalc"
     SHORTCUT_SETTINGS = "shortcut_settings"
-    SHORTCUT_BROWSE_READY_SAME_UNKNOWN = "shortcut_browse_ready_same_unknown"
-    SHORTCUT_BROWSE_ALL_SAME_UNKNOWN = "shortcut_browse_all_same_unknown"
-    SHORTCUT_BROWSE_READY_SAME_UNKNOWN_LEMMA = "shortcut_browse_ready_same_unknown_lemma"
+    SHORTCUT_BROWSE_SAME_UNKNOWN = "shortcut_browse_same_unknown"
+    SHORTCUT_BROWSE_SAME_UNKNOWN_BROAD = "shortcut_browse_same_unknown_broad"
     SHORTCUT_SET_KNOWN_AND_SKIP = "shortcut_set_known_and_skip"
     SHORTCUT_LEARN_NOW = "shortcut_learn_now"
-    SHORTCUT_VIEW_MORPHEMES = "shortcut_view_morphemes"
     SHORTCUT_GENERATORS = "shortcut_generators"
     SHORTCUT_PROGRESSION = "shortcut_progression"
-    SHORTCUT_KNOWN_MORPHS_EXPORTER = "shortcut_known_morphs_exporter"
-    SKIP_NO_UNKNOWN_MORPHS = "skip_no_unknown_morphs"
-    SKIP_UNKNOWN_MORPH_SEEN_TODAY_CARDS = "skip_unknown_morph_seen_today_cards"
-    SKIP_SHOW_NUM_OF_SKIPPED_CARDS = "skip_show_num_of_skipped_cards"
+    SHORTCUT_KNOWN_ENTRIES_EXPORTER = "shortcut_known_entries_exporter"
     PREPROCESS_IGNORE_BRACKET_CONTENTS = "preprocess_ignore_bracket_contents"
     PREPROCESS_IGNORE_ROUND_BRACKET_CONTENTS = "preprocess_ignore_round_bracket_contents"
     PREPROCESS_IGNORE_SLIM_ROUND_BRACKET_CONTENTS = "preprocess_ignore_slim_round_bracket_contents"
     PREPROCESS_IGNORE_ANGLE_BRACKET_CONTENTS = "preprocess_ignore_angle_bracket_contents"
-    PREPROCESS_IGNORE_NAMES_MORPHEMIZER = "preprocess_ignore_names_morphemizer"
-    PREPROCESS_IGNORE_NAMES_TEXTFILE = "preprocess_ignore_names_textfile"
     PREPROCESS_IGNORE_NUMBERS = "preprocess_ignore_numbers"
     PREPROCESS_IGNORE_CUSTOM_CHARACTERS = "preprocess_ignore_custom_characters"
     PREPROCESS_CUSTOM_CHARACTERS_TO_IGNORE = "preprocess_custom_characters_to_ignore"
     PREPROCESS_IGNORE_SUSPENDED_UNLESS_TAGS = "preprocess_ignore_suspended_unless_tags"
-    INTERVAL_FOR_KNOWN_MORPHS = "interval_for_known_morphs"
     RECALC_ON_SYNC = "recalc_on_sync"
     RECALC_AFTER_SYNC = "recalc_after_sync"
     AUTO_SUSPEND_UNLISTED_ENTRIES = "auto_suspend_unlisted_entries"
     RECALC_OFFSET_PRIORITY_DECKS = "recalc_offset_priority_decks"
-    LEGACY_RECALC_OFFSET_PRIORITY_DECK = "recalc_offset_priority_deck"
-    READ_KNOWN_MORPHS_FOLDER = "read_known_morphs_folder"
-    TOOLBAR_STATS_USE_KNOWN = "toolbar_stats_use_known"
-    TOOLBAR_STATS_USE_SEEN = "toolbar_stats_use_seen"
-    TAG_FRESH = "tag_fresh"
+    HIDE_RECALC_TOOLBAR = "hide_recalc_toolbar"
+    HIDE_REVIEWED_COUNTER = "hide_reviewed_counter"
+    HIDE_TRACKED_COUNTER = "hide_tracked_counter"
+    HIDE_PENDING_COUNTER = "hide_pending_counter"
     TAG_READY = "tag_ready"
     TAG_NOT_READY = "tag_not_ready"
-    TAG_KNOWN_AUTOMATICALLY = "tag_known_automatically"
     TAG_KNOWN_MANUALLY = "tag_known_manually"
-    TAG_LEARN_CARD_NOW = "tag_learn_card_now"
     TAG_SUSPENDED_AUTOMATICALLY = "tag_suspended_automatically"
-    ALGORITHM_TOTAL_PRIORITY_UNKNOWN_MORPHS_WEIGHT = "algorithm_total_priority_unknown_morphs_weight"
-    ALGORITHM_TOTAL_PRIORITY_ALL_MORPHS_WEIGHT = "algorithm_total_priority_all_morphs_weight"
-    ALGORITHM_AVERAGE_PRIORITY_ALL_MORPHS_WEIGHT = "algorithm_average_priority_all_morphs_weight"
-    ALGORITHM_TOTAL_PRIORITY_LEARNING_MORPHS_WEIGHT = "algorithm_total_priority_learning_morphs_weight"
-    ALGORITHM_AVERAGE_PRIORITY_LEARNING_MORPHS_WEIGHT = "algorithm_average_priority_learning_morphs_weight"
-    ALGORITHM_ALL_MORPHS_TARGET_DIFFERENCE_WEIGHT = "algorithm_all_morphs_target_difference_weight"
-    ALGORITHM_LEARNING_MORPHS_TARGET_DIFFERENCE_WEIGHT = "algorithm_learning_morphs_target_difference_weight"
-    ALGORITHM_UPPER_TARGET_ALL_MORPHS = "algorithm_upper_target_all_morphs"
-    ALGORITHM_UPPER_TARGET_ALL_MORPHS_COEFFICIENT_A = "algorithm_upper_target_all_morphs_coefficient_a"
-    ALGORITHM_UPPER_TARGET_ALL_MORPHS_COEFFICIENT_B = "algorithm_upper_target_all_morphs_coefficient_b"
-    ALGORITHM_UPPER_TARGET_ALL_MORPHS_COEFFICIENT_C = "algorithm_upper_target_all_morphs_coefficient_c"
-    ALGORITHM_LOWER_TARGET_ALL_MORPHS = "algorithm_lower_target_all_morphs"
-    ALGORITHM_LOWER_TARGET_ALL_MORPHS_COEFFICIENT_A = "algorithm_lower_target_all_morphs_coefficient_a"
-    ALGORITHM_LOWER_TARGET_ALL_MORPHS_COEFFICIENT_B = "algorithm_lower_target_all_morphs_coefficient_b"
-    ALGORITHM_LOWER_TARGET_ALL_MORPHS_COEFFICIENT_C = "algorithm_lower_target_all_morphs_coefficient_c"
-    ALGORITHM_UPPER_TARGET_LEARNING_MORPHS = "algorithm_upper_target_learning_morphs"
-    ALGORITHM_LOWER_TARGET_LEARNING_MORPHS = "algorithm_lower_target_learning_morphs"
-    ALGORITHM_UPPER_TARGET_LEARNING_MORPHS_COEFFICIENT_A = "algorithm_upper_target_learning_morphs_coefficient_a"
-    ALGORITHM_UPPER_TARGET_LEARNING_MORPHS_COEFFICIENT_B = "algorithm_upper_target_learning_morphs_coefficient_b"
-    ALGORITHM_UPPER_TARGET_LEARNING_MORPHS_COEFFICIENT_C = "algorithm_upper_target_learning_morphs_coefficient_c"
-    ALGORITHM_LOWER_TARGET_LEARNING_MORPHS_COEFFICIENT_A = "algorithm_lower_target_learning_morphs_coefficient_a"
-    ALGORITHM_LOWER_TARGET_LEARNING_MORPHS_COEFFICIENT_B = "algorithm_lower_target_learning_morphs_coefficient_b"
-    ALGORITHM_LOWER_TARGET_LEARNING_MORPHS_COEFFICIENT_C = "algorithm_lower_target_learning_morphs_coefficient_c"
-    HIDE_RECALC_TOOLBAR = "hide_recalc_toolbar"
-    HIDE_LEMMA_TOOLBAR = "hide_lemma_toolbar"
-    HIDE_INFLECTION_TOOLBAR = "hide_inflection_toolbar"
-    # fmt: on
+
+LEGACY_KEY_RENAMES: dict[str, str] = {
+    "shortcut_browse_ready_same_unknown": RawConfigKeys.SHORTCUT_BROWSE_SAME_UNKNOWN,
+    "shortcut_browse_all_same_unknown": RawConfigKeys.SHORTCUT_BROWSE_SAME_UNKNOWN,
+    "shortcut_browse_ready_same_unknown_lemma": RawConfigKeys.SHORTCUT_BROWSE_SAME_UNKNOWN_BROAD,
+    "shortcut_known_morphs_exporter": RawConfigKeys.SHORTCUT_KNOWN_ENTRIES_EXPORTER,
+    "hide_lemma_toolbar": RawConfigKeys.HIDE_REVIEWED_COUNTER,
+    "hide_inflection_toolbar": RawConfigKeys.HIDE_TRACKED_COUNTER,
+}
+
+LEGACY_KEYS_TO_DROP: set[str] = {
+    "shortcut_view_morphemes",
+    "skip_no_unknown_morphs",
+    "skip_unknown_morph_seen_today_cards",
+    "skip_show_num_of_skipped_cards",
+    "preprocess_ignore_names_morphemizer",
+    "preprocess_ignore_names_textfile",
+    "interval_for_known_morphs",
+    "read_known_morphs_folder",
+    "evaluate_morph_lemma",
+    "evaluate_morph_inflection",
+    "extra_fields_display_inflections",
+    "extra_fields_display_lemmas",
+    "algorithm_total_priority_unknown_morphs_weight",
+    "algorithm_total_priority_all_morphs_weight",
+    "algorithm_average_priority_all_morphs_weight",
+    "algorithm_total_priority_learning_morphs_weight",
+    "algorithm_average_priority_learning_morphs_weight",
+    "algorithm_all_morphs_target_difference_weight",
+    "algorithm_learning_morphs_target_difference_weight",
+    "algorithm_upper_target_all_morphs",
+    "algorithm_upper_target_all_morphs_coefficient_a",
+    "algorithm_upper_target_all_morphs_coefficient_b",
+    "algorithm_upper_target_all_morphs_coefficient_c",
+    "algorithm_lower_target_all_morphs",
+    "algorithm_lower_target_all_morphs_coefficient_a",
+    "algorithm_lower_target_all_morphs_coefficient_b",
+    "algorithm_lower_target_all_morphs_coefficient_c",
+    "algorithm_upper_target_learning_morphs",
+    "algorithm_lower_target_learning_morphs",
+    "algorithm_upper_target_learning_morphs_coefficient_a",
+    "algorithm_upper_target_learning_morphs_coefficient_b",
+    "algorithm_upper_target_learning_morphs_coefficient_c",
+    "algorithm_lower_target_learning_morphs_coefficient_a",
+    "algorithm_lower_target_learning_morphs_coefficient_b",
+    "algorithm_lower_target_learning_morphs_coefficient_c",
+    "tag_learn_card_now",
+    "tag_known_automatically",
+    "toolbar_stats_use_known",
+    "toolbar_stats_use_seen",
+}
+
+
+def _normalize_filter_dict(
+    filter_dict: FilterTypeAlias,
+    defaults: FilterTypeAlias,
+) -> FilterTypeAlias:
+    """Return the same dict with legacy keys stripped/converted."""
+
+    if RawConfigFilterKeys.LegacyMorphemizerDescription in filter_dict:
+        filter_dict.pop(RawConfigFilterKeys.LegacyMorphemizerDescription, None)
+        prioritysieve_globals.new_config_found = True
+
+    if RawConfigFilterKeys.LegacyPrioritySelection in filter_dict:
+        legacy_value = filter_dict.pop(RawConfigFilterKeys.LegacyPrioritySelection)
+        if RawConfigFilterKeys.PRIORITY_FILES not in filter_dict:
+            filter_dict[RawConfigFilterKeys.PRIORITY_FILES] = legacy_value
+        prioritysieve_globals.new_config_found = True
+
+    if RawConfigFilterKeys.LegacyExtraReadingField in filter_dict:
+        legacy_extra = filter_dict.pop(RawConfigFilterKeys.LegacyExtraReadingField)
+        if isinstance(legacy_extra, bool):
+            filter_dict.setdefault(
+                RawConfigFilterKeys.EXTRA_READING_FIELD,
+                legacy_extra,
+            )
+        prioritysieve_globals.new_config_found = True
+
+    for obsolete_key in (
+        "extra_all_morphs",
+        "extra_all_morphs_count",
+        "extra_unknown_morphs",
+        "extra_unknown_morphs_count",
+        "extra_highlighted",
+        "extra_score",
+        "extra_score_terms",
+        "extra_study_morphs",
+    ):
+        if filter_dict.pop(obsolete_key, None) is not None:
+            prioritysieve_globals.new_config_found = True
+
+    # Ensure required keys exist so downstream access does not explode.
+    for key, default_value in defaults.items():
+        filter_dict.setdefault(key, default_value)
+
+    return filter_dict
 
 
 class PrioritySieveConfigFilter:  # pylint:disable=too-many-instance-attributes
-    def __init__(self, _filter: FilterTypeAlias):
+    def __init__(self, _filter: FilterTypeAlias, defaults: FilterTypeAlias) -> None:
         try:
-            self._filter = _filter
-            self._default_config_dict = get_all_defaults_config_dict()
+            self._default_config_dict = defaults
+            self._filter = _normalize_filter_dict(_filter, defaults)
             self.has_error: bool = False
 
             self.note_type: str = self._get_filter_item(
                 key=RawConfigFilterKeys.NOTE_TYPE, expected_type=str
             )
-            self.tags: dict[str, str] = self._get_filter_item(
-                key=RawConfigFilterKeys.TAGS, expected_type=dict
-            )
+            self.tags: dict[str, list[str]] = self._sanitize_tags()
             self.field: str = self._get_filter_item(
                 key=RawConfigFilterKeys.FIELD, expected_type=str
             )
@@ -155,34 +191,16 @@ class PrioritySieveConfigFilter:  # pylint:disable=too-many-instance-attributes
                 key=RawConfigFilterKeys.READING_FIELD, expected_type=str
             )
             self.reading_priority: str = self._get_reading_priority()
-            self.morphemizer_description: str = self._get_filter_item(
-                key=RawConfigFilterKeys.MORPHEMIZER_DESCRIPTION, expected_type=str
-            )
-            self.morph_priority_selections: list[str] = (
-                self._get_morph_priority_selections()
-            )
-            self.morph_priority_selection: str = (
-                self.morph_priority_selections[0]
-                if self.morph_priority_selections
-                else prioritysieve_globals.NONE_OPTION
-            )
+            self._priority_files: list[str] = self._get_priority_files()
             self.read: bool = self._get_filter_item(
                 key=RawConfigFilterKeys.READ, expected_type=bool
             )
             self.modify: bool = self._get_filter_item(
                 key=RawConfigFilterKeys.MODIFY, expected_type=bool
             )
-            self.extra_reading_field: bool = self._get_extra_reading_field()
-            # legacy extra field flags remain for compatibility but are immutable
-            self.extra_all_morphs = False
-            self.extra_all_morphs_count = False
-            self.extra_unknown_morphs = False
-            self.extra_unknown_morphs_count = False
-            self.extra_highlighted = False
-            self.extra_score = False
-            self.extra_score_terms = False
-            self.extra_study_morphs = False
-            self.extra_morph_readings = self.extra_reading_field
+            self.extra_reading_field: bool = self._get_filter_item(
+                key=RawConfigFilterKeys.EXTRA_READING_FIELD, expected_type=bool
+            )
 
         except AssertionError:
             self.has_error = True
@@ -190,30 +208,42 @@ class PrioritySieveConfigFilter:  # pylint:disable=too-many-instance-attributes
                 show_critical_config_error()
                 prioritysieve_globals.config_broken = True
 
-    def _get_morph_priority_selections(self) -> list[str]:
-        try:
-            raw_value = self._filter[RawConfigFilterKeys.MORPH_PRIORITY_SELECTION]
-        except KeyError:
-            raw_value = self._default_config_dict[RawConfigKeys.FILTERS][0][
-                RawConfigFilterKeys.MORPH_PRIORITY_SELECTION
-            ]
-            prioritysieve_globals.new_config_found = True
+    @property
+    def expression_field(self) -> str:
+        return getattr(self, "field", "(none)")
 
-        selections = self._normalize_priority_selections(raw_value)
-        self._filter[RawConfigFilterKeys.MORPH_PRIORITY_SELECTION] = selections
-        return selections
+    @property
+    def priority_files(self) -> list[str]:
+        return getattr(self, "_priority_files", [])
+
+    def _sanitize_tags(self) -> dict[str, list[str]]:
+        raw_tags = self._get_filter_item(
+            key=RawConfigFilterKeys.TAGS, expected_type=dict
+        )
+        include = raw_tags.get("include", [])
+        exclude = raw_tags.get("exclude", [])
+        include_list = include if isinstance(include, list) else []
+        exclude_list = exclude if isinstance(exclude, list) else []
+        sanitized = {"include": include_list, "exclude": exclude_list}
+        self._filter[RawConfigFilterKeys.TAGS] = sanitized
+        return sanitized
+
+    def _get_priority_files(self) -> list[str]:
+        raw_value = self._filter.get(RawConfigFilterKeys.PRIORITY_FILES, [])
+        normalized = self._normalize_priority_files(raw_value)
+        self._filter[RawConfigFilterKeys.PRIORITY_FILES] = normalized
+        return normalized
 
     @staticmethod
-    def _normalize_priority_selections(value: Any) -> list[str]:
-        normalized: list[str] = []
-
-        if isinstance(value, list):
-            candidates = value
-        elif isinstance(value, str):
+    def _normalize_priority_files(value: Any) -> list[str]:
+        if isinstance(value, str):
             candidates = [value]
+        elif isinstance(value, list):
+            candidates = value
         else:
             candidates = []
 
+        normalized: list[str] = []
         for candidate in candidates:
             if not isinstance(candidate, str):
                 continue
@@ -225,71 +255,41 @@ class PrioritySieveConfigFilter:  # pylint:disable=too-many-instance-attributes
 
         return normalized
 
-    def _get_extra_reading_field(self) -> bool:
-        if RawConfigFilterKeys.EXTRA_READING_FIELD in self._filter:
-            value = self._filter[RawConfigFilterKeys.EXTRA_READING_FIELD]
-        elif 'extra_morph_readings' in self._filter:
-            value = self._filter['extra_morph_readings']
-            if isinstance(value, bool):
-                self._filter[RawConfigFilterKeys.EXTRA_READING_FIELD] = value
-                prioritysieve_globals.new_config_found = True
-            else:
-                value = self._default_config_dict[RawConfigKeys.FILTERS][0][RawConfigFilterKeys.EXTRA_READING_FIELD]
-                self._filter[RawConfigFilterKeys.EXTRA_READING_FIELD] = value
-                prioritysieve_globals.new_config_found = True
-        else:
-            value = self._default_config_dict[RawConfigKeys.FILTERS][0][RawConfigFilterKeys.EXTRA_READING_FIELD]
-            self._filter[RawConfigFilterKeys.EXTRA_READING_FIELD] = value
-            prioritysieve_globals.new_config_found = True
-
-        assert isinstance(value, bool)
-        return value
-
-
     def _get_reading_priority(self) -> str:
-        default_value = self._default_config_dict[RawConfigKeys.FILTERS][0][
-            RawConfigFilterKeys.READING_PRIORITY
-        ]
-
-        if RawConfigFilterKeys.READING_PRIORITY in self._filter:
-            value = self._filter[RawConfigFilterKeys.READING_PRIORITY]
-        else:
-            value = default_value
-            self._filter[RawConfigFilterKeys.READING_PRIORITY] = value
-            prioritysieve_globals.new_config_found = True
+        default_value = self._default_config_dict[RawConfigFilterKeys.READING_PRIORITY]
+        value = self._filter.get(RawConfigFilterKeys.READING_PRIORITY, default_value)
 
         if not isinstance(value, str):
             value = default_value
-            self._filter[RawConfigFilterKeys.READING_PRIORITY] = value
-            prioritysieve_globals.new_config_found = True
 
         if value not in (
             prioritysieve_globals.READING_PRIORITY_FURIGANA_FIRST,
             prioritysieve_globals.READING_PRIORITY_READING_FIRST,
         ):
             value = default_value
-            self._filter[RawConfigFilterKeys.READING_PRIORITY] = value
-            prioritysieve_globals.new_config_found = True
 
+        self._filter[RawConfigFilterKeys.READING_PRIORITY] = value
         return value
-
-
 
     def _get_filter_item(self, key: str, expected_type: type) -> Any:
         try:
             filter_item = self._filter[key]
         except KeyError:
-            filter_item = self._default_config_dict[RawConfigKeys.FILTERS][0][key]
+            filter_item = self._default_config_dict[key]
             prioritysieve_globals.new_config_found = True
+
         assert isinstance(filter_item, expected_type)
         return filter_item
 
 
-class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-many-statements
+class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes
     def __init__(self, is_default: bool = False) -> None:
         try:
-            self._config_dict = get_config_dict()
+            self._config_dict = normalize_config_keys(get_config_dict())
             self._default_config_dict = get_all_defaults_config_dict()
+
+            if not is_default and self._config_dict != get_config_dict():
+                _persist_normalized_config(self._config_dict)
 
             self.shortcut_recalc: QKeySequence = self._get_key_sequence_config(
                 key=RawConfigKeys.SHORTCUT_RECALC,
@@ -301,23 +301,16 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-m
                 expected_type=str,
                 use_default=is_default,
             )
-            self.shortcut_browse_ready_same_unknown: QKeySequence = (
+            self.shortcut_browse_same_unknown: QKeySequence = (
                 self._get_key_sequence_config(
-                    key=RawConfigKeys.SHORTCUT_BROWSE_READY_SAME_UNKNOWN,
+                    key=RawConfigKeys.SHORTCUT_BROWSE_SAME_UNKNOWN,
                     expected_type=str,
                     use_default=is_default,
                 )
             )
-            self.shortcut_browse_all_same_unknown: QKeySequence = (
+            self.shortcut_browse_same_unknown_broad: QKeySequence = (
                 self._get_key_sequence_config(
-                    key=RawConfigKeys.SHORTCUT_BROWSE_ALL_SAME_UNKNOWN,
-                    expected_type=str,
-                    use_default=is_default,
-                )
-            )
-            self.shortcut_browse_ready_same_unknown_lemma: QKeySequence = (
-                self._get_key_sequence_config(
-                    key=RawConfigKeys.SHORTCUT_BROWSE_READY_SAME_UNKNOWN_LEMMA,
+                    key=RawConfigKeys.SHORTCUT_BROWSE_SAME_UNKNOWN_BROAD,
                     expected_type=str,
                     use_default=is_default,
                 )
@@ -334,11 +327,6 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-m
                 expected_type=str,
                 use_default=is_default,
             )
-            self.shortcut_view_morphemes: QKeySequence = self._get_key_sequence_config(
-                key=RawConfigKeys.SHORTCUT_VIEW_MORPHEMES,
-                expected_type=str,
-                use_default=is_default,
-            )
             self.shortcut_generators: QKeySequence = self._get_key_sequence_config(
                 key=RawConfigKeys.SHORTCUT_GENERATORS,
                 expected_type=str,
@@ -349,37 +337,24 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-m
                 expected_type=str,
                 use_default=is_default,
             )
-            self.shortcut_known_morphs_exporter: QKeySequence = (
+            self.shortcut_known_entries_exporter: QKeySequence = (
                 self._get_key_sequence_config(
-                    key=RawConfigKeys.SHORTCUT_KNOWN_MORPHS_EXPORTER,
+                    key=RawConfigKeys.SHORTCUT_KNOWN_ENTRIES_EXPORTER,
                     expected_type=str,
                     use_default=is_default,
                 )
-            )
-            self.skip_no_unknown_morphs: bool = self._get_config_item(
-                key=RawConfigKeys.SKIP_NO_UNKNOWN_MORPHS,
-                expected_type=bool,
-                use_default=is_default,
-            )
-            self.skip_unknown_morph_seen_today_cards: bool = self._get_config_item(
-                key=RawConfigKeys.SKIP_UNKNOWN_MORPH_SEEN_TODAY_CARDS,
-                expected_type=bool,
-                use_default=is_default,
-            )
-            self.skip_show_num_of_skipped_cards: bool = self._get_config_item(
-                key=RawConfigKeys.SKIP_SHOW_NUM_OF_SKIPPED_CARDS,
-                expected_type=bool,
-                use_default=is_default,
             )
             self.preprocess_ignore_bracket_contents: bool = self._get_config_item(
                 key=RawConfigKeys.PREPROCESS_IGNORE_BRACKET_CONTENTS,
                 expected_type=bool,
                 use_default=is_default,
             )
-            self.preprocess_ignore_round_bracket_contents: bool = self._get_config_item(
-                key=RawConfigKeys.PREPROCESS_IGNORE_ROUND_BRACKET_CONTENTS,
-                expected_type=bool,
-                use_default=is_default,
+            self.preprocess_ignore_round_bracket_contents: bool = (
+                self._get_config_item(
+                    key=RawConfigKeys.PREPROCESS_IGNORE_ROUND_BRACKET_CONTENTS,
+                    expected_type=bool,
+                    use_default=is_default,
+                )
             )
             self.preprocess_ignore_slim_round_bracket_contents: bool = (
                 self._get_config_item(
@@ -394,16 +369,6 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-m
                     expected_type=bool,
                     use_default=is_default,
                 )
-            )
-            self.preprocess_ignore_names_morphemizer: bool = self._get_config_item(
-                key=RawConfigKeys.PREPROCESS_IGNORE_NAMES_MORPHEMIZER,
-                expected_type=bool,
-                use_default=is_default,
-            )
-            self.preprocess_ignore_names_textfile: bool = self._get_config_item(
-                key=RawConfigKeys.PREPROCESS_IGNORE_NAMES_TEXTFILE,
-                expected_type=bool,
-                use_default=is_default,
             )
             self.preprocess_ignore_numbers: bool = self._get_config_item(
                 key=RawConfigKeys.PREPROCESS_IGNORE_NUMBERS,
@@ -425,11 +390,6 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-m
                 expected_type=str,
                 use_default=is_default,
             )
-            self.interval_for_known_morphs: int = self._get_config_item(
-                key=RawConfigKeys.INTERVAL_FOR_KNOWN_MORPHS,
-                expected_type=int,
-                use_default=is_default,
-            )
             self.recalc_on_sync: bool = self._get_config_item(
                 key=RawConfigKeys.RECALC_ON_SYNC,
                 expected_type=bool,
@@ -440,47 +400,41 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-m
                 expected_type=bool,
                 use_default=is_default,
             )
-            self.read_known_morphs_folder: bool = self._get_config_item(
-                key=RawConfigKeys.READ_KNOWN_MORPHS_FOLDER,
-                expected_type=bool,
-                use_default=is_default,
-            )
-            self.toolbar_stats_use_known: bool = self._get_config_item(
-                key=RawConfigKeys.TOOLBAR_STATS_USE_KNOWN,
-                expected_type=bool,
-                use_default=is_default,
-            )
-            self.toolbar_stats_use_seen: bool = self._get_config_item(
-                key=RawConfigKeys.TOOLBAR_STATS_USE_SEEN,
-                expected_type=bool,
-                use_default=is_default,
-            )
-            self.extra_fields_display_inflections = False
-            self.extra_fields_display_lemmas = True
-            self.recalc_offset_priority_decks: list[str] = self._get_priority_deck_list(
-                is_default
-            )
             self.auto_suspend_unlisted_entries: bool = self._get_config_item(
                 key=RawConfigKeys.AUTO_SUSPEND_UNLISTED_ENTRIES,
                 expected_type=bool,
                 use_default=is_default,
             )
-            self.tag_fresh: str = self._get_config_item(
-                key=RawConfigKeys.TAG_FRESH, expected_type=str, use_default=is_default
+            self.recalc_offset_priority_decks: list[str] = self._get_priority_deck_list(
+                is_default
             )
-            if not is_default and self.tag_fresh == 'ps-fresh-morphs':
-                self.tag_fresh = 'ps-fresh-entries'
-                update_configs({RawConfigKeys.TAG_FRESH: self.tag_fresh})
+            self.hide_recalc_toolbar: bool = self._get_config_item(
+                key=RawConfigKeys.HIDE_RECALC_TOOLBAR,
+                expected_type=bool,
+                use_default=is_default,
+            )
+            self.hide_reviewed_counter: bool = self._get_config_item(
+                key=RawConfigKeys.HIDE_REVIEWED_COUNTER,
+                expected_type=bool,
+                use_default=is_default,
+            )
+            self.hide_tracked_counter: bool = self._get_config_item(
+                key=RawConfigKeys.HIDE_TRACKED_COUNTER,
+                expected_type=bool,
+                use_default=is_default,
+            )
+            self.hide_pending_counter: bool = self._get_config_item(
+                key=RawConfigKeys.HIDE_PENDING_COUNTER,
+                expected_type=bool,
+                use_default=is_default,
+            )
             self.tag_ready: str = self._get_config_item(
-                key=RawConfigKeys.TAG_READY, expected_type=str, use_default=is_default
-            )
-            self.tag_not_ready: str = self._get_config_item(
-                key=RawConfigKeys.TAG_NOT_READY,
+                key=RawConfigKeys.TAG_READY,
                 expected_type=str,
                 use_default=is_default,
             )
-            self.tag_known_automatically: str = self._get_config_item(
-                key=RawConfigKeys.TAG_KNOWN_AUTOMATICALLY,
+            self.tag_not_ready: str = self._get_config_item(
+                key=RawConfigKeys.TAG_NOT_READY,
                 expected_type=str,
                 use_default=is_default,
             )
@@ -494,184 +448,6 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-m
                 expected_type=str,
                 use_default=is_default,
             )
-            self.tag_learn_card_now: str = self._get_config_item(
-                key=RawConfigKeys.TAG_LEARN_CARD_NOW,
-                expected_type=str,
-                use_default=is_default,
-            )
-            self.evaluate_morph_lemma = True
-            self.evaluate_morph_inflection = False
-            self.algorithm_total_priority_unknown_morphs_weight: int = (
-                self._get_config_item(
-                    key=RawConfigKeys.ALGORITHM_TOTAL_PRIORITY_UNKNOWN_MORPHS_WEIGHT,
-                    expected_type=int,
-                    use_default=is_default,
-                )
-            )
-            self.algorithm_total_priority_all_morphs_weight: int = (
-                self._get_config_item(
-                    key=RawConfigKeys.ALGORITHM_TOTAL_PRIORITY_ALL_MORPHS_WEIGHT,
-                    expected_type=int,
-                    use_default=is_default,
-                )
-            )
-            self.algorithm_average_priority_all_morphs_weight: int = (
-                self._get_config_item(
-                    key=RawConfigKeys.ALGORITHM_AVERAGE_PRIORITY_ALL_MORPHS_WEIGHT,
-                    expected_type=int,
-                    use_default=is_default,
-                )
-            )
-            self.algorithm_total_priority_learning_morphs_weight: int = (
-                self._get_config_item(
-                    key=RawConfigKeys.ALGORITHM_TOTAL_PRIORITY_LEARNING_MORPHS_WEIGHT,
-                    expected_type=int,
-                    use_default=is_default,
-                )
-            )
-            self.algorithm_average_priority_learning_morphs_weight: int = (
-                self._get_config_item(
-                    key=RawConfigKeys.ALGORITHM_AVERAGE_PRIORITY_LEARNING_MORPHS_WEIGHT,
-                    expected_type=int,
-                    use_default=is_default,
-                )
-            )
-            self.algorithm_all_morphs_target_difference_weight: int = (
-                self._get_config_item(
-                    key=RawConfigKeys.ALGORITHM_ALL_MORPHS_TARGET_DIFFERENCE_WEIGHT,
-                    expected_type=int,
-                    use_default=is_default,
-                )
-            )
-            self.algorithm_learning_morphs_target_difference_weight: int = (
-                self._get_config_item(
-                    key=RawConfigKeys.ALGORITHM_LEARNING_MORPHS_TARGET_DIFFERENCE_WEIGHT,
-                    expected_type=int,
-                    use_default=is_default,
-                )
-            )
-            self.algorithm_upper_target_all_morphs: int = self._get_config_item(
-                key=RawConfigKeys.ALGORITHM_UPPER_TARGET_ALL_MORPHS,
-                expected_type=int,
-                use_default=is_default,
-            )
-            self.algorithm_upper_target_all_morphs_coefficient_a: float = (
-                self._get_config_item(
-                    key=RawConfigKeys.ALGORITHM_UPPER_TARGET_ALL_MORPHS_COEFFICIENT_A,
-                    expected_type=float,
-                    use_default=is_default,
-                )
-            )
-            self.algorithm_upper_target_all_morphs_coefficient_b: float = (
-                self._get_config_item(
-                    key=RawConfigKeys.ALGORITHM_UPPER_TARGET_ALL_MORPHS_COEFFICIENT_B,
-                    expected_type=float,
-                    use_default=is_default,
-                )
-            )
-            self.algorithm_upper_target_all_morphs_coefficient_c: float = (
-                self._get_config_item(
-                    key=RawConfigKeys.ALGORITHM_UPPER_TARGET_ALL_MORPHS_COEFFICIENT_C,
-                    expected_type=float,
-                    use_default=is_default,
-                )
-            )
-            self.algorithm_lower_target_all_morphs: int = self._get_config_item(
-                key=RawConfigKeys.ALGORITHM_LOWER_TARGET_ALL_MORPHS,
-                expected_type=int,
-                use_default=is_default,
-            )
-            self.algorithm_lower_target_all_morphs_coefficient_a: float = (
-                self._get_config_item(
-                    key=RawConfigKeys.ALGORITHM_LOWER_TARGET_ALL_MORPHS_COEFFICIENT_A,
-                    expected_type=float,
-                    use_default=is_default,
-                )
-            )
-            self.algorithm_lower_target_all_morphs_coefficient_b: float = (
-                self._get_config_item(
-                    key=RawConfigKeys.ALGORITHM_LOWER_TARGET_ALL_MORPHS_COEFFICIENT_B,
-                    expected_type=float,
-                    use_default=is_default,
-                )
-            )
-            self.algorithm_lower_target_all_morphs_coefficient_c: float = (
-                self._get_config_item(
-                    key=RawConfigKeys.ALGORITHM_LOWER_TARGET_ALL_MORPHS_COEFFICIENT_C,
-                    expected_type=float,
-                    use_default=is_default,
-                )
-            )
-            self.algorithm_upper_target_learning_morphs: int = self._get_config_item(
-                key=RawConfigKeys.ALGORITHM_UPPER_TARGET_LEARNING_MORPHS,
-                expected_type=int,
-                use_default=is_default,
-            )
-            self.algorithm_lower_target_learning_morphs: int = self._get_config_item(
-                key=RawConfigKeys.ALGORITHM_LOWER_TARGET_LEARNING_MORPHS,
-                expected_type=int,
-                use_default=is_default,
-            )
-            self.algorithm_upper_target_learning_morphs_coefficient_a: float = (
-                self._get_config_item(
-                    key=RawConfigKeys.ALGORITHM_UPPER_TARGET_LEARNING_MORPHS_COEFFICIENT_A,
-                    expected_type=float,
-                    use_default=is_default,
-                )
-            )
-            self.algorithm_upper_target_learning_morphs_coefficient_b: float = (
-                self._get_config_item(
-                    key=RawConfigKeys.ALGORITHM_UPPER_TARGET_LEARNING_MORPHS_COEFFICIENT_B,
-                    expected_type=float,
-                    use_default=is_default,
-                )
-            )
-            self.algorithm_upper_target_learning_morphs_coefficient_c: float = (
-                self._get_config_item(
-                    key=RawConfigKeys.ALGORITHM_UPPER_TARGET_LEARNING_MORPHS_COEFFICIENT_C,
-                    expected_type=float,
-                    use_default=is_default,
-                )
-            )
-            self.algorithm_lower_target_learning_morphs_coefficient_a: float = (
-                self._get_config_item(
-                    key=RawConfigKeys.ALGORITHM_LOWER_TARGET_LEARNING_MORPHS_COEFFICIENT_A,
-                    expected_type=float,
-                    use_default=is_default,
-                )
-            )
-            self.algorithm_lower_target_learning_morphs_coefficient_b: float = (
-                self._get_config_item(
-                    key=RawConfigKeys.ALGORITHM_LOWER_TARGET_LEARNING_MORPHS_COEFFICIENT_B,
-                    expected_type=float,
-                    use_default=is_default,
-                )
-            )
-            self.algorithm_lower_target_learning_morphs_coefficient_c: float = (
-                self._get_config_item(
-                    key=RawConfigKeys.ALGORITHM_LOWER_TARGET_LEARNING_MORPHS_COEFFICIENT_C,
-                    expected_type=float,
-                    use_default=is_default,
-                )
-            )
-
-            self.hide_recalc_toolbar: bool = self._get_config_item(
-                key=RawConfigKeys.HIDE_RECALC_TOOLBAR,
-                expected_type=bool,
-                use_default=is_default,
-            )
-
-            self.hide_lemma_toolbar: bool = self._get_config_item(
-                key=RawConfigKeys.HIDE_LEMMA_TOOLBAR,
-                expected_type=bool,
-                use_default=is_default,
-            )
-
-            self.hide_inflection_toolbar: bool = self._get_config_item(
-                key=RawConfigKeys.HIDE_INFLECTION_TOOLBAR,
-                expected_type=bool,
-                use_default=is_default,
-            )
 
             self.filters: list[PrioritySieveConfigFilter] = self.get_config_filters(
                 is_default
@@ -682,18 +458,7 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-m
                 show_critical_config_error()
                 prioritysieve_globals.config_broken = True
 
-        if (
-            prioritysieve_globals.new_config_found
-            and not prioritysieve_globals.shown_config_warning
-        ):
-            # show_warning_new_config_items()  # temporarily disabled
-            prioritysieve_globals.shown_config_warning = True
-
     def update(self) -> None:
-        # The same PrioritySieveSettings object is shared many
-        # places (SettingsTabs, etc.), and to avoid de-synchronization
-        # it is better to update the object rather than creating
-        # new objects/updating the references.
         new_config = PrioritySieveConfig()
         self.__dict__.update(new_config.__dict__)
 
@@ -716,16 +481,20 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-m
             use_default=is_default,
         )
 
-        filters = []
+        defaults = self._default_config_dict.get(RawConfigKeys.FILTERS, [])
+        default_filter = defaults[0] if defaults else {}
+
+        filters: list[PrioritySieveConfigFilter] = []
         for _filter in config_filters:
-            am_filter = PrioritySieveConfigFilter(_filter)
-            if not am_filter.has_error:
-                filters.append(am_filter)
+            if isinstance(_filter, dict):
+                am_filter = PrioritySieveConfigFilter(_filter, default_filter)
+                if not am_filter.has_error:
+                    filters.append(am_filter)
         return filters
 
     def _get_priority_deck_list(self, is_default: bool) -> list[str]:
         key = RawConfigKeys.RECALC_OFFSET_PRIORITY_DECKS
-        legacy_key = RawConfigKeys.LEGACY_RECALC_OFFSET_PRIORITY_DECK
+        legacy_key = "recalc_offset_priority_deck"
         source = self._default_config_dict if is_default else self._config_dict
 
         def sanitize(decks: list[object]) -> list[str]:
@@ -771,9 +540,16 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-m
             source[key] = sanitized_default
         return sanitized_default
 
-    def get_preprocess_ignore_suspended_unless_tag_list(self) -> list[str]:
-        """Return sanitized tag names that allow suspended cards to be considered."""
+    def _persist_priority_decks(self, decks: list[str]) -> None:
+        assert mw is not None
+        config = get_config_dict()
+        config[RawConfigKeys.RECALC_OFFSET_PRIORITY_DECKS] = decks
+        if "recalc_offset_priority_deck" in config:
+            config.pop("recalc_offset_priority_deck", None)
+        mw.addonManager.writeConfig(__name__, config)
+        save_config_to_am_file(config)
 
+    def get_preprocess_ignore_suspended_unless_tag_list(self) -> list[str]:
         tags_value = self.preprocess_ignore_suspended_unless_tags
         if not isinstance(tags_value, str):
             return []
@@ -789,32 +565,18 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes, too-m
 
         return sanitized
 
-    def _persist_priority_decks(self, decks: list[str]) -> None:
-        assert mw is not None
-        config = get_config_dict()
-        config[RawConfigKeys.RECALC_OFFSET_PRIORITY_DECKS] = decks
-        config.pop(RawConfigKeys.LEGACY_RECALC_OFFSET_PRIORITY_DECK, None)
-        mw.addonManager.writeConfig(__name__, config)
-        save_config_to_am_file(config)
-
     def _get_config_item(
         self,
         key: str,
         expected_type: type,
         use_default: bool,
-        # ) -> str | int | bool | list[FilterTypeAlias] | None:
     ) -> Any:
-        """
-        Tries to find the config item with the specified key,
-        if not found then returns the default value and set
-        prioritysieve_globals.new_config_found = True
-        """
-
         try:
-            if use_default is False:
-                item = self._config_dict[key]
-            else:
-                item = self._default_config_dict[key]
+            item = (
+                self._default_config_dict[key]
+                if use_default
+                else self._config_dict[key]
+            )
         except KeyError:
             prioritysieve_globals.new_config_found = True
             item = self._default_config_dict[key]
@@ -832,7 +594,7 @@ def get_config_dict() -> dict[str, Any]:
 
 def get_all_defaults_config_dict() -> dict[str, Any]:
     assert mw is not None
-    addon = mw.addonManager.addonFromModule(__name__)  # necessary to prevent anki bug
+    addon = mw.addonManager.addonFromModule(__name__)
     default_config_dict: dict[str, Any] | None = mw.addonManager.addonConfigDefaults(
         addon
     )
@@ -840,46 +602,89 @@ def get_all_defaults_config_dict() -> dict[str, Any]:
     return default_config_dict
 
 
+def normalize_config_keys(configs: dict[str, Any]) -> dict[str, Any]:
+    normalized = copy.deepcopy(configs)
+
+    for old_key, new_key in LEGACY_KEY_RENAMES.items():
+        if old_key in normalized:
+            if new_key not in normalized:
+                normalized[new_key] = normalized[old_key]
+            normalized.pop(old_key, None)
+            prioritysieve_globals.new_config_found = True
+
+    for obsolete_key in LEGACY_KEYS_TO_DROP:
+        if obsolete_key in normalized:
+            normalized.pop(obsolete_key, None)
+            prioritysieve_globals.new_config_found = True
+
+    legacy_fresh_tag = normalized.pop("tag_fresh", None)
+    if isinstance(legacy_fresh_tag, str):
+        trimmed_tag = legacy_fresh_tag.strip()
+        if trimmed_tag:
+            prioritysieve_globals.legacy_fresh_tags.add(trimmed_tag)
+            prioritysieve_globals.new_config_found = True
+    elif legacy_fresh_tag is not None:
+        prioritysieve_globals.new_config_found = True
+
+    legacy_known_auto_tag = normalized.pop("tag_known_automatically", None)
+    if isinstance(legacy_known_auto_tag, str):
+        trimmed_tag = legacy_known_auto_tag.strip()
+        if trimmed_tag:
+            prioritysieve_globals.legacy_known_automatically_tags.add(trimmed_tag)
+            prioritysieve_globals.new_config_found = True
+    elif legacy_known_auto_tag is not None:
+        prioritysieve_globals.new_config_found = True
+
+    filters_obj = normalized.get(RawConfigKeys.FILTERS)
+    defaults = get_all_defaults_config_dict()
+    default_filters = defaults.get(RawConfigKeys.FILTERS, [])
+    default_filter = default_filters[0] if default_filters else {}
+    if isinstance(filters_obj, list):
+        for item in filters_obj:
+            if isinstance(item, dict):
+                _normalize_filter_dict(item, default_filter)
+
+    return normalized
+
+
 def load_stored_am_configs(
     stored_config: dict[str, str | int | float | bool | object],
 ) -> None:
-    """
-    This function loads the stored dict found in 'prioritysieve_profile_settings.json' and
-    then merges any new entries found in the default config.
-    """
     assert mw is not None
 
-    merged_configs = get_all_defaults_config_dict()
-    assert merged_configs is not None
+    default_configs = copy.deepcopy(get_all_defaults_config_dict())
+    normalized_stored = normalize_config_keys(stored_config)
 
-    try:
-        for key, value in stored_config.items():
-            merged_configs[key] = value
-    except KeyError:
-        # this happens when backwards compatibility has been broken
-        # and keys no longer exists in the default config
-        pass
+    for key, value in normalized_stored.items():
+        default_configs[key] = value
 
-    # write the merged configs to 'meta.json', i.e. the config Anki uses.
-    mw.addonManager.writeConfig(__name__, merged_configs)
+    mw.addonManager.writeConfig(__name__, default_configs)
+    save_config_to_am_file(default_configs)
 
 
-def update_configs(new_configs: dict[str, str | int | float | bool | object]) -> None:
+def update_configs(new_configs: dict[str, Any]) -> None:
     assert mw is not None
-    config = mw.addonManager.getConfig(__name__)
-    assert config is not None
+    config = get_config_dict()
+    config.update(new_configs)
+    normalized = normalize_config_keys(config)
+    _persist_normalized_config(normalized)
 
-    for key, value in new_configs.items():
-        config[key] = value
 
-    mw.addonManager.writeConfig(__name__, config)
-    save_config_to_am_file(config)
+def _persist_normalized_config(configs: dict[str, Any]) -> None:
+    assert mw is not None
+    mw.addonManager.writeConfig(__name__, configs)
+    save_config_to_am_file(configs)
 
 
 def save_config_to_am_file(
     configs: dict[str, str | int | float | bool | object],
 ) -> None:
     assert mw is not None
+    profile_name = getattr(mw.pm, "name", None)
+    if not profile_name:
+        # During early startup, the profile name can be unset. Defer writing until the
+        # profile is fully loaded to avoid TypeError from profileFolder().
+        return
     profile_settings_path = Path(
         mw.pm.profileFolder(), prioritysieve_globals.PROFILE_SETTINGS_FILE_NAME
     )
@@ -890,8 +695,7 @@ def save_config_to_am_file(
 def reset_all_configs() -> None:
     assert mw is not None
     default_configs = get_all_defaults_config_dict()
-    mw.addonManager.writeConfig(__name__, default_configs)  # updates 'meta.json'
-
+    mw.addonManager.writeConfig(__name__, default_configs)
     assert default_configs is not None
     save_config_to_am_file(default_configs)
 
@@ -899,23 +703,13 @@ def reset_all_configs() -> None:
 def get_read_enabled_filters() -> list[PrioritySieveConfigFilter]:
     config_filters = PrioritySieveConfig().get_config_filters()
     assert isinstance(config_filters, list)
-
-    read_filters = []
-    for config_filter in config_filters:
-        if config_filter.read:
-            read_filters.append(config_filter)
-    return read_filters
+    return [flt for flt in config_filters if flt.read]
 
 
 def get_modify_enabled_filters() -> list[PrioritySieveConfigFilter]:
     config_filters = PrioritySieveConfig().get_config_filters()
     assert isinstance(config_filters, list)
-
-    modify_filters = []
-    for config_filter in config_filters:
-        if config_filter.modify:
-            modify_filters.append(config_filter)
-    return modify_filters
+    return [flt for flt in config_filters if flt.modify]
 
 
 def get_matching_filter(note: Note) -> PrioritySieveConfigFilter | None:
@@ -964,9 +758,9 @@ def show_critical_config_error() -> None:
         "<br><br>"
         "Please do the following:"
         "<ol>"
-        "<li> Restart Anki without add-ons (hold shift key while opening Anki)"
-        "<li> Restore the default configs of 'PrioritySieve' (and 'AnkiMorphs' if you also run the original add-on)<br>"
-        "    Tools -> add-ons -> select add-on -> config -> restore defaults"
+        "<li> Restart Anki without add-ons (hold shift while opening Anki)"
+        "<li> Restore the default configs of PrioritySieve<br>"
+        "    Tools -> add-ons -> select PrioritySieve -> config -> restore defaults"
         "<li> Delete the 'prioritysieve_profile_settings.json' file in the Anki profile folder"
         "<li> Restart Anki"
         "</ol>"
@@ -974,25 +768,3 @@ def show_critical_config_error() -> None:
     critical_box.setTextFormat(Qt.TextFormat.RichText)
     critical_box.setText(body)
     critical_box.exec()
-
-
-# def show_warning_new_config_items() -> None:
-#     critical_box = QMessageBox(mw)
-#     critical_box.setWindowTitle("PrioritySieve Warning")
-#     critical_box.setIcon(QMessageBox.Icon.Warning)
-#     body: str = (
-#         "**New PrioritySieve settings detected!**"
-#         "<br/><br/>"
-#         "New settings have been added "
-#         "(<a href='https://github.com/mortii/prioritysieve/releases'>changelog</a>), "
-#         "which may affect how PrioritySieve performs."
-#         "<br/><br/>"
-#         "To ensure optimal performance, please follow these steps:<br/>"
-#         "1. Open the PrioritySieve settings menu.<br/>"
-#         "2. Review and adjust the settings as needed.<br/>"
-#         "3. Apply the settings.<br/>"
-#         "4. Recalc"
-#     )
-#     critical_box.setTextFormat(Qt.TextFormat.MarkdownText)
-#     critical_box.setText(body)
-#     critical_box.exec()

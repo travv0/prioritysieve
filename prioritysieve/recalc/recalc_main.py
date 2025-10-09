@@ -2,91 +2,114 @@ from __future__ import annotations
 
 import json
 import time
+from collections import Counter, defaultdict
+from collections.abc import Callable, Collection
+from dataclasses import dataclass
 from pathlib import Path
-from collections.abc import Callable
 
-from anki.cards import Card, CardId
-from anki.consts import CARD_TYPE_NEW, CardQueue
-from anki.models import FieldDict, ModelManager, NotetypeDict
+from anki.cards import Card
+from anki.consts import CARD_TYPE_NEW, QUEUE_TYPE_NEW, QUEUE_TYPE_SUSPENDED
 from anki.notes import Note
 from aqt import mw
 from aqt.operations import QueryOp
 from aqt.utils import tooltip
-from ..anki_op_utils import notify_op_execution
 
 from .. import (
+    message_box_utils,
     prioritysieve_config,
     prioritysieve_globals,
-    message_box_utils,
     progress_utils,
     tags_and_queue_utils,
 )
+from ..entry import Entry
+from ..entry_db import EntryDB
+from ..priority_files import load_priority_map
+from ..extra_settings.prioritysieve_extra_settings import PrioritySieveExtraSettings
 from ..prioritysieve_config import PrioritySieveConfig, PrioritySieveConfigFilter
-from ..prioritysieve_db import PrioritySieveDB
+from ..prioritysieve_globals import DEFAULT_REVIEW_DUE, GENERATOR_DIALOG_NAME
+from ..priority_files import ensure_directories
 from ..exceptions import (
     AnkiFieldNotFound,
     AnkiNoteTypeNotFound,
     CancelledOperationException,
     DefaultSettingsException,
-    KnownMorphsFileMalformedException,
-    MorphemizerNotFoundException,
     PriorityFileMalformedException,
     PriorityFileNotFoundException,
 )
-from ..morph_priority_utils import get_morph_priority
-from ..morpheme import Morpheme
-from ..morphemizers import morphemizer_utils
-from ..extra_settings import extra_settings_keys
-from ..extra_settings.prioritysieve_extra_settings import PrioritySieveExtraSettings
-from . import caching, extra_field_utils
-from .anki_data_utils import PrioritySieveCardData
-from .card_morphs_metrics import CardMorphsMetrics
-from .card_score import _MAX_SCORE, compute_due_from_priorities
+from ..anki_op_utils import notify_op_execution
+from . import caching
+from .anki_data_utils import create_card_data_dict
 
 _last_modified_cards_count: int = 0
 _last_modified_notes_count: int = 0
 _recent_card_diffs: list[str] = []
 _recent_note_diffs: list[str] = []
 _followup_sync_callback: Callable[[], None] | None = None
+_recalc_in_progress: bool = False
+
+
+def recalc_in_progress() -> bool:
+    return _recalc_in_progress
+
+
+@dataclass(slots=True)
+class CardPlan:
+    card_id: int
+    note_id: int
+    entry_key: tuple[str, str]
+    is_new_card: bool
+    entry_reviewed: bool
+    deck_priority: int
+    manually_suspended: bool
+    original_due: int
+    desired_due: int
+    original_queue: int
+    desired_queue: int
+    auto_suspend: bool
+    deck_id: int
+    original_deck_id: int
+    original_tags: list[str]
+    desired_tags: list[str]
+    extra_reading_field_index: int | None
+    desired_reading: str | None
 
 
 def set_followup_sync_callback(callback: Callable[[], None] | None) -> None:
     global _followup_sync_callback
     _followup_sync_callback = callback
 
-def _get_filter_identifier(config_filter: PrioritySieveConfigFilter) -> str:
-    include_tags = sorted(
-        tag.strip()
-        for tag in config_filter.tags.get("include", [])
-        if isinstance(tag, str) and tag.strip()
-    )
-    exclude_tags = sorted(
-        tag.strip()
-        for tag in config_filter.tags.get("exclude", [])
-        if isinstance(tag, str) and tag.strip()
-    )
 
-    return "|".join(
-        (
-            config_filter.note_type,
-            f"inc:{','.join(include_tags)}",
-            f"exc:{','.join(exclude_tags)}",
-        )
-    )
+def _should_skip_card(
+    card: Card,
+    note: Note,
+    auto_tag: str,
+    suspended_exception_tags: Collection[str],
+) -> bool:
+    if card.queue != QUEUE_TYPE_SUSPENDED:
+        return False
 
-def _collect_filters_state(
-    filters: list[PrioritySieveConfigFilter],
-) -> list[dict[str, int | str]]:
+    if auto_tag in note.tags:
+        return False
+
+    for tag in suspended_exception_tags:
+        if tag in note.tags:
+            return False
+
+    return True
+
+
+def _collect_filters_state(filters: list[PrioritySieveConfigFilter]) -> list[dict[str, int | str]]:
     assert mw is not None
-    assert mw.col is not None and mw.col.db is not None
+    if mw.col is None or mw.col.db is None:
+        raise CancelledOperationException()
 
     state: list[dict[str, int | str]] = []
-    model_manager: ModelManager = mw.col.models
+    model_manager = mw.col.models
 
     for config_filter in filters:
         note_type_name = config_filter.note_type
         if note_type_name == prioritysieve_globals.NONE_OPTION:
-            continue
+            raise DefaultSettingsException()
 
         note_type_id = model_manager.id_for_name(note_type_name)
         if note_type_id is None:
@@ -115,10 +138,7 @@ def _collect_filters_state(
 
         card_stats = mw.col.db.first(
             f"""
-            SELECT
-                COUNT(cards.id),
-                COALESCE(MAX(cards.mod), 0),
-                COALESCE(MAX(cards.id), 0)
+            SELECT COUNT(cards.id), COALESCE(MAX(cards.mod), 0), COALESCE(MAX(cards.id), 0)
             FROM cards
             JOIN notes ON notes.id = cards.nid
             WHERE {where_sql}
@@ -128,10 +148,7 @@ def _collect_filters_state(
 
         note_stats = mw.col.db.first(
             f"""
-            SELECT
-                COUNT(notes.id),
-                COALESCE(MAX(notes.mod), 0),
-                COALESCE(MAX(notes.id), 0)
+            SELECT COUNT(notes.id), COALESCE(MAX(notes.mod), 0), COALESCE(MAX(notes.id), 0)
             FROM notes
             WHERE {where_sql}
             """,
@@ -159,601 +176,899 @@ def _collect_filters_state(
     state.sort(key=lambda entry: entry["id"])
     return state
 
-def _filters_requiring_state_snapshot() -> list[PrioritySieveConfigFilter]:
-    """Return unique filters whose cards/notes affect recalc state checks."""
 
-    # Filters with 'modify' enabled always participate because recalc may
-    # mutate their cards. We also include 'read'-only filters so changes in the
-    # underlying collection trigger cache rebuilds for users that disabled the
-    # modify option (e.g., to avoid extra-field writes).
-    combined_filters = (
-        prioritysieve_config.get_modify_enabled_filters()
-        + prioritysieve_config.get_read_enabled_filters()
+def _get_filter_identifier(config_filter: PrioritySieveConfigFilter) -> str:
+    include_tags = sorted(
+        tag.strip()
+        for tag in config_filter.tags.get("include", [])
+        if isinstance(tag, str) and tag.strip()
+    )
+    exclude_tags = sorted(
+        tag.strip()
+        for tag in config_filter.tags.get("exclude", [])
+        if isinstance(tag, str) and tag.strip()
     )
 
-    unique_filters: list[PrioritySieveConfigFilter] = []
-    seen_ids: set[str] = set()
-
-    for config_filter in combined_filters:
-        identifier = _get_filter_identifier(config_filter)
-        if identifier in seen_ids:
-            continue
-        seen_ids.add(identifier)
-        unique_filters.append(config_filter)
-
-    return unique_filters
+    return "|".join(
+        (
+            config_filter.note_type,
+            f"inc:{','.join(include_tags)}",
+            f"exc:{','.join(exclude_tags)}",
+        )
+    )
 
 
 def compute_modify_filters_state() -> list[dict[str, int | str]]:
-    filters = _filters_requiring_state_snapshot()
+    filters = prioritysieve_config.get_modify_enabled_filters()
+    filters += prioritysieve_config.get_read_enabled_filters()
     return _collect_filters_state(filters)
 
+
 def recalc() -> None:
-    ################################################################
-    #                          FREEZING
-    ################################################################
-    # Recalc can take a long time if there are many cards, so to
-    # prevent Anki from freezing we need to run this on a background
-    # thread by using QueryOp.
-    #
-    # QueryOp docs:
-    # https://addon-docs.ankiweb.net/background-ops.html
-    ################################################################
     assert mw is not None
 
-    read_enabled_config_filters: list[PrioritySieveConfigFilter] = (
-        prioritysieve_config.get_read_enabled_filters()
-    )
-    modify_enabled_config_filters: list[PrioritySieveConfigFilter] = (
-        prioritysieve_config.get_modify_enabled_filters()
-    )
+    am_config = PrioritySieveConfig()
+    read_filters = prioritysieve_config.get_read_enabled_filters()
+    modify_filters = prioritysieve_config.get_modify_enabled_filters()
+    combined_filters = _merge_unique_filters(read_filters + modify_filters)
 
-    # Note: we check for potential errors before running the QueryOp because
-    # these processes and confirmations can require gui elements being displayed,
-    # which is less of a headache to do on the main thread.
-    settings_error: Exception | None = _check_selected_settings_for_errors(
-        read_enabled_config_filters, modify_enabled_config_filters
-    )
-
-    if settings_error is not None:
-        _on_failure(error=settings_error, before_query_op=True)
+    try:
+        _validate_filters(combined_filters)
+    except DefaultSettingsException:
+        message_box_utils.show_warning_box(
+            "Default settings detected",
+            "Configure PrioritySieve in Tools → PrioritySieve Settings before running Recalc.",
+        )
         return
 
-    if extra_field_utils.new_extra_fields_are_selected():
-        confirmed = message_box_utils.confirm_new_extra_fields_selection(parent=mw)
-        if not confirmed:
-            return
+    mw.checkpoint("PrioritySieve Recalc")
 
-    mw.progress.start(label="Recalculating")
-    _start_time: float = time.time()
-
-    # lambda is used to ignore the irrelevant arguments given by QueryOp
+    start_time = time.time()
     operation = QueryOp(
         parent=mw,
-        op=lambda _: _recalc_background_op(
-            read_enabled_config_filters, modify_enabled_config_filters
-        ),
-        success=lambda _: _on_success(_start_time),
+        op=lambda _: _background_recalc(am_config, combined_filters, modify_filters),
+        success=lambda _: _on_success(start_time),
     )
     operation.failure(_on_failure)
+    global _recalc_in_progress
+    _recalc_in_progress = True
     operation.with_progress().run_in_background()
 
-def _check_selected_settings_for_errors(
-    read_enabled_config_filters: list[PrioritySieveConfigFilter],
-    modify_enabled_config_filters: list[PrioritySieveConfigFilter],
-) -> Exception | None:
+
+def _merge_unique_filters(
+    filters: list[PrioritySieveConfigFilter],
+) -> list[PrioritySieveConfigFilter]:
+    seen: set[str] = set()
+    unique: list[PrioritySieveConfigFilter] = []
+    for config_filter in filters:
+        identifier = _get_filter_identifier(config_filter)
+        if identifier in seen:
+            continue
+        seen.add(identifier)
+        unique.append(config_filter)
+    return unique
+
+
+def _build_deck_priority_lookup(
+    configured_order: Collection[str],
+) -> dict[str, int]:
+    lookup: dict[str, int] = {}
+    for index, raw_name in enumerate(configured_order):
+        if not isinstance(raw_name, str):
+            continue
+        deck_name = raw_name.strip()
+        if not deck_name or deck_name in lookup:
+            continue
+        lookup[deck_name] = index
+    return lookup
+
+
+def _get_deck_priority_for_card(
+    card: Card,
+    deck_priority_lookup: dict[str, int],
+    deck_name_cache: dict[int, str],
+) -> int:
     assert mw is not None
+    if mw.col is None:
+        raise CancelledOperationException()
 
-    # ideally we would combine the read and modify filters into a set since they
-    # usually have significant overlap, but they contain dicts, which makes
-    # comparing them impractical, so we just combine them into a list.
-    config_filters = read_enabled_config_filters + modify_enabled_config_filters
+    deck_id = getattr(card, "odid", 0) or card.did
+    deck_name = deck_name_cache.get(deck_id)
+    if deck_name is None:
+        deck_dict = mw.col.decks.get(deck_id)
+        name = deck_dict.get("name") if isinstance(deck_dict, dict) else None
+        deck_name = name if isinstance(name, str) else ""
+        deck_name_cache[deck_id] = deck_name
 
-    model_manager: ModelManager = mw.col.models
+    default_priority = len(deck_priority_lookup)
+    return deck_priority_lookup.get(deck_name, default_priority)
 
-    for config_filter in config_filters:
-        if config_filter.note_type == prioritysieve_globals.NONE_OPTION:
-            return DefaultSettingsException()
 
-        if config_filter.field == prioritysieve_globals.NONE_OPTION:
-            return DefaultSettingsException()
+def _get_deck_priority_for_ids(
+    deck_priority_lookup: dict[str, int],
+    deck_name_cache: dict[int, str],
+    original_deck_id: int,
+    current_deck_id: int,
+) -> int:
+    assert mw is not None
+    if mw.col is None:
+        raise CancelledOperationException()
 
-        if not config_filter.morph_priority_selections:
-            return DefaultSettingsException()
+    deck_id = original_deck_id or current_deck_id
+    deck_name = deck_name_cache.get(deck_id)
+    if deck_name is None:
+        deck_dict = mw.col.decks.get(deck_id)
+        name = deck_dict.get("name") if isinstance(deck_dict, dict) else None
+        deck_name = name if isinstance(name, str) else ""
+        deck_name_cache[deck_id] = deck_name
 
-        note_type_dict: NotetypeDict | None = mw.col.models.by_name(
-            config_filter.note_type
-        )
-        if note_type_dict is None:
-            return AnkiNoteTypeNotFound()
+    default_priority = len(deck_priority_lookup)
+    return deck_priority_lookup.get(deck_name, default_priority)
 
-        note_type_field_name_dict: dict[str, tuple[int, FieldDict]] = (
-            model_manager.field_map(note_type_dict)
-        )
 
-        if config_filter.field not in note_type_field_name_dict:
-            return AnkiFieldNotFound()
+def _filters_requiring_state_snapshot() -> list[PrioritySieveConfigFilter]:
+    """Return filters used to snapshot collection state before recalc."""
 
-        if (
-            config_filter.furigana_field != prioritysieve_globals.NONE_OPTION
-            and config_filter.furigana_field not in note_type_field_name_dict
-        ):
-            return AnkiFieldNotFound()
+    modify_filters = prioritysieve_config.get_modify_enabled_filters()
+    read_filters = prioritysieve_config.get_read_enabled_filters()
+    return _merge_unique_filters(modify_filters + read_filters)
 
-        if (
-            config_filter.reading_field != prioritysieve_globals.NONE_OPTION
-            and config_filter.reading_field not in note_type_field_name_dict
-        ):
-            return AnkiFieldNotFound()
 
-        morphemizer_found = morphemizer_utils.get_morphemizer_by_description(
-            config_filter.morphemizer_description
-        )
-        if morphemizer_found is None:
-            return MorphemizerNotFoundException(config_filter.morphemizer_description)
-
-        for selection in config_filter.morph_priority_selections:
-            if selection in (
-                prioritysieve_globals.NONE_OPTION,
-                prioritysieve_globals.COLLECTION_FREQUENCY_OPTION,
-            ):
-                continue
-
-            priority_file_path = Path(
-                mw.pm.profileFolder(),
-                prioritysieve_globals.PRIORITY_FILES_DIR_NAME,
-                selection,
-            )
-            if not priority_file_path.is_file():
-                return PriorityFileNotFoundException(path=str(priority_file_path))
-
-    return None
-
-def _recalc_background_op(
-    read_enabled_config_filters: list[PrioritySieveConfigFilter],
-    modify_enabled_config_filters: list[PrioritySieveConfigFilter],
-) -> None:
-    am_config = PrioritySieveConfig()
-    caching.cache_anki_data(am_config, read_enabled_config_filters)
-    _update_cards_and_notes(am_config, modify_enabled_config_filters)
-
-def _update_cards_and_notes(  # pylint:disable=too-many-locals, too-many-statements, too-many-branches
+def filters_have_pending_changes(
     am_config: PrioritySieveConfig,
-    modify_enabled_config_filters: list[PrioritySieveConfigFilter],
-) -> None:
+    filters: list[PrioritySieveConfigFilter],
+) -> bool:
+    """Return True if any filter has cards/notes with unsynced changes."""
+
     assert mw is not None
-    assert mw.col.db is not None
-    assert mw.progress is not None
+    if mw.col is None:
+        return False
 
-    am_db = PrioritySieveDB()
-    model_manager: ModelManager = mw.col.models
-    card_morph_map_cache: dict[int, list[Morpheme]] = am_db.get_card_morph_map_cache()
-    handled_cards: dict[CardId, Card] = {}  # reuse card objects across passes
-    modified_cards: dict[CardId, Card] = {}
-    modified_notes: dict[int, Note] = {}
-    card_original_state: dict[CardId, tuple[int, int]] = {}
-    note_original_state: dict[int, tuple[list[str], list[str]]] = {}
-    notes_cache: dict[int, Note] = {}
-
-    global _recent_card_diffs
-    global _recent_note_diffs
-    _recent_card_diffs = []
-    _recent_note_diffs = []
-
-    # clear relevant caches between recalcs
-    am_db.get_morph_priorities_from_collection.cache_clear()
-    Morpheme.get_learning_status.cache_clear()
-
-    auto_suspended_tag = am_config.tag_suspended_automatically
-
-    for config_filter in modify_enabled_config_filters:
-        note_type_dict: NotetypeDict = (
-            extra_field_utils.potentially_add_extra_fields_to_note_type(
-                model_manager=model_manager, config_filter=config_filter
-            )
+    changed_filters: list[str] = []
+    for config_filter in filters:
+        identifier = _get_filter_identifier(config_filter)
+        has_changes = _filter_has_pending_changes(am_config, config_filter)
+        print(
+            f"PrioritySieve pending-change probe: {identifier} -> {has_changes}"
         )
-        field_name_dict: dict[str, tuple[int, FieldDict]] = model_manager.field_map(
-            notetype=note_type_dict
+        if has_changes:
+            changed_filters.append(identifier)
+
+    if changed_filters:
+        print(
+            "PrioritySieve pending-change summary: detected changes in "
+            + ", ".join(changed_filters)
         )
-        morph_priorities: dict[tuple[str, str, str], int] = get_morph_priority(
-            am_db=am_db,
-            morph_priority_selection=config_filter.morph_priority_selections,
-        )
-        cards_data_dict: dict[CardId, PrioritySieveCardData] = (
-            am_db.get_am_cards_data_dict(
-                note_type_id=model_manager.id_for_name(config_filter.note_type),
-                include_tags=config_filter.tags["include"],
-                exclude_tags=config_filter.tags["exclude"],
-            )
-        )
-        card_amount = len(cards_data_dict)
+        return True
 
-        for counter, card_id in enumerate(cards_data_dict):
-            progress_utils.background_update_progress_potentially_cancel(
-                label=f"Updating {config_filter.note_type} cards<br>card: {counter} of {card_amount}",
-                counter=counter,
-                max_value=card_amount,
-            )
+    print("PrioritySieve pending-change summary: no relevant changes detected")
+    return False
 
-            # check if the card has already been handled in a previous note filter
-            if card_id in handled_cards:
-                continue
 
-            card: Card = mw.col.get_card(card_id)
-            note_id = card.nid
-            note: Note | None = notes_cache.get(note_id)
-            if note is None:
-                note = card.note()
-                notes_cache[note_id] = note
+def _filter_has_pending_changes(
+    am_config: PrioritySieveConfig,
+    config_filter: PrioritySieveConfigFilter,
+) -> bool:
+    assert mw is not None
+    if mw.col is None or mw.col.db is None:
+        return False
 
-            # make sure to get the values and not references
-            original_due: int = int(card.due)
-            original_queue: int = int(card.queue)  # queue: suspended, buried, etc.
+    note_type_id = mw.col.models.id_for_name(config_filter.note_type)
+    if note_type_id is None:
+        return False
 
-            card_original_state.setdefault(card_id, (original_due, original_queue))
+    manual_known_tag = am_config.tag_known_manually.strip()
+    auto_suspended_tag = am_config.tag_suspended_automatically.strip()
+    exception_tags = [
+        tag.strip()
+        for tag in am_config.get_preprocess_ignore_suspended_unless_tag_list()
+        if isinstance(tag, str) and tag.strip()
+    ]
 
-            if note.id not in note_original_state:
-                note_original_state[note.id] = (
-                    note.fields.copy(),
-                    note.tags.copy(),
-                )
-            original_fields, original_tags = note_original_state[note.id]
+    ignore_clauses = ["cards.queue != ?"]
+    ignore_params: list[object] = [QUEUE_TYPE_SUSPENDED]
 
-            cards_morph_metrics = CardMorphsMetrics(
-                am_config,
-                card_id,
-                card_morph_map_cache,
-            )
+    if manual_known_tag:
+        ignore_clauses.append("notes.tags LIKE ?")
+        ignore_params.append(f"% {manual_known_tag} %")
+    if auto_suspended_tag:
+        ignore_clauses.append("notes.tags LIKE ?")
+        ignore_params.append(f"% {auto_suspended_tag} %")
+    for tag in exception_tags:
+        ignore_clauses.append("notes.tags LIKE ?")
+        ignore_params.append(f"% {tag} %")
 
-            if card.type == CARD_TYPE_NEW:
-                card_due = compute_due_from_priorities(
-                    cards_morph_metrics.all_morphs, morph_priorities
-                )
-                card.due = card_due
+    include_tags = config_filter.tags.get("include", [])
+    exclude_tags = config_filter.tags.get("exclude", [])
 
-                unknowns_amount = len(cards_morph_metrics.unknown_morphs)
-                force_auto_suspend = (
-                    am_config.auto_suspend_unlisted_entries
-                    and unknowns_amount > 0
-                    and card_due == prioritysieve_globals.DEFAULT_REVIEW_DUE
-                )
+    where_clauses = ["notes.mid = ?"]
+    params: list[object] = [note_type_id]
 
-                tags_and_queue_utils.update_tags_and_queue_of_new_card(
-                    am_config=am_config,
-                    note=note,
-                    card=card,
-                    unknowns=unknowns_amount,
-                    has_learning_morphs=cards_morph_metrics.has_learning_morphs,
-                    force_auto_suspend=force_auto_suspend,
-                )
-            else:
-                tags_and_queue_utils.update_tags_of_review_cards(
-                    am_config=am_config,
-                    note=note,
-                    has_learning_morphs=cards_morph_metrics.has_learning_morphs,
-                )
+    for tag in include_tags:
+        if isinstance(tag, str) and tag.strip():
+            where_clauses.append("notes.tags LIKE ?")
+            params.append(f"% {tag.strip()} %")
 
-            if (
-                card.queue != tags_and_queue_utils.suspended
-                and auto_suspended_tag in note.tags
-            ):
-                note.tags = [
-                    tag for tag in note.tags if tag != auto_suspended_tag and tag.strip()
-                ]
-                modified_notes.setdefault(note.id, note)
+    for tag in exclude_tags:
+        if isinstance(tag, str) and tag.strip():
+            where_clauses.append("notes.tags NOT LIKE ?")
+            params.append(f"% {tag.strip()} %")
 
-            if config_filter.extra_reading_field:
-                extra_field_utils.update_reading_field(
-                    field_name_dict=field_name_dict,
-                    note=note,
-                    morphs=cards_morph_metrics.all_morphs,
-                )
+    where_clauses.append("(" + " OR ".join(ignore_clauses) + ")")
+    params.extend(ignore_params)
+    where_clauses.append("(cards.usn != 0 OR notes.usn != 0)")
 
-            # we only want anki to update the cards and notes that have actually changed
-            if card.due != original_due or card.queue != original_queue:
-                modified_cards[card_id] = card
-
-            if original_fields != note.fields or original_tags != note.tags:
-                modified_notes.setdefault(note.id, note)
-
-            handled_cards[card_id] = card  # this marks the card as handled
-
-    am_db.con.close()
-
-    modified_cards = _add_offsets_to_new_cards(
-        am_config=am_config,
-        card_morph_map_cache=card_morph_map_cache,
-        already_modified_cards=modified_cards,
-        handled_cards=handled_cards,
-        modified_notes=modified_notes,
-        note_original_state=note_original_state,
-        notes_cache=notes_cache,
+    sql = (
+        "SELECT 1 FROM cards "
+        "JOIN notes ON notes.id = cards.nid "
+        "WHERE " + " AND ".join(where_clauses) + " LIMIT 1"
     )
 
-    final_modified_cards: dict[CardId, Card] = {}
-    final_modified_notes: dict[int, Note] = {}
+    try:
+        result = mw.col.db.scalar(sql, *params)
+    except Exception as error:  # pylint:disable=broad-except
+        print(
+            "PrioritySieve pending-change probe error:"
+            f" {error} (filter {_get_filter_identifier(config_filter)})"
+        )
+        return False
 
-    for card_id, card in modified_cards.items():
+    if result is None:
+        return False
+
+    try:
+        sample_sql = sql.replace(
+            "SELECT 1",
+            "SELECT cards.id, cards.usn, cards.queue, notes.usn, notes.tags",
+        ).replace("LIMIT 1", "LIMIT 5")
+        sample_rows = mw.col.db.all(sample_sql, *params)
+    except Exception as error:  # pylint:disable=broad-except
+        print(
+            "PrioritySieve pending-change sample error:"
+            f" {error} (filter {_get_filter_identifier(config_filter)})"
+        )
+        sample_rows = []
+
+    if sample_rows:
+        print("PrioritySieve pending-change samples (card_id, card_usn, queue, note_usn, tags):")
+        for row in sample_rows:
+            card_id, card_usn, queue, note_usn, tags = row
+            print(
+                f"  card {card_id}: card_usn={card_usn}, queue={queue}, note_usn={note_usn}, tags={tags}"
+            )
+
+    return True
+
+
+def _validate_filters(filters: list[PrioritySieveConfigFilter]) -> None:
+    assert mw is not None
+    if mw.col is None:
+        raise CancelledOperationException()
+    model_manager = mw.col.models
+
+    invalid_filters: list[str] = []
+
+    for index, config_filter in enumerate(filters, start=1):
+        note_type_name = config_filter.note_type
+        if note_type_name == prioritysieve_globals.NONE_OPTION:
+            invalid_filters.append(
+                f"Filter #{index} has note type set to {prioritysieve_globals.NONE_OPTION!r}"
+            )
+            continue
+
+        note_type_id = model_manager.id_for_name(note_type_name)
+        if note_type_id is None:
+            raise AnkiNoteTypeNotFound()
+
+        note_type_dict = model_manager.get(note_type_id)
+        assert note_type_dict is not None
+        field_names = model_manager.field_names(note_type_dict)
+
+        if config_filter.field == prioritysieve_globals.NONE_OPTION:
+            invalid_filters.append(
+                f"Filter #{index} ({note_type_name}) has expression field set to {prioritysieve_globals.NONE_OPTION!r}"
+            )
+            continue
+
+        if config_filter.field not in field_names:
+            raise AnkiFieldNotFound()
+        if (
+            config_filter.furigana_field != prioritysieve_globals.NONE_OPTION
+            and config_filter.furigana_field not in field_names
+        ):
+            raise AnkiFieldNotFound()
+        if (
+            config_filter.reading_field != prioritysieve_globals.NONE_OPTION
+            and config_filter.reading_field not in field_names
+        ):
+            raise AnkiFieldNotFound()
+
+        for selection in config_filter.priority_files:
+            if selection in (prioritysieve_globals.NONE_OPTION, prioritysieve_globals.COLLECTION_FREQUENCY_OPTION):
+                continue
+            path = (
+                Path(mw.pm.profileFolder())
+                / prioritysieve_globals.PRIORITY_FILES_DIR_NAME
+                / selection
+            )
+            if not path.is_file():
+                raise PriorityFileNotFoundException(str(path))
+
+    if invalid_filters:
+        raise DefaultSettingsException("\n".join(invalid_filters))
+
+
+def _background_recalc(
+    am_config: PrioritySieveConfig,
+    all_filters: list[PrioritySieveConfigFilter],
+    modify_filters: list[PrioritySieveConfigFilter],
+) -> None:
+    ensure_directories()
+    caching.cache_entries(am_config, all_filters)
+    _apply_priorities(am_config, modify_filters)
+    caching.cache_entries(am_config, all_filters)
+
+
+def _apply_priorities(
+    am_config: PrioritySieveConfig,
+    modify_filters: list[PrioritySieveConfigFilter],
+) -> None:
+    assert mw is not None
+    if mw.col is None:
+        raise CancelledOperationException()
+
+    with EntryDB() as db:
+        entry_cache = db.get_card_entry_cache()
+
+    touched_cards: dict[int, Card] = {}
+    touched_notes: dict[int, Note] = {}
+    card_original_state: dict[int, tuple[int, int]] = {}
+    note_original_state: dict[int, tuple[list[str], list[str]]] = {}
+
+    card_change_stats: dict[str, int] = {
+        "total": 0,
+        "due": 0,
+        "queue": 0,
+        "due_and_queue": 0,
+    }
+    note_change_stats: dict[str, int] = {
+        "total": 0,
+        "tags": 0,
+        "fields": 0,
+    }
+    card_change_samples: list[str] = []
+    note_change_samples: list[str] = []
+    due_transition_counter: Counter[tuple[int, int]] = Counter()
+    queue_transition_counter: Counter[tuple[int, int]] = Counter()
+    tags_added_counter: Counter[str] = Counter()
+    tags_removed_counter: Counter[str] = Counter()
+    tag_reorder_samples: list[str] = []
+
+    suspended_exception_tags = set(am_config.get_preprocess_ignore_suspended_unless_tag_list())
+    deck_priority_lookup = _build_deck_priority_lookup(am_config.recalc_offset_priority_decks)
+    deck_name_cache: dict[int, str] = {}
+    plans: dict[int, CardPlan] = {}
+    duplicates: defaultdict[tuple[str, str], list[CardPlan]] = defaultdict(list)
+
+    for config_filter in modify_filters:
+        priority_map = load_priority_map(config_filter.priority_files)
+        card_data_dict = create_card_data_dict(am_config, config_filter)
+
+        total_cards = len(card_data_dict)
+        for index, (card_id, card_data) in enumerate(card_data_dict.items(), start=1):
+            progress_utils.background_update_progress_potentially_cancel(
+                label=f"Updating {config_filter.note_type} cards<br>card: {index} of {total_cards}",
+                counter=index,
+                max_value=total_cards,
+            )
+
+            tags_list = list(card_data.original_tags)
+            tags_set = {tag for tag in tags_list if tag}
+            has_exception_tag = any(tag in tags_set for tag in suspended_exception_tags)
+            if (
+                card_data.queue == QUEUE_TYPE_SUSPENDED
+                and am_config.tag_suspended_automatically not in tags_set
+                and not has_exception_tag
+            ):
+                continue
+
+            entry = entry_cache.get(card_id)
+            if entry is None:
+                entry = Entry(
+                    text=card_data.expression,
+                    reading="",
+                    reviewed=card_data.type != CARD_TYPE_NEW,
+                )
+
+            is_new_card = card_data.type == CARD_TYPE_NEW
+            entry_reviewed = entry.reviewed
+            base_auto_suspend = (
+                am_config.auto_suspend_unlisted_entries
+                and entry.key() not in priority_map
+            )
+            auto_suspend = base_auto_suspend or (entry_reviewed and is_new_card)
+
+            manually_suspended_exception = (
+                card_data.queue == QUEUE_TYPE_SUSPENDED
+                and am_config.tag_suspended_automatically not in tags_set
+                and has_exception_tag
+            )
+
+            desired_due = card_data.due
+            desired_queue = card_data.queue
+            desired_tags: list[str] = list(tags_list)
+            desired_reading: str | None = None
+
+            if is_new_card:
+                card_original_state.setdefault(card_id, (card_data.due, card_data.queue))
+                note_original_state.setdefault(
+                    card_data.note_id,
+                    (card_data.fields.copy(), card_data.original_tags.copy()),
+                )
+
+                if entry_reviewed or auto_suspend:
+                    desired_due = DEFAULT_REVIEW_DUE
+                else:
+                    desired_due = priority_map.get(entry.key(), DEFAULT_REVIEW_DUE)
+
+                allowed_new_queues = (QUEUE_TYPE_NEW, QUEUE_TYPE_SUSPENDED)
+                if (
+                    not entry_reviewed
+                    and card_data.queue in allowed_new_queues
+                    and not manually_suspended_exception
+                ):
+                    desired_queue = QUEUE_TYPE_NEW
+
+                desired_tags = tags_and_queue_utils.compute_entry_tags(
+                    am_config=am_config,
+                    tags=card_data.original_tags,
+                    auto_suspend=auto_suspend,
+                )
+
+                if config_filter.extra_reading_field and entry.reading:
+                    reading_index = card_data.extra_reading_field_index
+                    if reading_index is None or reading_index >= len(card_data.fields):
+                        desired_reading = entry.reading
+                    else:
+                        current_reading = card_data.fields[reading_index]
+                        if entry.reading != current_reading:
+                            desired_reading = entry.reading
+            else:
+                manually_suspended_exception = False
+
+            deck_priority = _get_deck_priority_for_ids(
+                deck_priority_lookup=deck_priority_lookup,
+                deck_name_cache=deck_name_cache,
+                original_deck_id=card_data.original_deck_id,
+                current_deck_id=card_data.deck_id,
+            )
+
+            plan = CardPlan(
+                card_id=card_id,
+                note_id=card_data.note_id,
+                entry_key=entry.key(),
+                is_new_card=is_new_card,
+                entry_reviewed=entry_reviewed,
+                deck_priority=deck_priority,
+                manually_suspended=manually_suspended_exception,
+                original_due=card_data.due,
+                desired_due=desired_due,
+                original_queue=card_data.queue,
+                desired_queue=desired_queue,
+                auto_suspend=auto_suspend,
+                deck_id=card_data.deck_id,
+                original_deck_id=card_data.original_deck_id,
+                original_tags=list(card_data.original_tags),
+                desired_tags=list(desired_tags),
+                extra_reading_field_index=card_data.extra_reading_field_index,
+                desired_reading=desired_reading,
+            )
+
+            plans[card_id] = plan
+            card_original_state.setdefault(card_id, (plan.original_due, plan.original_queue))
+            duplicates[entry.key()].append(plan)
+
+    _apply_duplicate_rules(am_config, duplicates, note_original_state)
+
+    card_cache: dict[int, Card] = {}
+    note_cache: dict[int, Note] = {}
+
+    cards_to_update: dict[int, Card] = {}
+    notes_to_update: dict[int, Note] = {}
+    touched_cards.clear()
+    touched_notes.clear()
+
+    for plan in plans.values():
+        card_needs_update = (
+            plan.desired_due != plan.original_due
+            or plan.desired_queue != plan.original_queue
+        )
+        note_needs_update = (
+            plan.desired_tags != plan.original_tags
+            or plan.desired_reading is not None
+        )
+
+        if not card_needs_update and not note_needs_update:
+            continue
+
+        if card_needs_update:
+            card = card_cache.get(plan.card_id)
+            if card is None:
+                card = mw.col.get_card(plan.card_id)
+                card_cache[plan.card_id] = card
+            touched_cards[plan.card_id] = card
+            card.due = plan.desired_due
+            card.queue = plan.desired_queue
+            cards_to_update[plan.card_id] = card
+        note: Note | None = None
+        if note_needs_update:
+            note = note_cache.get(plan.note_id)
+            if note is None:
+                note = mw.col.get_note(plan.note_id)
+                note_cache[plan.note_id] = note
+            touched_notes[plan.note_id] = note
+            note_original_state.setdefault(
+                plan.note_id,
+                (note.fields.copy(), note.tags.copy()),
+            )
+
+            if plan.desired_tags != note.tags:
+                note.tags = list(plan.desired_tags)
+
+            if plan.desired_reading is not None:
+                tags_and_queue_utils.update_entry_reading_field(
+                    note,
+                    plan.desired_reading,
+                )
+
+            notes_to_update[plan.note_id] = note
+
+    for card_id, card in touched_cards.items():
         original_due, original_queue = card_original_state.get(
             card_id, (card.due, card.queue)
         )
-        if card.due == original_due and card.queue == original_queue:
-            continue
-        if len(_recent_card_diffs) < 5:
-            _recent_card_diffs.append(
-                f"card {card_id}: due {original_due}→{card.due}, queue {original_queue}→{card.queue}"
-            )
-        final_modified_cards[card_id] = card
+        due_changed = card.due != original_due
+        queue_changed = card.queue != original_queue
+        if due_changed or queue_changed:
+            cards_to_update[card_id] = card
+            card_change_stats["total"] += 1
+            if due_changed:
+                card_change_stats["due"] += 1
+                due_transition_counter[(original_due, card.due)] += 1
+            if queue_changed:
+                card_change_stats["queue"] += 1
+                queue_transition_counter[(original_queue, card.queue)] += 1
+            if due_changed and queue_changed:
+                card_change_stats["due_and_queue"] += 1
 
-    for note_id, note in modified_notes.items():
+            if len(card_change_samples) < 50:
+                card_type_label = "new" if card.type == CARD_TYPE_NEW else "review"
+                reason_parts: list[str] = []
+                if due_changed:
+                    reason_parts.append(f"due {original_due}->{card.due}")
+                if queue_changed:
+                    reason_parts.append(f"queue {original_queue}->{card.queue}")
+                reason_parts.append(f"deck {card.did}")
+
+                note = touched_notes.get(card.nid)
+                tag_summary = ""
+                if note is not None:
+                    tag_summary = (
+                        f", tags:{', '.join(sorted(tag for tag in note.tags if tag))}"
+                        if note.tags
+                        else ", tags:[]"
+                    )
+
+                sample = (
+                    f"card {card_id} (note {card.nid}, {card_type_label}): "
+                    + ", ".join(reason_parts)
+                    + tag_summary
+                )
+                card_change_samples.append(sample)
+
+    invalid_tag_notes: list[str] = []
+
+    for note_id, note in touched_notes.items():
         original_fields, original_tags = note_original_state.get(
             note_id, (note.fields, note.tags)
         )
-        if original_fields == note.fields and original_tags == note.tags:
-            continue
+        fields_changed = note.fields != original_fields
+        tags_changed = note.tags != original_tags
 
-        if len(_recent_note_diffs) < 5:
-            changes: list[str] = []
-            if original_tags != note.tags:
-                changes.append(f"tags {original_tags}→{note.tags}")
-            if original_fields != note.fields:
-                changes.append(f"fields {original_fields}→{note.fields}")
-            _recent_note_diffs.append(f"note {note_id}: " + "; ".join(changes))
+        invalid_tags = [tag for tag in note.tags if not isinstance(tag, str) or not tag.strip()]
+        if invalid_tags and len(invalid_tag_notes) < 50:
+            invalid_tag_notes.append(
+                f"note {note_id}: invalid tags {', '.join(repr(tag) for tag in invalid_tags)}"
+            )
 
-        final_modified_notes[note_id] = note
+        if fields_changed or tags_changed:
+            notes_to_update[note_id] = note
+            note_change_stats["total"] += 1
+            changes_summary: list[str] = []
 
-    progress_utils.background_update_progress(label="Inserting into Anki collection")
+            if tags_changed:
+                note_change_stats["tags"] += 1
+                added_tags = sorted(set(note.tags) - set(original_tags))
+                removed_tags = sorted(set(original_tags) - set(note.tags))
+                for tag in added_tags:
+                    tags_added_counter[tag] += 1
+                for tag in removed_tags:
+                    tags_removed_counter[tag] += 1
+                tag_change_details: list[str] = []
+                if added_tags:
+                    tag_change_details.append("+" + ",".join(added_tags))
+                if removed_tags:
+                    tag_change_details.append("-" + ",".join(removed_tags))
+                if not tag_change_details:
+                    tag_change_details.append("reordered")
+                    if len(tag_reorder_samples) < 25:
+                        tag_reorder_samples.append(
+                            f"note {note_id}: {original_tags} -> {note.tags}"
+                        )
+                changes_summary.append("tags " + " ".join(tag_change_details))
 
-    if final_modified_cards:
-        card_changes = mw.col.update_cards(list(final_modified_cards.values()))
+            if fields_changed:
+                note_change_stats["fields"] += 1
+                changed_field_indexes = []
+                for index, (before, after) in enumerate(zip(original_fields, note.fields)):
+                    if before != after:
+                        changed_field_indexes.append(index)
+                if changed_field_indexes:
+                    changes_summary.append(
+                        "fields idx "
+                        + ",".join(str(index) for index in changed_field_indexes)
+                    )
+                elif len(original_fields) != len(note.fields):
+                    changes_summary.append(
+                        f"field count {len(original_fields)}->{len(note.fields)}"
+                    )
+                else:
+                    changes_summary.append("fields changed")
+
+            if len(note_change_samples) < 50:
+                try:
+                    note_type = note.note_type()
+                    note_type_name = (
+                        note_type.get("name", "") if isinstance(note_type, dict) else ""
+                    )
+                except Exception:
+                    note_type_name = ""
+                prefix = f"note {note_id}"
+                if note_type_name:
+                    prefix += f" ({note_type_name})"
+                note_change_samples.append(prefix + ": " + "; ".join(changes_summary))
+
+    if cards_to_update:
+        card_changes = mw.col.update_cards(list(cards_to_update.values()))
         notify_op_execution(card_changes)
-
-    if final_modified_notes:
-        note_changes = mw.col.update_notes(list(final_modified_notes.values()))
+    if notes_to_update:
+        note_changes = mw.col.update_notes(list(notes_to_update.values()))
         notify_op_execution(note_changes)
 
-    global _last_modified_cards_count
-    global _last_modified_notes_count
-    _last_modified_cards_count = len(final_modified_cards)
-    _last_modified_notes_count = len(final_modified_notes)
+    global _last_modified_cards_count, _last_modified_notes_count
+    _last_modified_cards_count = len(cards_to_update)
+    _last_modified_notes_count = len(notes_to_update)
 
-def _add_offsets_to_new_cards(
+    _record_recent_changes(
+        card_original_state,
+        note_original_state,
+        cards_to_update,
+        notes_to_update,
+    )
+
+    total_touched_cards = len(touched_cards)
+    total_touched_notes = len(touched_notes)
+
+    if total_touched_cards or total_touched_notes:
+        print("PrioritySieve recalc debug summary:")
+        print(f"  config auto-suspend tag: {am_config.tag_suspended_automatically!r}")
+        if invalid_tag_notes:
+            print("  notes with invalid tags encountered:")
+            for entry in invalid_tag_notes:
+                print("    " + entry)
+        print(
+            f"  touched cards: {total_touched_cards}, cards to update: {card_change_stats['total']} "
+            f"(due changes: {card_change_stats['due']}, queue changes: {card_change_stats['queue']}, "
+            f"both: {card_change_stats['due_and_queue']})"
+        )
+        if due_transition_counter:
+            print("  top due transitions:")
+            for (old_due, new_due), count in due_transition_counter.most_common(5):
+                print(f"    {old_due}->{new_due}: {count}")
+        if queue_transition_counter:
+            print("  top queue transitions:")
+            for (old_queue, new_queue), count in queue_transition_counter.most_common(5):
+                print(f"    {old_queue}->{new_queue}: {count}")
+        if card_change_samples:
+            print("  sample card changes:")
+            for entry in card_change_samples:
+                print("    " + entry)
+            remaining_cards = card_change_stats["total"] - len(card_change_samples)
+            if remaining_cards > 0:
+                print(f"    ... {remaining_cards} more cards omitted")
+
+        print(
+            f"  touched notes: {total_touched_notes}, notes to update: {note_change_stats['total']} "
+            f"(tag changes: {note_change_stats['tags']}, field changes: {note_change_stats['fields']})"
+        )
+        if tags_added_counter or tags_removed_counter:
+            print("  tag delta summary:")
+            if tags_added_counter:
+                print("    added tags:")
+                for tag, count in tags_added_counter.most_common(5):
+                    print(f"      {tag}: {count}")
+            if tags_removed_counter:
+                print("    removed tags:")
+                for tag, count in tags_removed_counter.most_common(5):
+                    print(f"      {tag}: {count}")
+        if note_change_samples:
+            print("  sample note changes:")
+            for entry in note_change_samples:
+                print("    " + entry)
+            remaining_notes = note_change_stats["total"] - len(note_change_samples)
+            if remaining_notes > 0:
+                print(f"    ... {remaining_notes} more notes omitted")
+        if tag_reorder_samples:
+            print("  tag reorder samples:")
+            for entry in tag_reorder_samples:
+                print("    " + entry)
+
+
+def _apply_duplicate_rules(
     am_config: PrioritySieveConfig,
-    card_morph_map_cache: dict[int, list[Morpheme]],
-    already_modified_cards: dict[CardId, Card],
-    handled_cards: dict[CardId, Card],
-    modified_notes: dict[int, Note],
+    duplicates: defaultdict[tuple[str, str], list[CardPlan]],
     note_original_state: dict[int, tuple[list[str], list[str]]],
-    notes_cache: dict[int, Note],
-) -> dict[CardId, Card]:
-    assert mw is not None
+) -> None:
+    def _get_candidate_deck_id(candidate: CardPlan) -> int:
+        return int(candidate.original_deck_id or candidate.deck_id or 0)
 
-    earliest_due_card_for_unknown_morph: dict[tuple[str, str, str], Card] = {}
-    lowest_due_for_unknown_morph: dict[tuple[str, str, str], int] = {}
-    earliest_card_priority: dict[tuple[str, str, str], int] = {}
-    cards_with_morph: dict[tuple[str, str, str], set[CardId]] = {}
-    deck_priority_lookup: dict[str, int] = {
-        deck_name: index
-        for index, deck_name in enumerate(am_config.recalc_offset_priority_decks)
-    }
-    default_priority = len(deck_priority_lookup)
+    def _get_candidate_creation_ts(candidate: CardPlan) -> int:
+        try:
+            return int(candidate.card_id)
+        except (TypeError, ValueError):
+            return 0
 
-    def _get_card_priority(card: Card) -> int:
-        if not deck_priority_lookup:
-            return default_priority
+    def _remove_auto_tag(candidate: CardPlan) -> None:
+        if not am_config.tag_suspended_automatically:
+            return
+        candidate.desired_tags = [
+            tag for tag in candidate.desired_tags if tag != am_config.tag_suspended_automatically
+        ]
 
-        deck_dict = mw.col.decks.get(card.did, None)
-        if deck_dict is None:
-            return default_priority
+    def _unsuspend_candidate(candidate: CardPlan) -> None:
+        if candidate.desired_queue == QUEUE_TYPE_SUSPENDED:
+            candidate.desired_queue = QUEUE_TYPE_NEW
+        _remove_auto_tag(candidate)
 
-        deck_name = deck_dict.get("name")
-        if not isinstance(deck_name, str):
-            return default_priority
-
-        return deck_priority_lookup.get(deck_name, default_priority)
-
-    card_amount = len(handled_cards)
-    for counter, (card_id, card) in enumerate(handled_cards.items()):
-        progress_utils.background_update_progress_potentially_cancel(
-            label=f"Potentially offsetting cards<br>card: {counter} of {card_amount}",
-            counter=counter,
-            max_value=card_amount,
-        )
-
-        card_unknown_morphs = CardMorphsMetrics.get_unknown_morph_keys(
-            card_morph_map_cache=card_morph_map_cache,
-            card_id=card_id,
-        )
-
-        if len(card_unknown_morphs) != 1:
-            continue
-
-        unknown_morph = card_unknown_morphs.pop()
-        card_due = card.due
-
-        lowest_due = lowest_due_for_unknown_morph.get(unknown_morph)
-        if lowest_due is None or card_due < lowest_due:
-            lowest_due_for_unknown_morph[unknown_morph] = card_due
-
-        if unknown_morph not in earliest_due_card_for_unknown_morph:
-            earliest_due_card_for_unknown_morph[unknown_morph] = card
-            earliest_card_priority[unknown_morph] = _get_card_priority(card)
-        else:
-            current_card = earliest_due_card_for_unknown_morph[unknown_morph]
-            current_priority = earliest_card_priority.get(
-                unknown_morph, default_priority
+    def _force_suspend_candidate(candidate: CardPlan) -> None:
+        candidate.auto_suspend = True
+        candidate.desired_queue = QUEUE_TYPE_SUSPENDED
+        if candidate.is_new_card and candidate.desired_due != DEFAULT_REVIEW_DUE:
+            candidate.desired_due = DEFAULT_REVIEW_DUE
+        if am_config.tag_suspended_automatically:
+            original_tags = note_original_state.get(
+                candidate.note_id,
+                ([], []),
+            )[1]
+            candidate.desired_tags = tags_and_queue_utils.ensure_tag_preserving_order_list(
+                candidate.desired_tags,
+                am_config.tag_suspended_automatically,
+                original_tags,
             )
-            card_priority = _get_card_priority(card)
 
-            if card_priority < current_priority or (
-                card_priority == current_priority and current_card.due > card_due
-            ):
-                earliest_due_card_for_unknown_morph[unknown_morph] = card
-                earliest_card_priority[unknown_morph] = card_priority
+    for _, items in duplicates.items():
+        items.sort(
+            key=lambda item: (
+                item.deck_priority,
+                item.desired_due,
+                item.card_id,
+            )
+        )
+        has_review_card = any(not candidate.is_new_card for candidate in items)
+        active_slot_available = True
+        unsuspended_candidate: CardPlan | None = None
 
-        if unknown_morph not in cards_with_morph:
-            cards_with_morph[unknown_morph] = {card_id}
-        else:
-            cards_with_morph[unknown_morph].add(card_id)
+        for candidate in items:
+            if not candidate.is_new_card:
+                continue
 
-    progress_utils.background_update_progress(label="Applying offsets")
+            if candidate.manually_suspended:
+                active_slot_available = False
+                continue
 
-    sorted_unknown_morphs = sorted(
-        earliest_due_card_for_unknown_morph.keys(),
-        key=lambda morph: lowest_due_for_unknown_morph.get(morph, _MAX_SCORE),
-    )
-    earliest_due_card_for_unknown_morph = {
-        morph: earliest_due_card_for_unknown_morph[morph] for morph in sorted_unknown_morphs
-    }
-    modified_offset_cards: dict[CardId, Card] = _apply_offsets(
-        am_config=am_config,
-        already_modified_cards=already_modified_cards,
-        earliest_due_card_for_unknown_morph=earliest_due_card_for_unknown_morph,
-        cards_with_morph=cards_with_morph,
-        modified_notes=modified_notes,
-        note_original_state=note_original_state,
-        handled_cards=handled_cards,
-        notes_cache=notes_cache,
-    )
+            force_suspend = (
+                candidate.auto_suspend
+                or has_review_card
+            )
+            if active_slot_available and not force_suspend:
+                active_slot_available = False
+                unsuspended_candidate = candidate
+                _unsuspend_candidate(candidate)
+                continue
 
-    # combine the "lists" of cards we want to modify
-    already_modified_cards.update(modified_offset_cards)
-    return already_modified_cards
+            should_promote = (
+                not force_suspend
+                and unsuspended_candidate is not None
+                and _get_candidate_deck_id(candidate) == _get_candidate_deck_id(unsuspended_candidate)
+                and candidate.deck_priority == unsuspended_candidate.deck_priority
+                and _get_candidate_creation_ts(candidate) > _get_candidate_creation_ts(unsuspended_candidate)
+            )
 
-def _apply_offsets(
-    am_config: PrioritySieveConfig,
-    already_modified_cards: dict[CardId, Card],
-    earliest_due_card_for_unknown_morph: dict[tuple[str, str, str], Card],
-    cards_with_morph: dict[tuple[str, str, str], set[CardId]],
-    modified_notes: dict[int, Note],
+            if should_promote:
+                _force_suspend_candidate(unsuspended_candidate)
+                unsuspended_candidate = candidate
+                _unsuspend_candidate(candidate)
+            else:
+                _force_suspend_candidate(candidate)
+
+
+def _record_recent_changes(
+    card_original_state: dict[int, tuple[int, int]],
     note_original_state: dict[int, tuple[list[str], list[str]]],
-    handled_cards: dict[CardId, Card],
-    notes_cache: dict[int, Note],
-) -> dict[CardId, Card]:
+    cards: dict[int, Card],
+    notes: dict[int, Note],
+) -> None:
+    global _recent_card_diffs, _recent_note_diffs
+    _recent_card_diffs.clear()
+    _recent_note_diffs.clear()
+
+    for card_id, card in cards.items():
+        original_due, original_queue = card_original_state.get(card_id, (card.due, card.queue))
+        if card.due != original_due or card.queue != original_queue:
+            if len(_recent_card_diffs) < 5:
+                _recent_card_diffs.append(
+                    f"card {card_id}: due {original_due}→{card.due}, queue {original_queue}→{card.queue}"
+                )
+
+    for note_id, note in notes.items():
+        original_fields, original_tags = note_original_state.get(
+            note_id,
+            (note.fields, note.tags),
+        )
+        tags_changed = note.tags != original_tags
+        fields_changed = note.fields != original_fields
+        if tags_changed or fields_changed:
+            if len(_recent_note_diffs) < 5:
+                changes: list[str] = []
+                if tags_changed:
+                    changes.append(f"tags {original_tags}→{note.tags}")
+                if fields_changed:
+                    changes.append(f"fields {original_fields}→{note.fields}")
+                _recent_note_diffs.append(f"note {note_id}: " + "; ".join(changes))
+
+
+def _on_success(start_time: float | None = None) -> None:
     assert mw is not None
-
-    modified_offset_cards: dict[CardId, Card] = {}
-
-    auto_suspend_tag = am_config.tag_suspended_automatically
-
-    def _sanitize_tags(note: Note) -> None:
-        cleaned = [tag for tag in note.tags if tag and tag.strip()]
-        if len(cleaned) != len(note.tags):
-            note.tags = cleaned
-
-    def _ensure_note(card: Card) -> Note:
-        note = modified_notes.get(card.nid)
-        if note is None:
-            note = notes_cache.get(card.nid)
-        if note is None:
-            note = mw.col.get_note(card.nid)
-            notes_cache[card.nid] = note
-        note_original_state.setdefault(note.id, (list(note.fields), list(note.tags)))
-        return note
-
-    original_positions_cache: dict[int, dict[str, int]] = {}
-
-    def _insert_tag_preserving_order(note: Note, tag: str) -> None:
-        positions = original_positions_cache.get(note.id)
-        if positions is None:
-            original_tags = note_original_state.get(note.id, ([], []))[1]
-            positions = {tag_value: idx for idx, tag_value in enumerate(original_tags)}
-            original_positions_cache[note.id] = positions
-
-        position = positions.get(tag)
-        if position is None or position >= len(note.tags):
-            note.tags.append(tag)
-        else:
-            note.tags.insert(position, tag)
-
-    for unknown_morph, earliest_due_card in earliest_due_card_for_unknown_morph.items():
-        base_card = already_modified_cards.get(earliest_due_card.id, earliest_due_card)
-        base_note = _ensure_note(base_card)
-
-        tag_removed = False
-        if auto_suspend_tag in base_note.tags and base_card.due != _MAX_SCORE:
-            base_note.tags.remove(auto_suspend_tag)
-            _sanitize_tags(base_note)
-            modified_notes[base_note.id] = base_note
-            tag_removed = True
-
-        if tag_removed and base_card.queue == tags_and_queue_utils.suspended:
-            base_card.queue = CardQueue(0)
-            modified_offset_cards[base_card.id] = base_card
-
-        already_modified_cards[base_card.id] = base_card
-
-        remaining_cards = cards_with_morph[unknown_morph] - {base_card.id}
-
-        for card_id in remaining_cards:
-            existing_card = already_modified_cards.get(card_id)
-            if existing_card is None:
-                existing_card = handled_cards.get(card_id)
-            if existing_card is None:
-                existing_card = mw.col.get_card(card_id)
-
-            note = _ensure_note(existing_card)
-            if auto_suspend_tag not in note.tags:
-                _insert_tag_preserving_order(note, auto_suspend_tag)
-                _sanitize_tags(note)
-                modified_notes[note.id] = note
-
-            card_modified = False
-
-            if existing_card.queue != tags_and_queue_utils.suspended:
-                existing_card.queue = tags_and_queue_utils.suspended
-                card_modified = True
-
-            if existing_card.due != _MAX_SCORE:
-                existing_card.due = _MAX_SCORE
-                card_modified = True
-
-            if card_modified:
-                modified_offset_cards[card_id] = existing_card
-
-            already_modified_cards[card_id] = existing_card
-
-    return modified_offset_cards
-
-def _on_success(_start_time: float) -> None:
-    # This function runs on the main thread.
-    assert mw is not None
-    assert mw.progress is not None
+    global _recalc_in_progress
+    _recalc_in_progress = False
 
     try:
         filters_state = compute_modify_filters_state()
         settings = PrioritySieveExtraSettings()
         settings.set_recalc_collection_state(json.dumps(filters_state, sort_keys=True))
         try:
-            settings.set_recalc_settings_state(
-                json.dumps(prioritysieve_config.get_config_dict(), sort_keys=True)
+            settings_state = json.dumps(
+                prioritysieve_config.get_config_dict(), sort_keys=True
             )
         except Exception as error:  # pylint:disable=broad-except
             print(
-                f"PrioritySieve: failed to cache recalc settings state ({error})"
+                f"PrioritySieve: failed to cache settings state after recalc ({error})"
             )
+        else:
+            settings.set_recalc_settings_state(settings_state)
         settings.sync()
     except Exception as error:  # pylint:disable=broad-except
-        print(f'PrioritySieve: failed to cache recalc state ({error})')
+        print(f"PrioritySieve: failed to cache recalc state ({error})")
 
-    mw.toolbar.draw()  # updates stats
-    mw.progress.finish()
-
-    if _followup_sync_callback is not None:
-        callback = _followup_sync_callback
-        set_followup_sync_callback(None)
-        try:
-            callback()
-        except Exception as error:  # pylint:disable=broad-except
-            print(f"PrioritySieve: follow-up sync callback failed ({error})")
+    mw.toolbar.draw()
 
     if _last_modified_cards_count or _last_modified_notes_count:
         message = (
-            "Finished Recalc – updated "
+            "PrioritySieve recalc complete - updated "
             f"{_last_modified_cards_count} card(s) and {_last_modified_notes_count} note(s)"
         )
     else:
-        message = "Finished Recalc"
+        message = "PrioritySieve recalc complete"
 
     tooltip(message, parent=mw)
 
@@ -766,81 +1081,41 @@ def _on_success(_start_time: float) -> None:
         print("PrioritySieve recalc modified notes sample:")
         for entry in _recent_note_diffs:
             print("  " + entry)
-    end_time: float = time.time()
-    print(f"Recalc duration: {round(end_time - _start_time, 3)} seconds")
 
-def _on_failure(  # pylint:disable=too-many-branches
-    error: (
-        Exception
-        | DefaultSettingsException
-        | MorphemizerNotFoundException
-        | CancelledOperationException
-        | PriorityFileNotFoundException
-        | PriorityFileMalformedException
-        | KnownMorphsFileMalformedException
-        | AnkiNoteTypeNotFound
-        | AnkiFieldNotFound
-    ),
-    before_query_op: bool = False,
-) -> None:
-    # This function runs on the main thread.
-    assert mw is not None
-    assert mw.progress is not None
+    if start_time is not None:
+        duration = time.time() - start_time
+        print(f"PrioritySieve recalc duration: {duration:.3f} seconds")
 
+    if _followup_sync_callback is not None:
+        callback = _followup_sync_callback
+        set_followup_sync_callback(None)
+        try:
+            callback()
+        except Exception as error:  # pylint:disable=broad-except
+            print(f"PrioritySieve: follow-up sync callback failed ({error})")
+    else:
+        set_followup_sync_callback(None)
+
+
+def _on_failure(error: Exception | PriorityFileMalformedException) -> None:
+    global _recalc_in_progress
+    _recalc_in_progress = False
     set_followup_sync_callback(None)
-
-    if not before_query_op:
-        mw.progress.finish()
-
     if isinstance(error, CancelledOperationException):
-        tooltip("Cancelled Recalc")
+        tooltip("PrioritySieve recalc cancelled", parent=mw)
         return
 
-    title = "PrioritySieve Error"
-
     if isinstance(error, DefaultSettingsException):
-        text = (
-            f'Found a note filter containing a "{prioritysieve_globals.NONE_OPTION}" option. Please select something else.<br><br>'
-            f"See <a href='https://mortii.github.io/prioritysieve/user_guide/setup/settings/note-filter.html'> the note filter guide</a> for more info. "
+        base_message = (
+            f'Found a note filter containing a "{prioritysieve_globals.NONE_OPTION}" option. '
+            "Please select something else."
         )
-    elif isinstance(error, AnkiNoteTypeNotFound):
-        text = "The PrioritySieve settings uses one or more note types that no longer exists. Please redo your settings."
-    elif isinstance(error, AnkiFieldNotFound):
-        text = "The PrioritySieve settings uses one or more fields that no longer exist. Please redo your settings."
-    elif isinstance(error, MorphemizerNotFoundException):
-        if error.morphemizer_name == "MecabMorphemizer":
-            text = (
-                'Parser "PrioritySieve: Japanese" was not found.<br><br>'
-                "The Japanese parser can be added by installing a separate companion add-on:<br><br>"
-                "Link: <a href='https://ankiweb.net/shared/info/1974309724'>https://ankiweb.net/shared/info/1974309724</a><br>"
-                "Installation code: 1974309724 <br><br>"
-                "The parser should be automatically found after the add-on is installed and Anki has restarted."
-            )
-        elif error.morphemizer_name == "JiebaMorphemizer":
-            text = (
-                'Parser "PrioritySieve: Chinese" was not found.<br><br>'
-                "The Chinese parser can be added by installing a separate companion add-on:<br>"
-                "Link: <a href='https://ankiweb.net/shared/info/1857311956'>https://ankiweb.net/shared/info/1857311956</a> <br>"
-                "Installation code: 1857311956 <br><br>"
-                "The parser should be automatically found after the add-on is installed and Anki has restarted."
-            )
+        details = str(error).strip()
+        if details:
+            body = f"{base_message}<br><br>{details.replace(chr(10), '<br>')}"
         else:
-            text = f'Parser "{error.morphemizer_name}" was not found.'
+            body = base_message
+        message_box_utils.show_critical_error_box("PrioritySieve recalc failed", body)
+        return
 
-    elif isinstance(error, PriorityFileNotFoundException):
-        text = f"Priority file: {error.path} not found!"
-    elif isinstance(error, PriorityFileMalformedException):
-        text = (
-            f"Priority file: {error.path} is malformed (possibly outdated).<br><br>"
-            f"{error.reason}<br><br>"
-            f"Please generate a new one."
-        )
-    elif isinstance(error, KnownMorphsFileMalformedException):
-        text = (
-            f"Known entries file: {error.path} is malformed.<br><br>"
-            f"Please generate a new one."
-        )
-    else:
-        raise error
-
-    message_box_utils.show_error_box(title=title, body=text, parent=mw)
+    message_box_utils.show_critical_error_box("PrioritySieve recalc failed", str(error))

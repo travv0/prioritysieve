@@ -9,21 +9,21 @@ from collections.abc import Sequence
 from typing import Any
 
 import anki.utils
-from anki.cards import CardId
 from anki.models import ModelManager, NotetypeDict, NotetypeId
 from anki.tags import TagManager
 from aqt import mw
 
 from .. import prioritysieve_globals
 from ..prioritysieve_config import PrioritySieveConfig, PrioritySieveConfigFilter
-from ..morpheme import Morpheme
-
-
 class AnkiDBRowData:
     __slots__ = (
         "card_id",
         "card_interval",
         "card_type",
+        "card_queue",
+        "card_due",
+        "card_did",
+        "card_odid",
         "note_id",
         "note_fields",
         "note_tags",
@@ -39,14 +39,26 @@ class AnkiDBRowData:
         assert isinstance(data_row[2], int)
         self.card_type: int = data_row[2]
 
+        assert isinstance(data_row[3], int)
+        self.card_queue: int = data_row[3]
+
         assert isinstance(data_row[4], int)
-        self.note_id: int = data_row[4]
+        self.card_due: int = data_row[4]
 
-        assert isinstance(data_row[5], str)
-        self.note_fields: str = data_row[5]
+        assert isinstance(data_row[5], int)
+        self.card_did: int = data_row[5]
 
-        assert isinstance(data_row[6], str)
-        self.note_tags: str = data_row[6]
+        assert isinstance(data_row[6], int)
+        self.card_odid: int = data_row[6]
+
+        assert isinstance(data_row[7], int)
+        self.note_id: int = data_row[7]
+
+        assert isinstance(data_row[8], str)
+        self.note_fields: str = data_row[8]
+
+        assert isinstance(data_row[9], str)
+        self.note_tags: str = data_row[9]
 
 
 class AnkiCardData:  # pylint:disable=too-many-instance-attributes
@@ -56,14 +68,21 @@ class AnkiCardData:  # pylint:disable=too-many-instance-attributes
         "expression",
         "furigana",
         "reading",
-        "automatically_known_tag",
         "manually_known_tag",
         "ready_tag",
         "not_ready_tag",
         "tags",
+        "tags_text",
         "note_id",
         "note_type_id",
-        "morphs",
+        "queue",
+        "due",
+        "deck_id",
+        "original_deck_id",
+        "fields",
+        "original_tags",
+        "reading_field_index",
+        "extra_reading_field_index",
     )
 
     def __init__(  # pylint:disable=too-many-arguments
@@ -74,6 +93,7 @@ class AnkiCardData:  # pylint:disable=too-many-instance-attributes
         expression_field_index: int,
         furigana_field_index: int | None,
         reading_field_index: int | None,
+        extra_reading_field_index: int | None,
         anki_row_data: AnkiDBRowData,
     ) -> None:
         fields_list = anki.utils.split_fields(anki_row_data.note_fields)
@@ -99,7 +119,6 @@ class AnkiCardData:  # pylint:disable=too-many-instance-attributes
 
         tags_list = tag_manager.split(anki_row_data.note_tags)
 
-        automatically_known_tag = am_config.tag_known_automatically in tags_list
         manually_known_tag = am_config.tag_known_manually in tags_list
         ready_tag = am_config.tag_ready in tags_list
         not_ready_tag = am_config.tag_not_ready in tags_list
@@ -109,46 +128,21 @@ class AnkiCardData:  # pylint:disable=too-many-instance-attributes
         self.expression = expression
         self.furigana = furigana_value
         self.reading = reading_value
-        self.automatically_known_tag = automatically_known_tag
         self.manually_known_tag = manually_known_tag
         self.ready_tag = ready_tag
         self.not_ready_tag = not_ready_tag
-        self.tags = anki_row_data.note_tags
+        self.tags = list(tags_list)
+        self.original_tags = list(tags_list)
+        self.tags_text = anki_row_data.note_tags
         self.note_id = anki_row_data.note_id
         self.note_type_id = note_type_id
-
-        # this is set later in the caching process
-        self.morphs: set[Morpheme] | None = None
-
-
-class PrioritySieveCardData:
-    """
-    This is used when extracting data from the PrioritySieveDB
-    """
-
-    __slots__ = (
-        "card_id",
-        "note_id",
-        "note_type_id",
-        "card_type",
-        "tags",
-    )
-
-    def __init__(self, data_row: list[int | str]) -> None:
-        assert isinstance(data_row[0], int)
-        self.card_id: CardId = CardId(data_row[0])
-
-        assert isinstance(data_row[1], int)
-        self.note_id: int = data_row[1]
-
-        assert isinstance(data_row[2], int)
-        self.note_type_id: int = data_row[2]
-
-        assert isinstance(data_row[3], int)
-        self.card_type: int = data_row[3]
-
-        assert isinstance(data_row[4], str)
-        self.tags: str = data_row[4]
+        self.queue = anki_row_data.card_queue
+        self.due = anki_row_data.card_due
+        self.deck_id = anki_row_data.card_did
+        self.original_deck_id = anki_row_data.card_odid
+        self.fields = list(fields_list)
+        self.reading_field_index = reading_field_index
+        self.extra_reading_field_index = extra_reading_field_index
 
 
 def create_card_data_dict(
@@ -181,6 +175,12 @@ def create_card_data_dict(
         and config_filter.reading_field in existing_field_names
     ):
         reading_field_index = existing_field_names.index(config_filter.reading_field)
+    extra_reading_field_index: int | None = None
+    if (
+        config_filter.extra_reading_field
+        and prioritysieve_globals.EXTRA_FIELD_READING in existing_field_names
+    ):
+        extra_reading_field_index = existing_field_names.index(prioritysieve_globals.EXTRA_FIELD_READING)
 
     for anki_row_data in _get_anki_data(am_config, note_type_id, tags).values():
         card_data = AnkiCardData(
@@ -190,6 +190,7 @@ def create_card_data_dict(
             expression_field_index=field_index,
             furigana_field_index=furigana_field_index,
             reading_field_index=reading_field_index,
+            extra_reading_field_index=extra_reading_field_index,
             anki_row_data=anki_row_data,
         )
         card_data_dict[anki_row_data.card_id] = card_data
@@ -250,7 +251,17 @@ def _get_anki_data(
 
     result: list[Sequence[Any]] = mw.col.db.all(
         """
-        SELECT cards.id, cards.ivl, cards.type, cards.queue, notes.id, notes.flds, notes.tags
+        SELECT
+            cards.id,
+            cards.ivl,
+            cards.type,
+            cards.queue,
+            cards.due,
+            cards.did,
+            COALESCE(cards.odid, 0),
+            notes.id,
+            notes.flds,
+            notes.tags
         FROM cards
         INNER JOIN notes ON
             cards.nid = notes.id

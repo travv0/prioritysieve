@@ -41,122 +41,6 @@
         </attribute>
         <layout class="QVBoxLayout" name="verticalLayout_21">
          <item>
-          <widget class="QGroupBox" name="groupBox_4">
-           <property name="title">
-            <string>Entry evaluation</string></property>
-           <layout class="QHBoxLayout" name="horizontalLayout_31">
-            <item>
-             <widget class="QLabel" name="label_35">
-              <property name="font">
-               <font>
-                <bold>false</bold>
-               </font>
-              </property>
-              <property name="text">
-               <string>Evaluate entries based on their:</string></property>
-             </widget>
-            </item>
-            <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_20">
-              <item>
-               <widget class="QRadioButton" name="priorityLemmaRadioButton">
-                <property name="text">
-                 <string>Lemma</string>
-                </property>
-                <attribute name="buttonGroup">
-                 <string notr="true">buttonGroup</string>
-                </attribute>
-               </widget>
-              </item>
-              <item>
-               <widget class="QRadioButton" name="priorityInflectionRadioButton">
-                <property name="text">
-                 <string>Inflection</string>
-                </property>
-                <attribute name="buttonGroup">
-                 <string notr="true">buttonGroup</string>
-                </attribute>
-               </widget>
-              </item>
-              <item>
-               <spacer name="horizontalSpacer_20">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>40</width>
-                  <height>20</height>
-                 </size>
-                </property>
-               </spacer>
-              </item>
-             </layout>
-            </item>
-           </layout>
-          </widget>
-         </item>
-         <item>
-          <widget class="QGroupBox" name="groupBox_3">
-           <property name="title">
-            <string>Known entries</string></property>
-           <layout class="QVBoxLayout" name="verticalLayout_17">
-            <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_6">
-              <property name="leftMargin">
-               <number>3</number>
-              </property>
-              <property name="topMargin">
-               <number>0</number>
-              </property>
-              <property name="bottomMargin">
-               <number>0</number>
-              </property>
-              <item>
-               <widget class="QLabel" name="label_16">
-                <property name="text">
-                 <string>Entries are considered known when they have a learning interval of</string></property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QSpinBox" name="recalcIntervalSpinBox">
-                <property name="maximum">
-                 <number>999</number>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QLabel" name="label_17">
-                <property name="text">
-                 <string>days or more</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <spacer name="horizontalSpacer_13">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>40</width>
-                  <height>20</height>
-                 </size>
-                </property>
-               </spacer>
-              </item>
-             </layout>
-            </item>
-            <item>
-             <widget class="QCheckBox" name="recalcReadKnownMorphsFolderCheckBox">
-              <property name="text">
-               <string>Read files in the known entries folder to register them as known</string></property>
-             </widget>
-            </item>
-           </layout>
-          </widget>
-         </item>
-         <item>
           <widget class="QGroupBox" name="groupBox_2">
            <property name="title">
             <string>On Sync</string>
@@ -194,29 +78,36 @@
                   <bold>false</bold>
                  </font>
                 </property>
+               <property name="text">
+                <string>Hide toolbar items:</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QCheckBox" name="hideRecalcCheckBox">
+               <property name="text">
+                <string>Recalc</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+               <widget class="QCheckBox" name="hideTrackedCheckBox">
                 <property name="text">
-                 <string>Hide toolbar items:</string>
+                 <string>Tracked</string>
                 </property>
                </widget>
               </item>
               <item>
-               <widget class="QCheckBox" name="hideRecalcCheckBox">
+               <widget class="QCheckBox" name="hideReviewedCheckBox">
                 <property name="text">
-                 <string>Recalc</string>
+                 <string>Reviewed</string>
                 </property>
                </widget>
               </item>
               <item>
-               <widget class="QCheckBox" name="hideLemmaCheckBox">
+               <widget class="QCheckBox" name="hidePendingCheckBox">
                 <property name="text">
-                 <string>L</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QCheckBox" name="hideInflectionCheckBox">
-                <property name="text">
-                 <string>V</string>
+                 <string>Pending</string>
                 </property>
                </widget>
               </item>
@@ -230,50 +121,9 @@
                   <width>40</width>
                   <height>20</height>
                  </size>
-                </property>
-               </spacer>
-              </item>
-             </layout>
-            </item>
-            <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_18">
-              <item>
-               <widget class="QLabel" name="label_37">
-                <property name="font">
-                 <font>
-                  <bold>false</bold>
-                 </font>
-                </property>
-                <property name="text">
-                 <string>Toolbar counters (‘L’ and ‘V’) show:</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QRadioButton" name="toolbarStatsUseSeenRadioButton">
-                <property name="text">
-                 <string>Seen entries (reviewed at least once)</string></property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QRadioButton" name="toolbarStatsUseKnownRadioButton">
-                <property name="text">
-                 <string>Known entries</string></property>
-               </widget>
-              </item>
-              <item>
-               <spacer name="horizontalSpacer_16">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>40</width>
-                  <height>20</height>
-                 </size>
-                </property>
-               </spacer>
-              </item>
+               </property>
+              </spacer>
+             </item>
              </layout>
             </item>
            </layout>
@@ -470,16 +320,16 @@
                </widget>
               </item>
               <item>
-               <widget class="QRadioButton" name="unknownsFieldShowsLemmasRadioButton">
+              <widget class="QRadioButton" name="unknownsFieldShowsLemmasRadioButton">
                 <property name="text">
-                 <string>Lemma</string>
+                 <string>Entry text</string>
                 </property>
                </widget>
               </item>
               <item>
                <widget class="QRadioButton" name="unknownsFieldShowsInflectionsRadioButton">
                 <property name="text">
-                 <string>Inflection</string>
+                 <string>Reading</string>
                 </property>
                </widget>
               </item>
@@ -563,39 +413,20 @@
                 <item>
                  <widget class="QLabel" name="label_2">
                   <property name="text">
-                   <string>One unknown entry</string></property>
+                   <string>Ready</string></property>
                  </widget>
                 </item>
                 <item>
                  <widget class="QLabel" name="label_3">
                   <property name="text">
-                   <string>Multiple unknown entries</string></property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QLabel" name="label_46">
-                  <property name="text">
-                   <string>Fresh entries</string></property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QLabel" name="label_6">
-                  <property name="text">
-                   <string>Learn card now</string>
-                  </property>
+                   <string>Not ready</string></property>
                  </widget>
                 </item>
                 <item>
                  <widget class="QLabel" name="label_5">
                   <property name="text">
-                   <string>Set known and skip</string>
+                   <string>Known manually</string>
                   </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QLabel" name="label_4">
-                  <property name="text">
-                   <string>All entries known</string></property>
                  </widget>
                 </item>
                 <item>
@@ -616,16 +447,7 @@
                  <widget class="QLineEdit" name="tagNotReadyLineEdit" />
                 </item>
                 <item>
-                 <widget class="QLineEdit" name="tagfreshLineEdit" />
-                </item>
-                <item>
-                 <widget class="QLineEdit" name="tagLearnCardNowLineEdit" />
-                </item>
-                <item>
                  <widget class="QLineEdit" name="tagKnownManuallyLineEdit" />
-                </item>
-                <item>
-                 <widget class="QLineEdit" name="tagKnownAutomaticallyLineEdit" />
                 </item>
                 <item>
                  <widget class="QLineEdit" name="tagSuspendedAutomaticallyLineEdit" />
@@ -851,42 +673,6 @@
         </attribute>
         <layout class="QVBoxLayout" name="verticalLayout_51">
          <item>
-          <widget class="QGroupBox" name="groupBox">
-           <property name="title">
-            <string>When Encountering Cards (skip = bury)</string>
-           </property>
-           <layout class="QVBoxLayout" name="verticalLayout_36">
-            <item>
-             <layout class="QVBoxLayout" name="verticalLayout_11">
-              <item>
-               <layout class="QVBoxLayout" name="verticalLayout_50">
-                <item>
-                 <widget class="QCheckBox" name="skipNoUnKnownMorphsCheckBox">
-                  <property name="text">
-                   <string>Skip cards that have no unknown entries</string></property>
-                 </widget>
-                </item>
-               </layout>
-              </item>
-              <item>
-               <widget class="QCheckBox" name="skipAlreadySeenCheckBox">
-                <property name="text">
-                 <string>Skip cards whose unknown entries were already seen today</string></property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QCheckBox" name="skipNotificationsCheckBox">
-                <property name="text">
-                 <string>Show notification: "Skipped X cards"</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
-            </item>
-           </layout>
-          </widget>
-         </item>
-         <item>
           <widget class="QGroupBox" name="groupBox_13">
            <property name="title">
             <string>On Recalc</string>
@@ -895,7 +681,7 @@
             <item>
              <widget class="QLabel" name="autoSuspendBehaviorLabel">
               <property name="text">
-               <string>Cards without unknown entries and lower-priority duplicates are suspended automatically and tagged using the configured value.</string>
+               <string>Recalc keeps one active card per entry. Lower-priority duplicates and entries missing from priority files can be suspended automatically.</string>
               </property>
               <property name="wordWrap">
                <bool>true</bool>
@@ -1991,7 +1777,6 @@
  <resources />
  <connections />
  <buttongroups>
-  <buttongroup name="buttonGroup" />
   <buttongroup name="buttonGroup_2" />
  </buttongroups>
 </ui>

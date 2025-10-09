@@ -34,7 +34,7 @@
           </widget>
          </item>
          <item>
-          <widget class="QComboBox" name="morphPriorityCBox">
+          <widget class="QComboBox" name="priorityFileComboBox">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
              <horstretch>0</horstretch>
@@ -51,78 +51,6 @@
             <string />
            </property>
           </widget>
-         </item>
-        </layout>
-       </item>
-       <item>
-        <layout class="QHBoxLayout" name="horizontalLayout">
-         <item>
-          <widget class="QLabel" name="label">
-           <property name="enabled">
-            <bool>true</bool>
-           </property>
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="font">
-            <font>
-             <bold>false</bold>
-            </font>
-           </property>
-           <property name="toolTip">
-            <string>Changeable in settings</string>
-           </property>
-           <property name="text">
-            <string>Entry matching mode:</string></property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QRadioButton" name="lemmaRadioButton">
-           <property name="enabled">
-            <bool>true</bool>
-           </property>
-           <property name="toolTip">
-            <string>Changeable in settings</string>
-           </property>
-           <property name="text">
-            <string>Lemma</string>
-           </property>
-           <attribute name="buttonGroup">
-            <string notr="true">buttonGroup_2</string>
-           </attribute>
-          </widget>
-         </item>
-         <item>
-          <widget class="QRadioButton" name="inflectionRadioButton">
-           <property name="enabled">
-            <bool>true</bool>
-           </property>
-           <property name="toolTip">
-            <string>Changeable in settings</string>
-           </property>
-           <property name="text">
-            <string>Inflection</string>
-           </property>
-           <attribute name="buttonGroup">
-            <string notr="true">buttonGroup_2</string>
-           </attribute>
-          </widget>
-         </item>
-         <item>
-          <spacer name="horizontalSpacer_2">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>40</width>
-             <height>20</height>
-            </size>
-           </property>
-          </spacer>
          </item>
         </layout>
        </item>
@@ -365,17 +293,12 @@
           </column>
           <column>
            <property name="text">
-            <string>Total Known</string>
+            <string>Total Reviewed</string>
            </property>
           </column>
           <column>
            <property name="text">
-            <string>Total Learning</string>
-           </property>
-          </column>
-          <column>
-           <property name="text">
-            <string>Total Unknown</string>
+            <string>Total Pending</string>
            </property>
           </column>
           <column>
@@ -408,17 +331,12 @@
           </column>
           <column>
            <property name="text">
-            <string>% Known</string>
+            <string>% Reviewed</string>
            </property>
           </column>
           <column>
            <property name="text">
-            <string>% Learning</string>
-           </property>
-          </column>
-          <column>
-           <property name="text">
-            <string>% Unknown</string>
+            <string>% Pending</string>
            </property>
           </column>
           <column>
@@ -435,7 +353,7 @@
         <string>Entry list</string></attribute>
        <layout class="QVBoxLayout" name="verticalLayout_2">
         <item>
-         <widget class="QTableWidget" name="morphTableWidget">
+         <widget class="QTableWidget" name="entryTableWidget">
           <property name="enabled">
            <bool>true</bool>
           </property>
@@ -464,12 +382,12 @@
           </column>
           <column>
            <property name="text">
-            <string>Lemma</string>
+            <string>Text</string>
            </property>
           </column>
           <column>
            <property name="text">
-            <string>Inflection</string>
+            <string>Reading</string>
            </property>
           </column>
           <column>
@@ -490,6 +408,5 @@
  <connections />
  <buttongroups>
   <buttongroup name="buttonGroup" />
-  <buttongroup name="buttonGroup_2" />
  </buttongroups>
 </ui>
