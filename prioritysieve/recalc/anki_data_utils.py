@@ -56,7 +56,6 @@ class AnkiCardData:  # pylint:disable=too-many-instance-attributes
         "expression",
         "furigana",
         "reading",
-        "automatically_known_tag",
         "manually_known_tag",
         "ready_tag",
         "not_ready_tag",
@@ -99,7 +98,6 @@ class AnkiCardData:  # pylint:disable=too-many-instance-attributes
 
         tags_list = tag_manager.split(anki_row_data.note_tags)
 
-        automatically_known_tag = am_config.tag_known_automatically in tags_list
         manually_known_tag = am_config.tag_known_manually in tags_list
         ready_tag = am_config.tag_ready in tags_list
         not_ready_tag = am_config.tag_not_ready in tags_list
@@ -109,7 +107,6 @@ class AnkiCardData:  # pylint:disable=too-many-instance-attributes
         self.expression = expression
         self.furigana = furigana_value
         self.reading = reading_value
-        self.automatically_known_tag = automatically_known_tag
         self.manually_known_tag = manually_known_tag
         self.ready_tag = ready_tag
         self.not_ready_tag = not_ready_tag

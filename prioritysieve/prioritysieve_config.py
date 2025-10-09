@@ -71,10 +71,8 @@ class RawConfigKeys:
     HIDE_TRACKED_COUNTER = "hide_tracked_counter"
     TAG_READY = "tag_ready"
     TAG_NOT_READY = "tag_not_ready"
-    TAG_KNOWN_AUTOMATICALLY = "tag_known_automatically"
     TAG_KNOWN_MANUALLY = "tag_known_manually"
     TAG_SUSPENDED_AUTOMATICALLY = "tag_suspended_automatically"
-
 
 LEGACY_KEY_RENAMES: dict[str, str] = {
     "shortcut_browse_ready_same_unknown": RawConfigKeys.SHORTCUT_BROWSE_SAME_UNKNOWN,
@@ -122,6 +120,7 @@ LEGACY_KEYS_TO_DROP: set[str] = {
     "algorithm_lower_target_learning_morphs_coefficient_b",
     "algorithm_lower_target_learning_morphs_coefficient_c",
     "tag_learn_card_now",
+    "tag_known_automatically",
 }
 
 
@@ -443,11 +442,6 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes
                 expected_type=str,
                 use_default=is_default,
             )
-            self.tag_known_automatically: str = self._get_config_item(
-                key=RawConfigKeys.TAG_KNOWN_AUTOMATICALLY,
-                expected_type=str,
-                use_default=is_default,
-            )
             self.tag_known_manually: str = self._get_config_item(
                 key=RawConfigKeys.TAG_KNOWN_MANUALLY,
                 expected_type=str,
@@ -634,6 +628,15 @@ def normalize_config_keys(configs: dict[str, Any]) -> dict[str, Any]:
             prioritysieve_globals.legacy_fresh_tags.add(trimmed_tag)
             prioritysieve_globals.new_config_found = True
     elif legacy_fresh_tag is not None:
+        prioritysieve_globals.new_config_found = True
+
+    legacy_known_auto_tag = normalized.pop("tag_known_automatically", None)
+    if isinstance(legacy_known_auto_tag, str):
+        trimmed_tag = legacy_known_auto_tag.strip()
+        if trimmed_tag:
+            prioritysieve_globals.legacy_known_automatically_tags.add(trimmed_tag)
+            prioritysieve_globals.new_config_found = True
+    elif legacy_known_auto_tag is not None:
         prioritysieve_globals.new_config_found = True
 
     filters_obj = normalized.get(RawConfigKeys.FILTERS)

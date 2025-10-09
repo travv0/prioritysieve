@@ -61,12 +61,18 @@ class SettingsTab(ABC):  # pylint:disable=too-many-instance-attributes
             "tags to become misleading, and removing them is therefore recommended.<br><br>"
             "Would you like PrioritySieve to remove the following tags from your cards now?"
             "<ul>"
-            f"<li> {self._config.tag_known_automatically}"
             f"<li> {self._config.tag_ready}"
             f"<li> {self._config.tag_not_ready}"
+            f"<li> {self._config.tag_suspended_automatically}"
         )
         legacy_items = "".join(
-            f"<li> {tag}" for tag in sorted(prioritysieve_globals.legacy_fresh_tags)
+            f"<li> {tag}"
+            for tag in sorted(
+                {
+                    *prioritysieve_globals.legacy_fresh_tags,
+                    *prioritysieve_globals.legacy_known_automatically_tags,
+                }
+            )
         )
         if legacy_items:
             body += legacy_items

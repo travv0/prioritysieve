@@ -641,16 +641,23 @@ def reset_am_tags() -> None:
     am_config = PrioritySieveConfig()
 
     title = "Reset Tags?"
+    core_tags = [
+        am_config.tag_ready,
+        am_config.tag_not_ready,
+        am_config.tag_suspended_automatically,
+    ]
+    legacy_tags = sorted(
+        {
+            *ps_globals.legacy_fresh_tags,
+            *ps_globals.legacy_known_automatically_tags,
+        }
+    )
+    combined_items = "".join(f"<li> {tag}" for tag in [*core_tags, *legacy_tags])
     body = (
         'Clicking "Yes" will remove the following tags from all cards:'
         "<ul>"
-        f"<li> {am_config.tag_known_automatically}"
-        f"<li> {am_config.tag_ready}"
-        f"<li> {am_config.tag_not_ready}"
+        + combined_items
     )
-    legacy_items = "".join(f"<li> {tag}" for tag in sorted(ps_globals.legacy_fresh_tags))
-    if legacy_items:
-        body += legacy_items
     body += "</ul>"
     want_reset = message_box_utils.show_warning_box(title, body, parent=mw)
     if want_reset:

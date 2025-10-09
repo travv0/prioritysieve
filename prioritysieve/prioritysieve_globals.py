@@ -48,3 +48,4 @@ shown_config_warning: bool = False
 
 # Collect legacy tag names we should strip from notes when encountered.
 legacy_fresh_tags: set[str] = {"ps-fresh-entries", "ps-fresh-morphs"}
+legacy_known_automatically_tags: set[str] = {"ps-known-automatically"}

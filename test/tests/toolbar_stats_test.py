@@ -17,13 +17,11 @@ from prioritysieve.toolbar_stats import _compute_note_counts
 def _config(
     *,
     auto_tag: str = "ps-auto-suspend",
-    known_auto_tag: str = "ps-known-automatically",
     known_manual_tag: str = "ps-known-manually",
     exceptions: list[str] | None = None,
 ) -> SimpleNamespace:
     return SimpleNamespace(
         tag_suspended_automatically=auto_tag,
-        tag_known_automatically=known_auto_tag,
         tag_known_manually=known_manual_tag,
         get_preprocess_ignore_suspended_unless_tag_list=lambda: exceptions or [],
     )
@@ -72,33 +70,6 @@ def test_counts_include_exception_tagged_suspended_cards() -> None:
     tracked, reviewed = _compute_note_counts(config, cards)
 
     assert tracked == 1
-    assert reviewed == 0
-
-
-def test_counts_treat_known_tags_as_reviewed() -> None:
-    config = _config()
-    cards = [
-        StoredCard(
-            card_id=1,
-            note_id=11,
-            note_type_id=1,
-            card_type=CARD_TYPE_NEW,
-            tags=" ps-known-automatically ",
-            card_queue=QUEUE_TYPE_NEW,
-        ),
-        StoredCard(
-            card_id=2,
-            note_id=12,
-            note_type_id=1,
-            card_type=CARD_TYPE_NEW,
-            tags=" ps-known-manually ",
-            card_queue=QUEUE_TYPE_NEW,
-        ),
-    ]
-
-    tracked, reviewed = _compute_note_counts(config, cards)
-
-    assert tracked == 2
     assert reviewed == 0
 
 

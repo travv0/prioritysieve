@@ -41,7 +41,6 @@
   "recalc_offset_priority_decks": [],
   "tag_ready": "ps-ready",
   "tag_not_ready": "ps-not-ready",
-  "tag_known_automatically": "ps-known-automatically",
   "tag_known_manually": "ps-known-manually",
   "tag_suspended_automatically": "ps-suspended-automatically",
   "hide_recalc_toolbar": false,

@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import OrderedDict
 from typing import Iterable
 
-from anki.consts import CARD_TYPE_NEW
+from anki.consts import CARD_TYPE_NEW, QUEUE_TYPE_SUSPENDED
 from aqt import mw
 
 from ..entry import Entry
@@ -85,11 +85,11 @@ def _build_entry(
     text = _normalise_expression(am_config, card_data.expression)
     reading = _extract_reading(am_config, config_filter, card_data)
 
-    reviewed = (
+    is_active_review = (
         card_data.type != CARD_TYPE_NEW
-        or card_data.automatically_known_tag
-        or card_data.manually_known_tag
+        and getattr(card_data, "queue", 0) != QUEUE_TYPE_SUSPENDED
     )
+    reviewed = is_active_review or card_data.manually_known_tag
 
     return Entry(text=text, reading=reading, reviewed=reviewed)
 

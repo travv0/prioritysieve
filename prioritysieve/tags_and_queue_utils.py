@@ -34,10 +34,10 @@ def apply_entry_tags(
     tracked_tags = {
         am_config.tag_ready,
         am_config.tag_not_ready,
-        am_config.tag_known_automatically,
         am_config.tag_suspended_automatically,
     }
     tracked_tags.update(am_globals.legacy_fresh_tags)
+    tracked_tags.update(am_globals.legacy_known_automatically_tags)
 
     original_positions: dict[str, int] = {}
     for index, tag in enumerate(note.tags):
@@ -66,6 +66,7 @@ def apply_entry_tags(
         am_config.tag_not_ready,
     ]
     removal_tags.extend(am_globals.legacy_fresh_tags)
+    removal_tags.extend(am_globals.legacy_known_automatically_tags)
     for tag in removal_tags:
         _remove_tag(tag)
 
@@ -74,14 +75,11 @@ def apply_entry_tags(
     else:
         _remove_tag(am_config.tag_suspended_automatically)
 
-    if reviewed:
-        _insert_tag(am_config.tag_known_automatically)
+    if auto_suspend:
+        _insert_tag(am_config.tag_not_ready)
     else:
-        _remove_tag(am_config.tag_known_automatically)
-        if auto_suspend:
-            _insert_tag(am_config.tag_not_ready)
-        else:
-            _insert_tag(am_config.tag_ready)
+        _remove_tag(am_config.tag_not_ready)
+        _insert_tag(am_config.tag_ready)
 
     note.tags = tags
 
@@ -192,12 +190,12 @@ def _reset_am_tags_background_op() -> None:
     modified_notes: dict[NoteId, Note] = {}
 
     tags_to_remove = [
-        am_config.tag_known_automatically,
         am_config.tag_ready,
         am_config.tag_not_ready,
         am_config.tag_suspended_automatically,
     ]
     tags_to_remove.extend(am_globals.legacy_fresh_tags)
+    tags_to_remove.extend(am_globals.legacy_known_automatically_tags)
     for tag in tags_to_remove:
         note_ids: Sequence[NoteId] = mw.col.find_notes(f"tag:{tag}")
         note_amount = len(note_ids)
