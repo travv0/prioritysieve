@@ -31,6 +31,7 @@ pkgs.mkShell {
     nss
     nspr
     stdenv.cc.cc.lib
+    zstd
     (python311.withPackages (ps: with ps; [
       pip
       setuptools
@@ -43,6 +44,6 @@ pkgs.mkShell {
   shellHook = ''
     export QT_QPA_PLATFORM=offscreen
     export QTWEBENGINE_DISABLE_SANDBOX=1
-    export LD_LIBRARY_PATH=${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.libGL}/lib:${pkgs.libGLU}/lib:${pkgs.libxkbcommon}/lib:${pkgs.xorg.libX11}/lib:${pkgs.xorg.libXcomposite}/lib:${pkgs.xorg.libXdamage}/lib:${pkgs.xorg.libXfixes}/lib:${pkgs.xorg.libXext}/lib:${pkgs.xorg.libXrender}/lib:${pkgs.xorg.libXrandr}/lib:${pkgs.xorg.libXtst}/lib:${pkgs.xorg.libXi}/lib:${pkgs.libdrm}/lib:${pkgs.xorg.libXcursor}/lib:${pkgs.xorg.libXinerama}/lib:${pkgs.xorg.libxshmfence}/lib:${pkgs.xorg.libxkbfile}/lib:${pkgs.alsa-lib}/lib:${pkgs.glib.out}/lib:${pkgs.fontconfig.lib}/lib:${pkgs.freetype.out}/lib:${pkgs.dbus.lib}/lib:${pkgs.krb5.lib}/lib:${pkgs.nss}/lib:${pkgs.nspr}/lib:$LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH=${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.libGL}/lib:${pkgs.libGLU}/lib:${pkgs.libxkbcommon}/lib:${pkgs.xorg.libX11}/lib:${pkgs.xorg.libXcomposite}/lib:${pkgs.xorg.libXdamage}/lib:${pkgs.xorg.libXfixes}/lib:${pkgs.xorg.libXext}/lib:${pkgs.xorg.libXrender}/lib:${pkgs.xorg.libXrandr}/lib:${pkgs.xorg.libXtst}/lib:${pkgs.xorg.libXi}/lib:${pkgs.libdrm}/lib:${pkgs.xorg.libXcursor}/lib:${pkgs.xorg.libXinerama}/lib:${pkgs.xorg.libxshmfence}/lib:${pkgs.xorg.libxkbfile}/lib:${pkgs.alsa-lib}/lib:${pkgs.glib.out}/lib:${pkgs.fontconfig.lib}/lib:${pkgs.freetype.out}/lib:${pkgs.dbus.lib}/lib:${pkgs.krb5.lib}/lib:${pkgs.nss}/lib:${pkgs.nspr}/lib:${pkgs.zstd.out}/lib:$LD_LIBRARY_PATH
   '';
 }
