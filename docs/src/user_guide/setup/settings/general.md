@@ -13,9 +13,5 @@ The General tab contains a handful of global behaviour toggles.
   after sync`-option enabled, then this can cause a bug where sync and recalc occurs simultaneously.
 
 * **Hide toolbar items:**  
-  If you want to declutter the toolbar you can choose to hide any of the
-  [toolbar items](../../installation/changes-to-anki.md#toolbar) provided by the addon.
-
-* **Toolbar counters show:**  
-    * **Tracked entries** – the toolbar displays the total number of unique entries PrioritySieve has discovered, with the secondary counter showing how many are still pending.
-    * **Reviewed entries** – the primary counter switches to your reviewed entries while the secondary counter continues to report the pending count.
+  Toggle the visibility of each [toolbar item](../../installation/changes-to-anki.md#toolbar) individually. The three counters
+  now appear as single-letter labels (**T**, **R**, **P**) for tracked, reviewed, and pending entries respectively.

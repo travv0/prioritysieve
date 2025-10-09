@@ -1,12 +1,6 @@
 from __future__ import annotations
 
-from aqt.qt import (  # pylint:disable=no-name-in-module
-    QCheckBox,
-    QDialog,
-    QDoubleSpinBox,
-    QRadioButton,
-    QSpinBox,
-)
+from aqt.qt import QCheckBox, QDialog  # pylint:disable=no-name-in-module
 
 from ..prioritysieve_config import PrioritySieveConfig, RawConfigKeys
 from ..ui.settings_dialog_ui import Ui_SettingsDialog
@@ -25,17 +19,13 @@ class GeneralTab(SettingsTab):
     ) -> None:
         super().__init__(parent, ui, config, default_config)
 
-        self._raw_config_key_to_radio_button: dict[str, QRadioButton] = {
-            RawConfigKeys.TOOLBAR_STATS_USE_SEEN: self.ui.toolbarStatsUseSeenRadioButton,
-            RawConfigKeys.TOOLBAR_STATS_USE_KNOWN: self.ui.toolbarStatsUseKnownRadioButton,
-        }
-
         self._raw_config_key_to_check_box: dict[str, QCheckBox] = {
             RawConfigKeys.RECALC_ON_SYNC: self.ui.recalcBeforeSyncCheckBox,
             RawConfigKeys.RECALC_AFTER_SYNC: self.ui.recalcAfterSyncCheckBox,
             RawConfigKeys.HIDE_RECALC_TOOLBAR: self.ui.hideRecalcCheckBox,
-            RawConfigKeys.HIDE_REVIEWED_COUNTER: self.ui.hideLemmaCheckBox,
-            RawConfigKeys.HIDE_TRACKED_COUNTER: self.ui.hideInflectionCheckBox,
+            RawConfigKeys.HIDE_TRACKED_COUNTER: self.ui.hideTrackedCheckBox,
+            RawConfigKeys.HIDE_REVIEWED_COUNTER: self.ui.hideReviewedCheckBox,
+            RawConfigKeys.HIDE_PENDING_COUNTER: self.ui.hidePendingCheckBox,
         }
 
         self._raw_config_key_to_spin_box = {}

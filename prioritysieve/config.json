@@ -25,8 +25,6 @@
   "shortcut_generators": "Ctrl+Shift+G",
   "shortcut_progression": "Ctrl+Alt+P",
   "shortcut_known_entries_exporter": "Ctrl+Shift+E",
-  "toolbar_stats_use_known": false,
-  "toolbar_stats_use_seen": true,
   "preprocess_ignore_bracket_contents": false,
   "preprocess_ignore_round_bracket_contents": false,
   "preprocess_ignore_slim_round_bracket_contents": false,
@@ -45,5 +43,6 @@
   "tag_suspended_automatically": "ps-suspended-automatically",
   "hide_recalc_toolbar": false,
   "hide_reviewed_counter": false,
-  "hide_tracked_counter": false
+  "hide_tracked_counter": false,
+  "hide_pending_counter": false
 }

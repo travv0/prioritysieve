@@ -87,7 +87,6 @@ ignore_names = [
   "reopen",
   "closeWithCallback",
   "closeEvent",
-  "toolbar_stats_use_seen",
   "extra_fields_display_lemmas",
   "min_occurrence",
 ]

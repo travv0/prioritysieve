@@ -119,27 +119,26 @@ def init_toolbar_items(links: list[str], toolbar: Toolbar) -> None:
             )
         )
 
-    if am_config.hide_reviewed_counter is False:
-        primary_message = f"{entry_toolbar_stats.primary_name} entry count"
-        links.append(
-            toolbar.create_link(
-                cmd="reviewed_entries",
-                label=entry_toolbar_stats.primary_label,
-                func=lambda msg=primary_message: tooltip(msg),
-                tip=primary_message,
-                id="reviewed_entries",
-            )
-        )
+    counter_definitions = [
+        ("tracked", am_config.hide_tracked_counter, "tracked_entries"),
+        ("reviewed", am_config.hide_reviewed_counter, "reviewed_entries"),
+        ("pending", am_config.hide_pending_counter, "pending_entries"),
+    ]
 
-    if am_config.hide_tracked_counter is False:
-        secondary_message = f"{entry_toolbar_stats.secondary_name} entry count"
+    for key, is_hidden, command in counter_definitions:
+        if is_hidden:
+            continue
+        counter = entry_toolbar_stats.get_counter(key)
+        if counter is None:
+            continue
+        message = counter.tooltip
         links.append(
             toolbar.create_link(
-                cmd="tracked_entries",
-                label=entry_toolbar_stats.secondary_label,
-                func=lambda msg=secondary_message: tooltip(msg),
-                tip=secondary_message,
-                id="tracked_entries",
+                cmd=command,
+                label=counter.label,
+                func=lambda msg=message: tooltip(msg),
+                tip=message,
+                id=command,
             )
         )
 

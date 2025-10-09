@@ -52,8 +52,6 @@ class RawConfigKeys:
     SHORTCUT_GENERATORS = "shortcut_generators"
     SHORTCUT_PROGRESSION = "shortcut_progression"
     SHORTCUT_KNOWN_ENTRIES_EXPORTER = "shortcut_known_entries_exporter"
-    TOOLBAR_STATS_USE_KNOWN = "toolbar_stats_use_known"
-    TOOLBAR_STATS_USE_SEEN = "toolbar_stats_use_seen"
     PREPROCESS_IGNORE_BRACKET_CONTENTS = "preprocess_ignore_bracket_contents"
     PREPROCESS_IGNORE_ROUND_BRACKET_CONTENTS = "preprocess_ignore_round_bracket_contents"
     PREPROCESS_IGNORE_SLIM_ROUND_BRACKET_CONTENTS = "preprocess_ignore_slim_round_bracket_contents"
@@ -69,6 +67,7 @@ class RawConfigKeys:
     HIDE_RECALC_TOOLBAR = "hide_recalc_toolbar"
     HIDE_REVIEWED_COUNTER = "hide_reviewed_counter"
     HIDE_TRACKED_COUNTER = "hide_tracked_counter"
+    HIDE_PENDING_COUNTER = "hide_pending_counter"
     TAG_READY = "tag_ready"
     TAG_NOT_READY = "tag_not_ready"
     TAG_KNOWN_MANUALLY = "tag_known_manually"
@@ -121,6 +120,8 @@ LEGACY_KEYS_TO_DROP: set[str] = {
     "algorithm_lower_target_learning_morphs_coefficient_c",
     "tag_learn_card_now",
     "tag_known_automatically",
+    "toolbar_stats_use_known",
+    "toolbar_stats_use_seen",
 }
 
 
@@ -343,16 +344,6 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes
                     use_default=is_default,
                 )
             )
-            self.toolbar_stats_use_known: bool = self._get_config_item(
-                key=RawConfigKeys.TOOLBAR_STATS_USE_KNOWN,
-                expected_type=bool,
-                use_default=is_default,
-            )
-            self.toolbar_stats_use_seen: bool = self._get_config_item(
-                key=RawConfigKeys.TOOLBAR_STATS_USE_SEEN,
-                expected_type=bool,
-                use_default=is_default,
-            )
             self.preprocess_ignore_bracket_contents: bool = self._get_config_item(
                 key=RawConfigKeys.PREPROCESS_IGNORE_BRACKET_CONTENTS,
                 expected_type=bool,
@@ -429,6 +420,11 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes
             )
             self.hide_tracked_counter: bool = self._get_config_item(
                 key=RawConfigKeys.HIDE_TRACKED_COUNTER,
+                expected_type=bool,
+                use_default=is_default,
+            )
+            self.hide_pending_counter: bool = self._get_config_item(
+                key=RawConfigKeys.HIDE_PENDING_COUNTER,
                 expected_type=bool,
                 use_default=is_default,
             )

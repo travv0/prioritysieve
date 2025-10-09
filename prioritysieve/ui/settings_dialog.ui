@@ -78,29 +78,36 @@
                   <bold>false</bold>
                  </font>
                 </property>
-                <property name="text">
-                 <string>Hide toolbar items:</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QCheckBox" name="hideRecalcCheckBox">
-                <property name="text">
-                 <string>Recalc</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QCheckBox" name="hideLemmaCheckBox">
                <property name="text">
+                <string>Hide toolbar items:</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QCheckBox" name="hideRecalcCheckBox">
+               <property name="text">
+                <string>Recalc</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+               <widget class="QCheckBox" name="hideTrackedCheckBox">
+                <property name="text">
+                 <string>Tracked</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QCheckBox" name="hideReviewedCheckBox">
+                <property name="text">
                  <string>Reviewed</string>
                 </property>
                </widget>
               </item>
               <item>
-               <widget class="QCheckBox" name="hideInflectionCheckBox">
+               <widget class="QCheckBox" name="hidePendingCheckBox">
                 <property name="text">
-                 <string>Tracked</string>
+                 <string>Pending</string>
                 </property>
                </widget>
               </item>
@@ -114,50 +121,9 @@
                   <width>40</width>
                   <height>20</height>
                  </size>
-                </property>
-               </spacer>
-              </item>
-             </layout>
-            </item>
-            <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_18">
-              <item>
-               <widget class="QLabel" name="label_37">
-                <property name="font">
-                 <font>
-                  <bold>false</bold>
-                 </font>
-                </property>
-                <property name="text">
-                 <string>Toolbar counters show:</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QRadioButton" name="toolbarStatsUseSeenRadioButton">
-                <property name="text">
-                 <string>Tracked entries (total unique found)</string></property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QRadioButton" name="toolbarStatsUseKnownRadioButton">
-                <property name="text">
-                 <string>Reviewed entries (studied at least once)</string></property>
-               </widget>
-              </item>
-              <item>
-               <spacer name="horizontalSpacer_16">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>40</width>
-                  <height>20</height>
-                 </size>
-                </property>
-               </spacer>
-              </item>
+               </property>
+              </spacer>
+             </item>
              </layout>
             </item>
            </layout>

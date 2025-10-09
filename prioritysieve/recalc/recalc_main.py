@@ -45,6 +45,11 @@ _last_modified_notes_count: int = 0
 _recent_card_diffs: list[str] = []
 _recent_note_diffs: list[str] = []
 _followup_sync_callback: Callable[[], None] | None = None
+_recalc_in_progress: bool = False
+
+
+def recalc_in_progress() -> bool:
+    return _recalc_in_progress
 
 
 @dataclass(slots=True)
@@ -225,6 +230,8 @@ def recalc() -> None:
         success=lambda _: _on_success(start_time),
     )
     operation.failure(_on_failure)
+    global _recalc_in_progress
+    _recalc_in_progress = True
     operation.with_progress().run_in_background()
 
 
@@ -1031,6 +1038,8 @@ def _record_recent_changes(
 
 def _on_success(start_time: float | None = None) -> None:
     assert mw is not None
+    global _recalc_in_progress
+    _recalc_in_progress = False
 
     try:
         filters_state = compute_modify_filters_state()
@@ -1088,6 +1097,8 @@ def _on_success(start_time: float | None = None) -> None:
 
 
 def _on_failure(error: Exception | PriorityFileMalformedException) -> None:
+    global _recalc_in_progress
+    _recalc_in_progress = False
     set_followup_sync_callback(None)
     if isinstance(error, CancelledOperationException):
         tooltip("PrioritySieve recalc cancelled", parent=mw)
