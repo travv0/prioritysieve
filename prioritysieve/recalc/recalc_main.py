@@ -506,6 +506,7 @@ def _background_recalc(
     ensure_directories()
     caching.cache_entries(am_config, all_filters)
     _apply_priorities(am_config, modify_filters)
+    caching.cache_entries(am_config, all_filters)
 
 
 def _apply_priorities(
