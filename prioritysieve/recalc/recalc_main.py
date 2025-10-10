@@ -38,7 +38,7 @@ from ..exceptions import (
 )
 from ..anki_op_utils import notify_op_execution
 from . import caching
-from .anki_data_utils import create_card_data_dict
+from .anki_data_utils import AnkiCardData, create_card_data_dict
 
 _last_modified_cards_count: int = 0
 _last_modified_notes_count: int = 0
@@ -196,6 +196,26 @@ def _get_filter_identifier(config_filter: PrioritySieveConfigFilter) -> str:
             f"exc:{','.join(exclude_tags)}",
         )
     )
+
+
+def _compute_desired_extra_reading(
+    config_filter: PrioritySieveConfigFilter,
+    card_data: AnkiCardData,
+    entry: Entry,
+) -> str | None:
+    if not config_filter.extra_reading_field:
+        return None
+
+    reading_value = entry.reading
+    if not reading_value:
+        return None
+
+    reading_index = card_data.extra_reading_field_index
+    if reading_index is None or reading_index >= len(card_data.fields):
+        return reading_value
+
+    current_reading = card_data.fields[reading_index]
+    return reading_value if current_reading != reading_value else None
 
 
 def compute_modify_filters_state() -> list[dict[str, int | str]]:
@@ -624,17 +644,14 @@ def _apply_priorities(
                     tags=card_data.original_tags,
                     auto_suspend=auto_suspend,
                 )
-
-                if config_filter.extra_reading_field and entry.reading:
-                    reading_index = card_data.extra_reading_field_index
-                    if reading_index is None or reading_index >= len(card_data.fields):
-                        desired_reading = entry.reading
-                    else:
-                        current_reading = card_data.fields[reading_index]
-                        if entry.reading != current_reading:
-                            desired_reading = entry.reading
             else:
                 manually_suspended_exception = False
+
+            desired_reading = _compute_desired_extra_reading(
+                config_filter=config_filter,
+                card_data=card_data,
+                entry=entry,
+            )
 
             deck_priority = _get_deck_priority_for_ids(
                 deck_priority_lookup=deck_priority_lookup,

@@ -7,6 +7,7 @@ from prioritysieve.prioritysieve_globals import (
     READING_PRIORITY_READING_FIRST,
 )
 from prioritysieve.recalc.caching import _extract_reading
+from prioritysieve.recalc.recalc_main import _compute_desired_extra_reading
 
 
 def _dummy_config() -> SimpleNamespace:
@@ -45,6 +46,36 @@ def test_extract_reading_prefers_furigana_by_default() -> None:
     )
 
     reading = _extract_reading(am_config, config_filter, card_data)
+
+    assert reading == "そば"
+
+
+def test_extra_reading_updates_existing_card_when_blank() -> None:
+    config_filter = SimpleNamespace(extra_reading_field=True)
+    card_data = SimpleNamespace(extra_reading_field_index=1, fields=["側", ""])
+    entry = SimpleNamespace(reading="そば")
+
+    reading = _compute_desired_extra_reading(config_filter, card_data, entry)
+
+    assert reading == "そば"
+
+
+def test_extra_reading_skips_when_value_matches() -> None:
+    config_filter = SimpleNamespace(extra_reading_field=True)
+    card_data = SimpleNamespace(extra_reading_field_index=0, fields=["そば"])
+    entry = SimpleNamespace(reading="そば")
+
+    reading = _compute_desired_extra_reading(config_filter, card_data, entry)
+
+    assert reading is None
+
+
+def test_extra_reading_updates_when_field_index_missing() -> None:
+    config_filter = SimpleNamespace(extra_reading_field=True)
+    card_data = SimpleNamespace(extra_reading_field_index=5, fields=["側", ""])
+    entry = SimpleNamespace(reading="そば")
+
+    reading = _compute_desired_extra_reading(config_filter, card_data, entry)
 
     assert reading == "そば"
 
