@@ -69,10 +69,14 @@ _CONTEXT_MENU: str = "ps_context_menu"
 _startup_sync: bool = True
 _showed_update_warning: bool = False
 _state_before_sync_recalc: str | None = None
+_pending_changes_before_sync: bool = False
+_followup_sync_pending: bool = False
 
 
 def _schedule_followup_sync() -> None:
     assert mw is not None
+    global _followup_sync_pending
+    _followup_sync_pending = True
     print("PrioritySieve: running follow-up sync after auto recalc")
     mw.onSync()
 
@@ -94,7 +98,7 @@ def main() -> None:
     gui_hooks.profile_did_open.append(text_preprocessing.update_translation_table)
     gui_hooks.profile_did_open.append(maybe_show_version_warning_wrapper)
 
-    gui_hooks.sync_will_start.append(recalc_on_sync)
+    gui_hooks.sync_will_start.append(cache_state_before_sync)
     gui_hooks.sync_did_finish.append(recalc_after_sync)
 
     gui_hooks.webview_will_show_context_menu.append(add_text_as_name_action)
@@ -317,7 +321,7 @@ def init_browser_menus_and_actions() -> None:
     gui_hooks.browser_will_show_context_menu.append(setup_context_menu)
 
 
-def recalc_on_sync() -> None:
+def cache_state_before_sync() -> None:
     # Anki can sync automatically on startup, but we don't
     # want to recalc at that point.
     global _startup_sync
@@ -331,9 +335,14 @@ def recalc_on_sync() -> None:
             _startup_sync = False
             return
 
-    am_config = PrioritySieveConfig()
-
     extra_settings = PrioritySieveExtraSettings()
+    am_config = PrioritySieveConfig()
+    global _followup_sync_pending
+    is_followup_sync = _followup_sync_pending
+    _followup_sync_pending = False
+
+    previous_state_json = extra_settings.get_recalc_collection_state()
+    previous_settings_state_json = extra_settings.get_recalc_settings_state()
 
     current_state_json: str | None = None
     try:
@@ -341,7 +350,7 @@ def recalc_on_sync() -> None:
         current_state_json = json.dumps(current_state, sort_keys=True)
     except Exception as error:  # pylint:disable=broad-except
         print(
-            f"PrioritySieve: running pre-sync recalc (state snapshot failed: {error})"
+            f"PrioritySieve: failed to snapshot collection state before sync ({error})"
         )
         current_state_json = extra_settings.get_recalc_collection_state()
 
@@ -361,126 +370,56 @@ def recalc_on_sync() -> None:
         )
         current_settings_state_json = extra_settings.get_recalc_settings_state()
 
-    if not am_config.recalc_on_sync:
-        if current_state_json is not None:
-            extra_settings.set_recalc_collection_state(current_state_json)
-        if current_settings_state_json is not None:
-            extra_settings.set_recalc_settings_state(current_settings_state_json)
-        _state_before_sync_recalc = current_state_json
-        return
+    if current_state_json is not None:
+        extra_settings.set_recalc_collection_state(current_state_json)
+    if current_settings_state_json is not None:
+        extra_settings.set_recalc_settings_state(current_settings_state_json)
 
-    previous_state = extra_settings.get_recalc_collection_state()
-    previous_settings_state = extra_settings.get_recalc_settings_state()
+    collection_changed = False
+    settings_changed = False
+    pending_changes = False
 
-    print("PrioritySieve cached snapshot state:", previous_state)
-    print("PrioritySieve cached settings state:", previous_settings_state)
+    if is_followup_sync:
+        pending_changes = False
+        print("PrioritySieve: skipping pending-change probe (follow-up sync)")
+    else:
+        if current_state_json is None:
+            collection_changed = True
+        elif previous_state_json is None:
+            collection_changed = True
+        else:
+            collection_changed = previous_state_json != current_state_json
 
-    collection_state_changed = previous_state != current_state_json
-    settings_state_changed = (
-        current_settings_state_json is None
-        or current_settings_state_json != previous_settings_state
-    )
+        settings_changed = False
+        if current_settings_state_json is None:
+            settings_changed = True
+        elif previous_settings_state_json is None:
+            settings_changed = True
+        else:
+            settings_changed = (
+                previous_settings_state_json != current_settings_state_json
+            )
 
-    relevant_filters = recalc_main._filters_requiring_state_snapshot()
-    pending_changes = recalc_main.filters_have_pending_changes(
-        am_config,
-        relevant_filters,
-    )
+        pending_changes = collection_changed or settings_changed
 
-    print(
-        "PrioritySieve pre-sync settings snapshot state:",
-        current_settings_state_json,
-    )
+    global _pending_changes_before_sync
+    _pending_changes_before_sync = pending_changes
     print(
         "PrioritySieve pre-sync change flags:",
         {
-            "collection_state_changed": collection_state_changed,
-            "settings_state_changed": settings_state_changed,
+            "collection_changed": not is_followup_sync and collection_changed,
+            "settings_changed": not is_followup_sync and settings_changed,
+            "pending_changes": pending_changes,
+            "followup_sync": is_followup_sync,
         },
     )
-    print(
-        "PrioritySieve pre-sync pending change scan:", pending_changes
-    )
 
-    if (
-        not pending_changes
-        and not settings_state_changed
-        and previous_state is not None
-    ):
-        print(
-            "PrioritySieve: skipping pre-sync recalc"
-            " (no relevant card/note changes)"
-        )
-        if current_state_json is not None:
-            extra_settings.set_recalc_collection_state(current_state_json)
-        if current_settings_state_json is not None:
-            extra_settings.set_recalc_settings_state(current_settings_state_json)
-        _state_before_sync_recalc = current_state_json
-        return
-
-    if not collection_state_changed and not settings_state_changed:
-        print(
-            "PrioritySieve: skipping pre-sync recalc"
-            " (collection and settings unchanged)"
-        )
-        if current_state_json is not None:
-            extra_settings.set_recalc_collection_state(current_state_json)
-        if current_settings_state_json is not None:
-            extra_settings.set_recalc_settings_state(current_settings_state_json)
-        _state_before_sync_recalc = current_state_json
-        return
-
-    if settings_state_changed and collection_state_changed:
-        reason = "settings and collection changed"
-    elif settings_state_changed:
-        reason = "settings changed"
-    elif previous_state is None:
-        reason = "no cached state"
-    else:
-        reason = "collection metrics changed"
-
-    print(f"PrioritySieve: running pre-sync recalc ({reason})")
-
-    def _cache_post_recalc_state() -> None:
-        global _state_before_sync_recalc
-
-        try:
-            updated_state = json.dumps(
-                recalc_main.compute_modify_filters_state(), sort_keys=True
-            )
-            extra_settings.set_recalc_collection_state(updated_state)
-        except Exception as error:  # pylint:disable=broad-except
-            print(
-                f"PrioritySieve: unable to cache pre-sync state after recalc ({error})"
-            )
-            updated_state = current_state_json
-            if updated_state is not None:
-                extra_settings.set_recalc_collection_state(updated_state)
-
-        try:
-            settings_state = json.dumps(
-                prioritysieve_config.get_config_dict(), sort_keys=True
-            )
-            extra_settings.set_recalc_settings_state(settings_state)
-        except Exception as error:  # pylint:disable=broad-except
-            print(
-                f"PrioritySieve: unable to cache settings state after recalc ({error})"
-            )
-
-        _state_before_sync_recalc = updated_state
-        print(
-            "PrioritySieve pre-sync baseline stored state:",
-            _state_before_sync_recalc,
-        )
-
-    _state_before_sync_recalc = None
-    recalc_main.set_followup_sync_callback(_cache_post_recalc_state)
-    recalc_main.recalc()
-    return
+    _state_before_sync_recalc = current_state_json
 
 
 def recalc_after_sync(success: bool | None = None) -> None:
     global _state_before_sync_recalc
+    global _pending_changes_before_sync
 
     extra_settings = PrioritySieveExtraSettings()
 
@@ -492,6 +431,7 @@ def recalc_after_sync(success: bool | None = None) -> None:
         return
 
     am_config = PrioritySieveConfig()
+    pending_changes = _pending_changes_before_sync
 
     try:
         post_state = recalc_main.compute_modify_filters_state()
@@ -509,10 +449,12 @@ def recalc_after_sync(success: bool | None = None) -> None:
                 )
             except Exception:  # pylint:disable=broad-except
                 _state_before_sync_recalc = None
+            _pending_changes_before_sync = False
             return
         else:
             _state_before_sync_recalc = None
             recalc_main.set_followup_sync_callback(None)
+            _pending_changes_before_sync = False
         return
 
     baseline_state = _state_before_sync_recalc
@@ -526,6 +468,7 @@ def recalc_after_sync(success: bool | None = None) -> None:
         {
             "states_equal": baseline_state == post_state_json,
             "recalc_after_sync": am_config.recalc_after_sync,
+            "pending_changes": pending_changes,
         },
     )
 
@@ -534,9 +477,10 @@ def recalc_after_sync(success: bool | None = None) -> None:
             extra_settings.set_recalc_collection_state(post_state_json)
         _state_before_sync_recalc = post_state_json
         recalc_main.set_followup_sync_callback(None)
+        _pending_changes_before_sync = False
         return
 
-    if baseline_state is None:
+    if baseline_state is None and not pending_changes:
         print(
             "PrioritySieve: skipping post-sync recalc (no baseline state available)"
         )
@@ -544,9 +488,10 @@ def recalc_after_sync(success: bool | None = None) -> None:
             extra_settings.set_recalc_collection_state(post_state_json)
         _state_before_sync_recalc = post_state_json
         recalc_main.set_followup_sync_callback(None)
+        _pending_changes_before_sync = False
         return
 
-    if baseline_state == post_state_json:
+    if baseline_state == post_state_json and not pending_changes:
         print(
             "PrioritySieve post-sync skip (baseline == post) state:",
             post_state_json,
@@ -556,13 +501,21 @@ def recalc_after_sync(success: bool | None = None) -> None:
         )
         _state_before_sync_recalc = post_state_json
         recalc_main.set_followup_sync_callback(None)
+        _pending_changes_before_sync = False
         return
 
+    if baseline_state is None:
+        trigger_reason = "missing_baseline"
+    elif baseline_state == post_state_json:
+        trigger_reason = "pending_changes"
+    else:
+        trigger_reason = "state_changed"
     print(
-        "PrioritySieve post-sync recalc triggered (baseline != post) state:",
+        "PrioritySieve post-sync recalc triggered:",
         {
             "baseline": baseline_state,
             "post": post_state_json,
+            "reason": trigger_reason,
         },
     )
     recalc_main.set_followup_sync_callback(_schedule_followup_sync)
@@ -581,6 +534,7 @@ def recalc_after_sync(success: bool | None = None) -> None:
         updated_state = post_state_json
 
     _state_before_sync_recalc = updated_state
+    _pending_changes_before_sync = False
     print(
         "PrioritySieve post-sync baseline stored state:",
         _state_before_sync_recalc,

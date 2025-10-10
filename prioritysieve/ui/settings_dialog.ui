@@ -47,16 +47,9 @@
            </property>
            <layout class="QVBoxLayout" name="verticalLayout_18">
            <item>
-            <widget class="QCheckBox" name="recalcBeforeSyncCheckBox">
-             <property name="text">
-              <string>Automatically Recalc before Anki sync</string>
-             </property>
-            </widget>
-           </item>
-           <item>
             <widget class="QCheckBox" name="recalcAfterSyncCheckBox">
              <property name="text">
-              <string>Automatically Recalc after Anki sync when relevant changes are downloaded</string>
+              <string>Automatically Recalc after Anki sync</string>
              </property>
             </widget>
            </item>

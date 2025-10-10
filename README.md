@@ -31,7 +31,7 @@ The result is a smooth “kanji first, vocab second” workflow with Anki’s st
 1. **Install.** Copy the folder into `Anki2/addons21/prioritysieve` (or install the packaged add-on) and restart Anki.
 2. **Configure filters.** Open **Tools → PrioritySieve Settings** and, for each note type you care about, pick the expression field, optional reading field, and the tags you want PrioritySieve to manage.
 3. **Provide priority data.** Place your CSV files in the profile folder under `prioritysieve-priority-files/`. Each file should contain at least an `Entry` column, optionally a `Reading` column (the legacy headers `Morph-Lemma`/`Morph-Reading` are still accepted), and a numeric `Priority` column. Lower numbers = higher priority; unlisted entries default to the lowest priority.
-4. **Run recalc.** Use the toolbar button or the shortcut defined in the settings dialog. Recalc can also trigger automatically before/after sync depending on the options you enable.
+4. **Run recalc.** Use the toolbar button or the shortcut defined in the settings dialog. Recalc can also trigger automatically after sync when you enable the option in settings.
 
 The add-on stores per-profile settings in `prioritysieve_profile_settings.json`, so each Anki profile can keep an independent set of note filters and behaviour.
 

@@ -7,5 +7,5 @@ Recalc (“recalculate”) is the command that keeps PrioritySieve in sync with 
 3. Applies tags, updates the optional `ps-reading` field, and automatically suspends duplicate or out-of-scope entries.
 
 Run Recalc at least once per study session—either before you start or after you finish—so new cards appear in the right
-order. You can also enable “Automatically Recalc before Anki sync” in **Tools → PrioritySieve Settings → General** to
-let the add-on update itself during every sync.
+order. You can also enable “Automatically Recalc after Anki sync” in **Tools → PrioritySieve Settings → General** to let
+the add-on run a full update whenever a sync downloads changes for your configured filters.

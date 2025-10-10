@@ -20,7 +20,6 @@ class GeneralTab(SettingsTab):
         super().__init__(parent, ui, config, default_config)
 
         self._raw_config_key_to_check_box: dict[str, QCheckBox] = {
-            RawConfigKeys.RECALC_ON_SYNC: self.ui.recalcBeforeSyncCheckBox,
             RawConfigKeys.RECALC_AFTER_SYNC: self.ui.recalcAfterSyncCheckBox,
             RawConfigKeys.HIDE_RECALC_TOOLBAR: self.ui.hideRecalcCheckBox,
             RawConfigKeys.HIDE_TRACKED_COUNTER: self.ui.hideTrackedCheckBox,
