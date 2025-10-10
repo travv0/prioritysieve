@@ -14,6 +14,8 @@ import json
 import sqlite3
 from functools import partial
 from pathlib import Path
+import sys
+from typing import Optional
 import aqt
 from anki import hooks
 from anki.utils import ids2str
@@ -73,12 +75,69 @@ _pending_changes_before_sync: bool = False
 _followup_sync_pending: bool = False
 
 
+def _get_kanjicards_manager() -> Optional[object]:
+    try:
+        module = sys.modules.get("KanjiCards")
+        if module is None:
+            module = __import__("KanjiCards")  # type: ignore[import]
+        manager = getattr(module, "_manager", None)
+        if manager is None:
+            initializer = getattr(module, "_initialize_manager", None)
+            if callable(initializer):
+                try:
+                    initializer()
+                except Exception:  # pylint:disable=broad-except
+                    return None
+                manager = getattr(module, "_manager", None)
+        return manager
+    except Exception:  # pylint:disable=broad-except
+        return None
+
+
 def _schedule_followup_sync() -> None:
     assert mw is not None
     global _followup_sync_pending
     _followup_sync_pending = True
     print("PrioritySieve: running follow-up sync after auto recalc")
-    mw.onSync()
+
+    ps_changed = bool(
+        getattr(recalc_main, "_last_modified_cards_count", 0)
+        or getattr(recalc_main, "_last_modified_notes_count", 0)
+    )
+
+    manager = _get_kanjicards_manager()
+    if manager is None or not hasattr(manager, "run_after_sync"):
+        if ps_changed:
+            mw.onSync()
+        else:
+            _followup_sync_pending = False
+        return
+
+    def _finish(kc_changed: bool) -> None:
+        global _followup_sync_pending
+        any_changes = ps_changed or kc_changed
+        if not any_changes:
+            _followup_sync_pending = False
+            return
+
+        mark_followup = getattr(manager, "mark_followup_sync_scheduled", None)
+        if callable(mark_followup):
+            try:
+                mark_followup()
+            except Exception:  # pylint:disable=broad-except
+                pass
+        mw.onSync()
+
+    try:
+        manager.run_after_sync(
+            allow_followup=False,
+            on_finished=_finish,
+        )
+    except Exception:  # pylint:disable=broad-except
+        if ps_changed:
+            mw.onSync()
+        else:
+            _followup_sync_pending = False
 
 
 def main() -> None:
