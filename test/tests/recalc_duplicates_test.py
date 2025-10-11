@@ -114,6 +114,8 @@ def test_duplicate_rules_collapse_manual_exception_duplicates() -> None:
     assert len(demoted_candidates) == 1, "Exactly one exception-tagged card should be demoted"
     assert all(plan.desired_queue == QUEUE_TYPE_SUSPENDED for plan in (first_plan, second_plan))
     assert demoted_candidates[0].desired_due == DEFAULT_REVIEW_DUE
+    assert "ps-auto-suspend" in demoted_candidates[0].desired_tags
+    assert "ps-auto-suspend" not in active_candidates[0].desired_tags
 
 
 def test_duplicate_rules_leave_review_cards_untouched() -> None:

@@ -989,6 +989,16 @@ def _apply_duplicate_rules(
         candidate.desired_tags = [
             tag for tag in candidate.desired_tags if tag not in suspended_exception_tags
         ]
+        if am_config.tag_suspended_automatically:
+            original_tags = note_original_state.get(
+                candidate.note_id,
+                ([], []),
+            )[1]
+            candidate.desired_tags = tags_and_queue_utils.ensure_tag_preserving_order_list(
+                candidate.desired_tags,
+                am_config.tag_suspended_automatically,
+                original_tags,
+            )
 
     def _demote_candidate(candidate: CardPlan | None) -> None:
         if candidate is None:
