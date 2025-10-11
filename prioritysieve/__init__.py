@@ -1074,7 +1074,7 @@ def create_am_tool_menu() -> QMenu:
 def create_recalc_action(am_config: PrioritySieveConfig) -> QAction:
     action = QAction("&Recalc", mw)
     action.setShortcut(am_config.shortcut_recalc)
-    action.triggered.connect(_run_recalc_with_kanjicards_followup)
+    action.triggered.connect(recalc_main.recalc)
     return action
 
 
