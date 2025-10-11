@@ -94,6 +94,20 @@ def _get_kanjicards_manager() -> Optional[object]:
         return None
 
 
+def _kanjicards_installed() -> bool:
+    if _get_kanjicards_manager() is not None:
+        return True
+    try:
+        __import__("KanjiCards")
+        return True
+    except Exception:
+        try:
+            __import__("kanjicards")
+            return True
+        except Exception:
+            return False
+
+
 def _schedule_followup_sync() -> None:
     assert mw is not None
     global _followup_sync_pending
@@ -172,10 +186,11 @@ def init_toolbar_items(links: list[str], toolbar: Toolbar) -> None:
     am_config = PrioritySieveConfig()
 
     if am_config.hide_recalc_toolbar is False:
+        label = "PS Recalc" if _kanjicards_installed() else "Recalc"
         links.append(
             toolbar.create_link(
                 cmd="recalc_toolbar",
-                label="Recalc",
+                label=label,
                 func=recalc_main.recalc,
                 tip=f"Shortcut: {am_config.shortcut_recalc.toString()}",
                 id="recalc_toolbar",
