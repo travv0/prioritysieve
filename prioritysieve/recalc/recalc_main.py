@@ -936,6 +936,8 @@ def _apply_duplicate_rules(
     duplicates: defaultdict[tuple[str, str], list[CardPlan]],
     note_original_state: dict[int, tuple[list[str], list[str]]],
 ) -> None:
+    suspended_exception_tags = set(am_config.get_preprocess_ignore_suspended_unless_tag_list())
+
     def _get_candidate_deck_id(candidate: CardPlan) -> int:
         return int(candidate.original_deck_id or candidate.deck_id or 0)
 
@@ -969,9 +971,32 @@ def _apply_duplicate_rules(
             )[1]
             candidate.desired_tags = tags_and_queue_utils.ensure_tag_preserving_order_list(
                 candidate.desired_tags,
-                am_config.tag_suspended_automatically,
-                original_tags,
-            )
+                    am_config.tag_suspended_automatically,
+                    original_tags,
+                )
+
+    def _activate_candidate(candidate: CardPlan) -> None:
+        if candidate.manually_suspended:
+            candidate.desired_queue = QUEUE_TYPE_SUSPENDED
+            return
+        _unsuspend_candidate(candidate)
+
+    def _demote_manual_candidate(candidate: CardPlan) -> None:
+        candidate.desired_queue = QUEUE_TYPE_SUSPENDED
+        candidate.auto_suspend = True
+        if candidate.is_new_card and candidate.desired_due != DEFAULT_REVIEW_DUE:
+            candidate.desired_due = DEFAULT_REVIEW_DUE
+        candidate.desired_tags = [
+            tag for tag in candidate.desired_tags if tag not in suspended_exception_tags
+        ]
+
+    def _demote_candidate(candidate: CardPlan | None) -> None:
+        if candidate is None:
+            return
+        if candidate.manually_suspended:
+            _demote_manual_candidate(candidate)
+        else:
+            _force_suspend_candidate(candidate)
 
     for _, items in duplicates.items():
         items.sort(
@@ -989,10 +1014,6 @@ def _apply_duplicate_rules(
             if not candidate.is_new_card:
                 continue
 
-            if candidate.manually_suspended:
-                active_slot_available = False
-                continue
-
             force_suspend = (
                 candidate.auto_suspend
                 or has_review_card
@@ -1000,7 +1021,7 @@ def _apply_duplicate_rules(
             if active_slot_available and not force_suspend:
                 active_slot_available = False
                 unsuspended_candidate = candidate
-                _unsuspend_candidate(candidate)
+                _activate_candidate(candidate)
                 continue
 
             should_promote = (
@@ -1012,11 +1033,11 @@ def _apply_duplicate_rules(
             )
 
             if should_promote:
-                _force_suspend_candidate(unsuspended_candidate)
+                _demote_candidate(unsuspended_candidate)
                 unsuspended_candidate = candidate
-                _unsuspend_candidate(candidate)
+                _activate_candidate(candidate)
             else:
-                _force_suspend_candidate(candidate)
+                _demote_candidate(candidate)
 
 
 def _record_recent_changes(

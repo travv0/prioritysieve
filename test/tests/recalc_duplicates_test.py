@@ -10,7 +10,10 @@ from prioritysieve.recalc.recalc_main import CardPlan, _apply_duplicate_rules
 
 
 def _dummy_config() -> SimpleNamespace:
-    return SimpleNamespace(tag_suspended_automatically="ps-auto-suspend")
+    return SimpleNamespace(
+        tag_suspended_automatically="ps-auto-suspend",
+        get_preprocess_ignore_suspended_unless_tag_list=lambda: ["kanjicards_unreviewed"],
+    )
 
 
 _card_sequence = 0
@@ -60,6 +63,57 @@ def _plan(
 
 def _original_state(*plans: CardPlan) -> dict[int, tuple[list[str], list[str]]]:
     return {plan.note_id: ([], list(plan.original_tags)) for plan in plans}
+
+
+def test_duplicate_rules_collapse_manual_exception_duplicates() -> None:
+    am_config = SimpleNamespace(
+        tag_suspended_automatically="ps-auto-suspend",
+        get_preprocess_ignore_suspended_unless_tag_list=lambda: ["kanjicards_unreviewed"],
+    )
+
+    first_plan = _plan(
+        entry_key=("雫", "しずく"),
+        queue=QUEUE_TYPE_SUSPENDED,
+        card_type=CARD_TYPE_NEW,
+        due=1111,
+        auto_suspend=False,
+        is_new_card=True,
+        entry_reviewed=False,
+        tags=["kanjicards_unreviewed", "am-ready"],
+        manually_suspended=True,
+    )
+    second_plan = _plan(
+        entry_key=("雫", "しずく"),
+        queue=QUEUE_TYPE_SUSPENDED,
+        card_type=CARD_TYPE_NEW,
+        due=2222,
+        auto_suspend=False,
+        is_new_card=True,
+        entry_reviewed=False,
+        tags=["kanjicards_unreviewed", "am-ready"],
+        manually_suspended=True,
+    )
+
+    duplicates = defaultdict(list)
+    duplicates[("雫", "しずく")] = [first_plan, second_plan]
+
+    _apply_duplicate_rules(
+        am_config,
+        duplicates,
+        _original_state(first_plan, second_plan),
+    )
+
+    active_candidates = [
+        plan for plan in (first_plan, second_plan) if "kanjicards_unreviewed" in plan.desired_tags
+    ]
+    demoted_candidates = [
+        plan for plan in (first_plan, second_plan) if "kanjicards_unreviewed" not in plan.desired_tags
+    ]
+
+    assert len(active_candidates) == 1, "Exactly one exception-tagged card should remain active"
+    assert len(demoted_candidates) == 1, "Exactly one exception-tagged card should be demoted"
+    assert all(plan.desired_queue == QUEUE_TYPE_SUSPENDED for plan in (first_plan, second_plan))
+    assert demoted_candidates[0].desired_due == DEFAULT_REVIEW_DUE
 
 
 def test_duplicate_rules_leave_review_cards_untouched() -> None:
