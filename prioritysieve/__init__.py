@@ -108,6 +108,51 @@ def _kanjicards_installed() -> bool:
             return False
 
 
+def _run_recalc_with_kanjicards_followup() -> None:
+    manager = _get_kanjicards_manager()
+    run_kc_recalc = getattr(manager, "run_recalc", None) if manager is not None else None
+
+    if not callable(run_kc_recalc):
+        recalc_main.recalc()
+        return
+
+    previous_callback = getattr(recalc_main, "_followup_sync_callback", None)
+
+    def _run_followups() -> None:
+        try:
+            run_kc_recalc()
+        except Exception as error:  # pylint:disable=broad-except
+            print(f"PrioritySieve: KanjiCards recalc failed ({error})")
+        finally:
+            if callable(previous_callback):
+                try:
+                    previous_callback()
+                except Exception as callback_error:  # pylint:disable=broad-except
+                    print(
+                        "PrioritySieve: follow-up callback failed after KanjiCards recalc "
+                        f"({callback_error})"
+                    )
+
+    try:
+        recalc_main.set_followup_sync_callback(_run_followups)
+    except Exception as error:  # pylint:disable=broad-except
+        print(
+            "PrioritySieve: unable to attach KanjiCards recalc follow-up "
+            f"({error}); falling back to PrioritySieve-only recalc"
+        )
+        recalc_main.recalc()
+        return
+
+    try:
+        recalc_main.recalc()
+    except Exception:
+        try:
+            recalc_main.set_followup_sync_callback(previous_callback)
+        except Exception:  # pylint:disable=broad-except
+            pass
+        raise
+
+
 def _schedule_followup_sync() -> None:
     assert mw is not None
     global _followup_sync_pending
@@ -186,12 +231,12 @@ def init_toolbar_items(links: list[str], toolbar: Toolbar) -> None:
     am_config = PrioritySieveConfig()
 
     if am_config.hide_recalc_toolbar is False:
-        label = "PS Recalc" if _kanjicards_installed() else "Recalc"
+        label = "Recalc"
         links.append(
             toolbar.create_link(
                 cmd="recalc_toolbar",
                 label=label,
-                func=recalc_main.recalc,
+                func=_run_recalc_with_kanjicards_followup,
                 tip=f"Shortcut: {am_config.shortcut_recalc.toString()}",
                 id="recalc_toolbar",
             )
@@ -1029,7 +1074,7 @@ def create_am_tool_menu() -> QMenu:
 def create_recalc_action(am_config: PrioritySieveConfig) -> QAction:
     action = QAction("&Recalc", mw)
     action.setShortcut(am_config.shortcut_recalc)
-    action.triggered.connect(recalc_main.recalc)
+    action.triggered.connect(_run_recalc_with_kanjicards_followup)
     return action
 
 
