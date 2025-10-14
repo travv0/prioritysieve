@@ -9,9 +9,10 @@ from pathlib import Path
 
 from anki.cards import Card
 from anki.consts import CARD_TYPE_NEW, QUEUE_TYPE_NEW, QUEUE_TYPE_SUSPENDED
+from anki.collection import Collection
 from anki.notes import Note
 from aqt import mw
-from aqt.operations import QueryOp
+from aqt.operations import CollectionOp, OpChanges
 from aqt.utils import tooltip
 
 from .. import (
@@ -36,7 +37,6 @@ from ..exceptions import (
     PriorityFileMalformedException,
     PriorityFileNotFoundException,
 )
-from ..anki_op_utils import notify_op_execution
 from . import caching
 from .anki_data_utils import AnkiCardData, create_card_data_dict
 
@@ -224,7 +224,7 @@ def compute_modify_filters_state() -> list[dict[str, int | str]]:
     return _collect_filters_state(filters)
 
 
-def recalc() -> None:
+def recalc(*_args: object, **_kwargs: object) -> None:
     assert mw is not None
 
     am_config = PrioritySieveConfig()
@@ -241,18 +241,16 @@ def recalc() -> None:
         )
         return
 
-    mw.checkpoint("PrioritySieve Recalc")
-
     start_time = time.time()
-    operation = QueryOp(
+    operation = CollectionOp(
         parent=mw,
-        op=lambda _: _background_recalc(am_config, combined_filters, modify_filters),
-        success=lambda _: _on_success(start_time),
+        op=lambda col: _background_recalc(col, am_config, combined_filters, modify_filters),
     )
+    operation.success(lambda _: _on_success(start_time))
     operation.failure(_on_failure)
     global _recalc_in_progress
     _recalc_in_progress = True
-    operation.with_progress().run_in_background()
+    operation.run_in_background()
 
 
 def _merge_unique_filters(
@@ -519,17 +517,25 @@ def _validate_filters(filters: list[PrioritySieveConfigFilter]) -> None:
 
 
 def _background_recalc(
+    col: Collection,
     am_config: PrioritySieveConfig,
     all_filters: list[PrioritySieveConfigFilter],
     modify_filters: list[PrioritySieveConfigFilter],
-) -> None:
+) -> OpChanges:
     ensure_directories()
     caching.cache_entries(am_config, all_filters)
-    _apply_priorities(am_config, modify_filters)
-    caching.cache_entries(am_config, all_filters)
+    undo_token = col.add_custom_undo_entry("PrioritySieve Recalc")
+    try:
+        _apply_priorities(col, am_config, modify_filters)
+        caching.cache_entries(am_config, all_filters)
+    except Exception:
+        col.merge_undo_entries(undo_token)
+        raise
+    return col.merge_undo_entries(undo_token)
 
 
 def _apply_priorities(
+    col: Collection,
     am_config: PrioritySieveConfig,
     modify_filters: list[PrioritySieveConfigFilter],
 ) -> None:
@@ -711,7 +717,7 @@ def _apply_priorities(
         if card_needs_update:
             card = card_cache.get(plan.card_id)
             if card is None:
-                card = mw.col.get_card(plan.card_id)
+                card = col.get_card(plan.card_id)
                 card_cache[plan.card_id] = card
             touched_cards[plan.card_id] = card
             card.due = plan.desired_due
@@ -721,7 +727,7 @@ def _apply_priorities(
         if note_needs_update:
             note = note_cache.get(plan.note_id)
             if note is None:
-                note = mw.col.get_note(plan.note_id)
+                note = col.get_note(plan.note_id)
                 note_cache[plan.note_id] = note
             touched_notes[plan.note_id] = note
             note_original_state.setdefault(
@@ -856,11 +862,9 @@ def _apply_priorities(
                 note_change_samples.append(prefix + ": " + "; ".join(changes_summary))
 
     if cards_to_update:
-        card_changes = mw.col.update_cards(list(cards_to_update.values()))
-        notify_op_execution(card_changes)
+        col.update_cards(list(cards_to_update.values()))
     if notes_to_update:
-        note_changes = mw.col.update_notes(list(notes_to_update.values()))
-        notify_op_execution(note_changes)
+        col.update_notes(list(notes_to_update.values()))
 
     global _last_modified_cards_count, _last_modified_notes_count
     _last_modified_cards_count = len(cards_to_update)
