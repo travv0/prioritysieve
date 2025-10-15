@@ -38,6 +38,26 @@ def test_parse_furigana_field_prefixed_kana_duplication_phrase() -> None:
     assert parse_furigana_field("あの世[あのよ]") == ["あのよ"]
 
 
+def test_parse_furigana_field_numeric_prefix_fullwidth() -> None:
+    assert parse_furigana_field("８割[はちわり]") == ["はちわり"]
+
+
+def test_parse_furigana_field_numeric_prefix_ascii() -> None:
+    assert parse_furigana_field("8割[はちわり]") == ["はちわり"]
+
+
+def test_parse_furigana_field_numeric_and_kanji_chain() -> None:
+    assert parse_furigana_field("3[さん]分[ぷん]") == ["さんぷん"]
+
+
+def test_parse_furigana_field_romaji_prefix_fullwidth() -> None:
+    assert parse_furigana_field("ＰＥＴ[ペット]ボトル") == ["ぺっとぼとる"]
+
+
+def test_parse_furigana_field_romaji_prefix_ascii() -> None:
+    assert parse_furigana_field("PET[ペット]ボトル") == ["ぺっとぼとる"]
+
+
 def test_expand_long_vowel_variants_preserves_and_adds_matches() -> None:
     variants = expand_long_vowel_variants("ぎょーざ")
     assert "ぎょーざ" in variants

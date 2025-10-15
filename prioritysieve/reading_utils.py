@@ -67,8 +67,28 @@ def _is_kanji(char: str) -> bool:
     )
 
 
+def _is_digit(char: str) -> bool:
+    return char.isdigit()
+
+
+def _is_latin_letter(char: str) -> bool:
+    return (
+        ("A" <= char <= "Z")
+        or ("a" <= char <= "z")
+        or ("\uff21" <= char <= "\uff3a")
+        or ("\uff41" <= char <= "\uff5a")
+    )
+
+
 def _is_word_char(char: str) -> bool:
-    return _is_hiragana(char) or _is_katakana(char) or _is_kanji(char) or char == "ー"
+    return (
+        _is_hiragana(char)
+        or _is_katakana(char)
+        or _is_kanji(char)
+        or char == "ー"
+        or _is_digit(char)
+        or _is_latin_letter(char)
+    )
 
 
 def normalize_reading(reading: str | None) -> str:
@@ -150,15 +170,15 @@ def _split_prefix(prefix: str) -> tuple[str, str]:
     if not chunk:
         return prefix, ""
 
-    first_kanji_index: int | None = None
+    first_base_index: int | None = None
     for idx, ch in enumerate(chunk):
-        if _is_kanji(ch):
-            first_kanji_index = idx
+        if _is_kanji(ch) or _is_digit(ch) or _is_latin_letter(ch):
+            first_base_index = idx
             break
 
-    if first_kanji_index is not None:
-        base_chunk = chunk[first_kanji_index:]
-        prefix_to_keep = prefix[: start + first_kanji_index]
+    if first_base_index is not None:
+        base_chunk = chunk[first_base_index:]
+        prefix_to_keep = prefix[: start + first_base_index]
     else:
         base_chunk = chunk
         prefix_to_keep = prefix[:start]
