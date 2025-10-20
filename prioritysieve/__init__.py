@@ -900,6 +900,9 @@ def _load_card_status_lookup(card_ids: Iterable[int]) -> dict[int, tuple[int, st
     for start in range(0, len(unique_ids), chunk_size):
         chunk = unique_ids[start : start + chunk_size]
         placeholders = ",".join("?" for _ in chunk)
+        if not placeholders:
+            continue
+        chunk_args = [int(card_id) for card_id in chunk]
         rows = mw.col.db.all(
             f"""
             SELECT cards.id, cards.queue, notes.tags
@@ -907,7 +910,7 @@ def _load_card_status_lookup(card_ids: Iterable[int]) -> dict[int, tuple[int, st
             JOIN notes ON notes.id = cards.nid
             WHERE cards.id IN ({placeholders})
             """,
-            chunk,
+            *chunk_args,
         )
         for card_id, queue, note_tags in rows:
             text = note_tags if isinstance(note_tags, str) else ""
