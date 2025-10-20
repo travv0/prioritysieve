@@ -12,12 +12,14 @@
 
 import json
 import sqlite3
+from collections.abc import Iterable
 from functools import partial
 from pathlib import Path
 import sys
 from typing import Optional
 import aqt
 from anki import hooks
+from anki.consts import CARD_TYPE_NEW
 from anki.utils import ids2str
 from aqt import gui_hooks, mw
 from aqt.browser.browser import Browser
@@ -44,6 +46,7 @@ from . import prioritysieve_config
 from . import prioritysieve_globals as ps_globals
 from . import (
     browser_utils,
+    card_filters,
     debug_utils,
     message_box_utils,
     priority_gap_utils,
@@ -229,6 +232,9 @@ def init_toolbar_items(links: list[str], toolbar: Toolbar) -> None:
 
     entry_toolbar_stats = EntryToolbarStats()
     am_config = PrioritySieveConfig()
+    suspended_exception_tags = set(
+        am_config.get_preprocess_ignore_suspended_unless_tag_list()
+    )
 
     if am_config.hide_recalc_toolbar is False:
         label = "Recalc"
@@ -741,6 +747,11 @@ def find_duplicate_non_new_entry_cards() -> None:
     assert mw.col is not None
     assert mw.col.db is not None
 
+    am_config = PrioritySieveConfig()
+    suspended_exception_tags = set(
+        am_config.get_preprocess_ignore_suspended_unless_tag_list()
+    )
+
     try:
         with EntryDB() as entry_db:
             entry_map = entry_db.get_non_new_card_ids_grouped_by_entry()
@@ -754,14 +765,26 @@ def find_duplicate_non_new_entry_cards() -> None:
         active_ids: list[int] = []
         for card_id in card_ids:
             row = mw.col.db.first(
-                "SELECT queue, type FROM cards WHERE id = ?", card_id
+                """
+                SELECT cards.queue, cards.type, notes.tags
+                FROM cards
+                JOIN notes ON notes.id = cards.nid
+                WHERE cards.id = ?
+                """,
+                card_id,
             )
             if row is None:
                 continue
-            queue, card_type = row
-            if queue == -1:
+            queue, card_type, note_tags = row
+            queue = int(queue)
+            card_type = int(card_type)
+            if card_type == CARD_TYPE_NEW:
                 continue
-            if card_type == 0:
+            if not card_filters.counts_as_unsuspended(
+                queue=queue,
+                tags_text=note_tags,
+                exception_tags=suspended_exception_tags,
+            ):
                 continue
             active_ids.append(card_id)
         if len(active_ids) >= 2:
@@ -791,6 +814,41 @@ def find_duplicate_non_new_entry_cards() -> None:
         f"Found {len(duplicates)} duplicate entry group(s); opened Browser with {len(card_ids_to_browse)} card(s)."
     )
 
+def _load_card_status_lookup(card_ids: Iterable[int]) -> dict[int, tuple[int, str]]:
+    assert mw is not None
+    assert mw.col is not None
+    assert mw.col.db is not None
+
+    unique_ids: list[int] = []
+    seen: set[int] = set()
+    for card_id in card_ids:
+        normalized = int(card_id)
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        unique_ids.append(normalized)
+
+    if not unique_ids:
+        return {}
+
+    lookup: dict[int, tuple[int, str]] = {}
+    chunk_size = 900
+    for start in range(0, len(unique_ids), chunk_size):
+        chunk = unique_ids[start : start + chunk_size]
+        placeholders = ",".join("?" for _ in chunk)
+        rows = mw.col.db.all(
+            f"""
+            SELECT cards.id, cards.queue, notes.tags
+            FROM cards
+            JOIN notes ON notes.id = cards.nid
+            WHERE cards.id IN ({placeholders})
+            """,
+            chunk,
+        )
+        for card_id, queue, note_tags in rows:
+            text = note_tags if isinstance(note_tags, str) else ""
+            lookup[int(card_id)] = (int(queue), text)
+    return lookup
 
 
 def show_missing_priority_cards() -> None:
@@ -823,11 +881,30 @@ def show_missing_priority_cards() -> None:
     try:
         with EntryDB() as entry_db:
             stored_entries = entry_db.get_entries()
+            entry_card_map = entry_db.get_card_ids_grouped_by_entry()
     except sqlite3.OperationalError:
         tooltip("Run Recalc before searching for missing priority cards.")
         return
 
-    entries = [stored.to_entry() for stored in stored_entries]
+    entry_lookup = {
+        (stored.text, stored.reading): stored.to_entry()
+        for stored in stored_entries
+    }
+    all_card_ids: set[int] = set()
+    for card_ids in entry_card_map.values():
+        all_card_ids.update(int(card_id) for card_id in card_ids)
+
+    card_status_lookup = _load_card_status_lookup(all_card_ids)
+    active_entry_keys = card_filters.entry_keys_with_active_cards(
+        entry_card_map=entry_card_map,
+        card_status_lookup=card_status_lookup,
+        exception_tags=suspended_exception_tags,
+    )
+    entries = [
+        entry_lookup[key]
+        for key in sorted(active_entry_keys)
+        if key in entry_lookup
+    ]
     missing_entries = priority_gap_utils.find_missing_priority_entries(
         entries=entries,
         priority_files=normalized_selections,
