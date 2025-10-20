@@ -5,6 +5,7 @@ from anki.consts import QUEUE_TYPE_SUSPENDED
 from prioritysieve.card_filters import (
     counts_as_unsuspended,
     entry_keys_with_active_cards,
+    find_leech_only_entry_card_ids,
     has_any_tag,
 )
 
@@ -51,3 +52,31 @@ def test_entry_keys_with_active_cards_filters_using_status_lookup() -> None:
     )
 
     assert result == {("has-active", ""), ("has-exception", "")}
+
+
+def test_find_leech_only_entry_card_ids_filters_mixed_entries() -> None:
+    entry_card_map = {
+        ("leech-only", ""): [1, 2],
+        ("has-non-leech", ""): [3, 4],
+        ("suspended-no-exception", ""): [5],
+        ("suspended-exception", ""): [6],
+    }
+    card_status_lookup = {
+        1: (0, " leech "),
+        2: (2, " leech::extra "),
+        3: (0, " leech "),
+        4: (0, " other "),
+        5: (QUEUE_TYPE_SUSPENDED, " leech "),
+        6: (QUEUE_TYPE_SUSPENDED, " leech treat "),
+    }
+
+    result = find_leech_only_entry_card_ids(
+        entry_card_map=entry_card_map,
+        card_status_lookup=card_status_lookup,
+        exception_tags={"treat"},
+    )
+
+    assert result == {
+        ("leech-only", ""): [1, 2],
+        ("suspended-exception", ""): [6],
+    }

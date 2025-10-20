@@ -372,6 +372,7 @@ def init_tool_menu_and_actions() -> None:
     progression_action = create_progression_dialog_action(am_config)
     reset_tags_action = create_tag_reset_action()
     duplicate_entries_action = create_duplicate_entries_action()
+    leech_only_entries_action = create_leech_only_entries_action()
     missing_priority_cards_action = create_missing_priority_cards_action()
     missing_priority_entries_action = create_missing_priority_entries_action()
     guide_action = create_guide_action()
@@ -386,6 +387,7 @@ def init_tool_menu_and_actions() -> None:
     am_tool_menu.addAction(known_entries_exporter_action)
     am_tool_menu.addAction(reset_tags_action)
     am_tool_menu.addAction(duplicate_entries_action)
+    am_tool_menu.addAction(leech_only_entries_action)
     am_tool_menu.addAction(missing_priority_cards_action)
     am_tool_menu.addAction(missing_priority_entries_action)
     am_tool_menu.addAction(guide_action)
@@ -814,6 +816,68 @@ def find_duplicate_non_new_entry_cards() -> None:
         f"Found {len(duplicates)} duplicate entry group(s); opened Browser with {len(card_ids_to_browse)} card(s)."
     )
 
+
+def show_leech_only_entry_cards() -> None:
+    assert mw is not None
+    assert mw.col is not None
+    assert mw.col.db is not None
+
+    am_config = PrioritySieveConfig()
+    suspended_exception_tags = set(
+        am_config.get_preprocess_ignore_suspended_unless_tag_list()
+    )
+
+    try:
+        with EntryDB() as entry_db:
+            entry_card_map = entry_db.get_card_ids_grouped_by_entry()
+    except sqlite3.OperationalError:
+        tooltip("Run Recalc before searching for leech-only entries.")
+        return
+
+    if not entry_card_map:
+        tooltip("No cached entries found. Run Recalc first.")
+        return
+
+    all_card_ids: set[int] = set()
+    for card_ids in entry_card_map.values():
+        all_card_ids.update(int(card_id) for card_id in card_ids)
+
+    if not all_card_ids:
+        tooltip("No cached entries found. Run Recalc first.")
+        return
+
+    card_status_lookup = _load_card_status_lookup(all_card_ids)
+
+    leech_cards_by_entry = card_filters.find_leech_only_entry_card_ids(
+        entry_card_map=entry_card_map,
+        card_status_lookup=card_status_lookup,
+        exception_tags=suspended_exception_tags,
+    )
+
+    if not leech_cards_by_entry:
+        tooltip("No leech-only entry cards found.")
+        return
+
+    card_ids_to_browse: set[int] = set()
+    for ids in leech_cards_by_entry.values():
+        card_ids_to_browse.update(ids)
+
+    query = "cid:" + ",".join(str(cid) for cid in sorted(card_ids_to_browse))
+
+    browser_instance = aqt.dialogs.open("Browser", mw)
+    assert browser_instance is not None
+
+    browser_utils.browser = browser_instance
+    search_edit = browser_instance.form.searchEdit.lineEdit()
+    assert search_edit is not None
+
+    search_edit.setText(query)
+    browser_instance.onSearchActivated()
+
+    tooltip(
+        f"Found {len(leech_cards_by_entry)} leech-only entr{'y' if len(leech_cards_by_entry) == 1 else 'ies'}; opened Browser with {len(card_ids_to_browse)} card(s)."
+    )
+
 def _load_card_status_lookup(card_ids: Iterable[int]) -> dict[int, tuple[int, str]]:
     assert mw is not None
     assert mw.col is not None
@@ -1169,6 +1233,11 @@ def create_duplicate_entries_action() -> QAction:
     action.triggered.connect(find_duplicate_non_new_entry_cards)
     return action
 
+
+def create_leech_only_entries_action() -> QAction:
+    action = QAction("&Show Leech-Only Entries", mw)
+    action.triggered.connect(show_leech_only_entry_cards)
+    return action
 
 
 def create_missing_priority_cards_action() -> QAction:

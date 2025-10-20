@@ -61,3 +61,48 @@ def entry_keys_with_active_cards(
                 active_keys.add(entry_key)
                 break
     return active_keys
+
+
+def _has_leech_tag(tags_text: str | None) -> bool:
+    """Return True when the note tags include Anki's leech marker."""
+
+    tags = _normalize_tags(tags_text)
+    for tag in tags:
+        lowered = tag.lower()
+        if lowered == "leech" or lowered.startswith("leech::"):
+            return True
+    return False
+
+
+def find_leech_only_entry_card_ids(
+    entry_card_map: Mapping[tuple[str, str], Iterable[int]],
+    card_status_lookup: Mapping[int, tuple[int, str | None]],
+    exception_tags: Collection[str],
+) -> dict[tuple[str, str], list[int]]:
+    """Return card ids grouped by entry when only leech-tagged active cards remain."""
+
+    leech_cards_by_entry: dict[tuple[str, str], list[int]] = {}
+
+    for entry_key, card_ids in entry_card_map.items():
+        active_leech_ids: list[int] = []
+        has_active_non_leech = False
+
+        for card_id in card_ids:
+            status = card_status_lookup.get(card_id)
+            if status is None:
+                continue
+
+            queue, tags_text = status
+            if not counts_as_unsuspended(queue, tags_text, exception_tags):
+                continue
+
+            if _has_leech_tag(tags_text):
+                active_leech_ids.append(int(card_id))
+            else:
+                has_active_non_leech = True
+                break
+
+        if not has_active_non_leech and active_leech_ids:
+            leech_cards_by_entry[entry_key] = active_leech_ids
+
+    return leech_cards_by_entry
