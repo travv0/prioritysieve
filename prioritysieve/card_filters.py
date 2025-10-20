@@ -63,7 +63,7 @@ def entry_keys_with_active_cards(
     return active_keys
 
 
-def _has_leech_tag(tags_text: str | None) -> bool:
+def has_leech_tag(tags_text: str | None) -> bool:
     """Return True when the note tags include Anki's leech marker."""
 
     tags = _normalize_tags(tags_text)
@@ -93,7 +93,7 @@ def find_leech_only_entry_card_ids(
                 continue
 
             queue, tags_text = status
-            is_leech = _has_leech_tag(tags_text)
+            is_leech = has_leech_tag(tags_text)
             counts_as_active = counts_as_unsuspended(queue, tags_text, exception_tags)
 
             if queue == QUEUE_TYPE_SUSPENDED and is_leech:

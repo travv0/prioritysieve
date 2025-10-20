@@ -19,8 +19,9 @@ import sys
 from typing import Optional
 import aqt
 from anki import hooks
-from anki.consts import CARD_TYPE_NEW
+from anki.consts import CARD_TYPE_NEW, QUEUE_TYPE_SUSPENDED
 from anki.utils import ids2str
+from anki.tags import TagManager
 from aqt import gui_hooks, mw
 from aqt.browser.browser import Browser
 from aqt.qt import (  # pylint:disable=no-name-in-module
@@ -61,6 +62,8 @@ from .extra_settings import prioritysieve_extra_settings, extra_settings_keys
 from .extra_settings.prioritysieve_extra_settings import PrioritySieveExtraSettings
 from .reading_utils import normalize_reading
 from .recalc import recalc_main
+from .recalc.anki_data_utils import AnkiCardData, AnkiDBRowData
+from .recalc.caching import _build_entry
 from .settings import settings_dialog
 from .settings.settings_dialog import SettingsDialog
 from .tag_selection_dialog import TagSelectionDialog
@@ -817,6 +820,141 @@ def find_duplicate_non_new_entry_cards() -> None:
     )
 
 
+def _merge_suspended_leech_cards(
+    entry_card_map: dict[tuple[str, str], list[int]],
+    am_config: PrioritySieveConfig,
+) -> None:
+    suspended_cards_by_entry = _load_suspended_leech_cards(am_config)
+    if not suspended_cards_by_entry:
+        return
+
+    for entry_key, card_ids in suspended_cards_by_entry.items():
+        existing = entry_card_map.setdefault(entry_key, [])
+        existing_set = set(existing)
+        for card_id in card_ids:
+            normalized = int(card_id)
+            if normalized not in existing_set:
+                existing.append(normalized)
+                existing_set.add(normalized)
+
+
+def _load_suspended_leech_cards(
+    am_config: PrioritySieveConfig,
+) -> dict[tuple[str, str], list[int]]:
+    assert mw is not None
+    assert mw.col is not None
+
+    cards_by_entry: dict[tuple[str, str], list[int]] = {}
+    tag_manager = TagManager(mw.col)
+    model_manager = mw.col.models
+
+    for config_filter in am_config.filters:
+        note_type_id = model_manager.id_for_name(config_filter.note_type)
+        if note_type_id is None:
+            continue
+
+        note_type_dict = model_manager.get(note_type_id)
+        if note_type_dict is None:
+            continue
+
+        existing_field_names = model_manager.field_names(note_type_dict)
+        if config_filter.field not in existing_field_names:
+            continue
+
+        expression_field_index = existing_field_names.index(config_filter.field)
+
+        if (
+            config_filter.furigana_field != ps_globals.NONE_OPTION
+            and config_filter.furigana_field in existing_field_names
+        ):
+            furigana_field_index: int | None = existing_field_names.index(
+                config_filter.furigana_field
+            )
+        else:
+            furigana_field_index = None
+
+        if (
+            config_filter.reading_field != ps_globals.NONE_OPTION
+            and config_filter.reading_field in existing_field_names
+        ):
+            reading_field_index: int | None = existing_field_names.index(
+                config_filter.reading_field
+            )
+        else:
+            reading_field_index = None
+
+        if (
+            config_filter.extra_reading_field
+            and ps_globals.EXTRA_FIELD_READING in existing_field_names
+        ):
+            extra_reading_field_index: int | None = existing_field_names.index(
+                ps_globals.EXTRA_FIELD_READING
+            )
+        else:
+            extra_reading_field_index = None
+
+        tags_object = config_filter.tags
+        excluded_tags = tags_object["exclude"]
+        included_tags = tags_object["include"]
+        tags_search_string = ""
+
+        if excluded_tags:
+            tags_search_string += "".join(
+                f" AND notes.tags NOT LIKE '% {tag} %'" for tag in excluded_tags
+            )
+        if included_tags:
+            tags_search_string += "".join(
+                f" AND notes.tags LIKE '% {tag} %'" for tag in included_tags
+            )
+
+        suspended_rows = mw.col.db.all(
+            """
+            SELECT
+                cards.id,
+                cards.ivl,
+                cards.type,
+                cards.queue,
+                cards.due,
+                cards.did,
+                COALESCE(cards.odid, 0),
+                notes.id,
+                notes.flds,
+                notes.tags
+            FROM cards
+            INNER JOIN notes ON cards.nid = notes.id
+            WHERE notes.mid = ?
+              AND cards.queue = ?
+            """
+            + tags_search_string,
+            note_type_id,
+            QUEUE_TYPE_SUSPENDED,
+        )
+
+        if not suspended_rows:
+            continue
+
+        for row in suspended_rows:
+            row_data = AnkiDBRowData(row)
+            if not card_filters.has_leech_tag(row_data.note_tags):
+                continue
+
+            card_data = AnkiCardData(
+                am_config=am_config,
+                tag_manager=tag_manager,
+                note_type_id=note_type_id,
+                expression_field_index=expression_field_index,
+                furigana_field_index=furigana_field_index,
+                reading_field_index=reading_field_index,
+                extra_reading_field_index=extra_reading_field_index,
+                anki_row_data=row_data,
+            )
+
+            entry = _build_entry(am_config, config_filter, card_data)
+            cards_by_entry.setdefault(entry.key(), []).append(row_data.card_id)
+
+    return cards_by_entry
+
+
 def show_leech_only_entry_cards() -> None:
     assert mw is not None
     assert mw.col is not None
@@ -833,6 +971,8 @@ def show_leech_only_entry_cards() -> None:
     except sqlite3.OperationalError:
         tooltip("Run Recalc before searching for leech-only entries.")
         return
+
+    _merge_suspended_leech_cards(entry_card_map, am_config)
 
     if not entry_card_map:
         tooltip("No cached entries found. Run Recalc first.")
