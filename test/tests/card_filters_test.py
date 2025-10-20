@@ -60,14 +60,18 @@ def test_find_leech_only_entry_card_ids_filters_mixed_entries() -> None:
         ("has-non-leech", ""): [3, 4],
         ("suspended-no-exception", ""): [5],
         ("suspended-exception", ""): [6],
+        ("leech-with-treated-non-leech", ""): [7, 8],
     }
     card_status_lookup = {
-        1: (0, " leech "),
-        2: (2, " leech::extra "),
+        1: (QUEUE_TYPE_SUSPENDED, " leech "),
+        2: (QUEUE_TYPE_SUSPENDED, " leech::extra "),
         3: (0, " leech "),
         4: (0, " other "),
         5: (QUEUE_TYPE_SUSPENDED, " leech "),
         6: (QUEUE_TYPE_SUSPENDED, " leech treat "),
+        7: (QUEUE_TYPE_SUSPENDED, " leech "),
+        8: (QUEUE_TYPE_SUSPENDED, " treat "),
+        11: (QUEUE_TYPE_SUSPENDED, " leech "),
     }
 
     result = find_leech_only_entry_card_ids(
@@ -78,5 +82,6 @@ def test_find_leech_only_entry_card_ids_filters_mixed_entries() -> None:
 
     assert result == {
         ("leech-only", ""): [1, 2],
+        ("suspended-no-exception", ""): [5],
         ("suspended-exception", ""): [6],
     }

@@ -84,7 +84,7 @@ def find_leech_only_entry_card_ids(
     leech_cards_by_entry: dict[tuple[str, str], list[int]] = {}
 
     for entry_key, card_ids in entry_card_map.items():
-        active_leech_ids: list[int] = []
+        suspended_leech_ids: list[int] = []
         has_active_non_leech = False
 
         for card_id in card_ids:
@@ -93,16 +93,18 @@ def find_leech_only_entry_card_ids(
                 continue
 
             queue, tags_text = status
-            if not counts_as_unsuspended(queue, tags_text, exception_tags):
+            is_leech = _has_leech_tag(tags_text)
+            counts_as_active = counts_as_unsuspended(queue, tags_text, exception_tags)
+
+            if queue == QUEUE_TYPE_SUSPENDED and is_leech:
+                suspended_leech_ids.append(int(card_id))
                 continue
 
-            if _has_leech_tag(tags_text):
-                active_leech_ids.append(int(card_id))
-            else:
+            if counts_as_active:
                 has_active_non_leech = True
                 break
 
-        if not has_active_non_leech and active_leech_ids:
-            leech_cards_by_entry[entry_key] = active_leech_ids
+        if not has_active_non_leech and suspended_leech_ids:
+            leech_cards_by_entry[entry_key] = suspended_leech_ids
 
     return leech_cards_by_entry
