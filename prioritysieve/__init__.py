@@ -965,6 +965,20 @@ def show_leech_only_entry_cards() -> None:
         am_config.get_preprocess_ignore_suspended_unless_tag_list()
     )
 
+    selections: set[str] = set()
+    for config_filter in am_config.filters:
+        selections.update(config_filter.priority_files)
+
+    normalized_selections = [
+        selection
+        for selection in selections
+        if selection and selection != ps_globals.NONE_OPTION
+    ]
+
+    if not normalized_selections:
+        tooltip("No priority lists configured in PrioritySieve settings.")
+        return
+
     try:
         with EntryDB() as entry_db:
             entry_card_map = entry_db.get_card_ids_grouped_by_entry()
@@ -988,14 +1002,34 @@ def show_leech_only_entry_cards() -> None:
 
     card_status_lookup = _load_card_status_lookup(all_card_ids)
 
+    priority_map = load_priority_map(normalized_selections)
+
     leech_cards_by_entry = card_filters.find_leech_only_entry_card_ids(
         entry_card_map=entry_card_map,
         card_status_lookup=card_status_lookup,
         exception_tags=suspended_exception_tags,
     )
 
+    def _is_priority_entry(entry_key: tuple[str, str]) -> bool:
+        text, reading = entry_key
+        normalized_reading = normalize_reading(reading)
+        key_exact = (text, normalized_reading)
+        if key_exact in priority_map:
+            return True
+        if normalized_reading:
+            key_fallback = (text, "")
+            if key_fallback in priority_map:
+                return True
+        return False
+
+    leech_cards_by_entry = {
+        key: ids
+        for key, ids in leech_cards_by_entry.items()
+        if _is_priority_entry(key)
+    }
+
     if not leech_cards_by_entry:
-        tooltip("No leech-only entry cards found.")
+        tooltip("No leech-only entries found in the configured priority lists.")
         return
 
     card_ids_to_browse: set[int] = set()
