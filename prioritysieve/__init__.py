@@ -1104,6 +1104,9 @@ def show_missing_priority_cards() -> None:
     min_priority, max_priority = range_dialog.get_range()
 
     am_config = PrioritySieveConfig()
+    suspended_exception_tags = set(
+        am_config.get_preprocess_ignore_suspended_unless_tag_list()
+    )
 
     selections: set[str] = set()
     for config_filter in am_config.filters:
