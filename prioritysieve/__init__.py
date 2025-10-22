@@ -375,7 +375,7 @@ def init_tool_menu_and_actions() -> None:
     progression_action = create_progression_dialog_action(am_config)
     reset_tags_action = create_tag_reset_action()
     duplicate_entries_action = create_duplicate_entries_action()
-    leech_only_entries_action = create_leech_only_entries_action()
+    suspended_only_entries_action = create_suspended_only_entries_action()
     missing_priority_cards_action = create_missing_priority_cards_action()
     missing_priority_entries_action = create_missing_priority_entries_action()
     guide_action = create_guide_action()
@@ -390,7 +390,7 @@ def init_tool_menu_and_actions() -> None:
     am_tool_menu.addAction(known_entries_exporter_action)
     am_tool_menu.addAction(reset_tags_action)
     am_tool_menu.addAction(duplicate_entries_action)
-    am_tool_menu.addAction(leech_only_entries_action)
+    am_tool_menu.addAction(suspended_only_entries_action)
     am_tool_menu.addAction(missing_priority_cards_action)
     am_tool_menu.addAction(missing_priority_entries_action)
     am_tool_menu.addAction(guide_action)
@@ -820,11 +820,11 @@ def find_duplicate_non_new_entry_cards() -> None:
     )
 
 
-def _merge_suspended_leech_cards(
+def _merge_suspended_entry_cards(
     entry_card_map: dict[tuple[str, str], list[int]],
     am_config: PrioritySieveConfig,
 ) -> None:
-    suspended_cards_by_entry = _load_suspended_leech_cards(am_config)
+    suspended_cards_by_entry = _load_suspended_entry_cards(am_config)
     if not suspended_cards_by_entry:
         return
 
@@ -838,7 +838,7 @@ def _merge_suspended_leech_cards(
                 existing_set.add(normalized)
 
 
-def _load_suspended_leech_cards(
+def _load_suspended_entry_cards(
     am_config: PrioritySieveConfig,
 ) -> dict[tuple[str, str], list[int]]:
     assert mw is not None
@@ -935,8 +935,6 @@ def _load_suspended_leech_cards(
 
         for row in suspended_rows:
             row_data = AnkiDBRowData(row)
-            if not card_filters.has_leech_tag(row_data.note_tags):
-                continue
 
             card_data = AnkiCardData(
                 am_config=am_config,
@@ -955,7 +953,7 @@ def _load_suspended_leech_cards(
     return cards_by_entry
 
 
-def show_leech_only_entry_cards() -> None:
+def show_suspended_only_entry_cards() -> None:
     assert mw is not None
     assert mw.col is not None
     assert mw.col.db is not None
@@ -964,6 +962,7 @@ def show_leech_only_entry_cards() -> None:
     suspended_exception_tags = set(
         am_config.get_preprocess_ignore_suspended_unless_tag_list()
     )
+    auto_suspend_tag = am_config.tag_suspended_automatically
 
     selections: set[str] = set()
     for config_filter in am_config.filters:
@@ -983,10 +982,10 @@ def show_leech_only_entry_cards() -> None:
         with EntryDB() as entry_db:
             entry_card_map = entry_db.get_card_ids_grouped_by_entry()
     except sqlite3.OperationalError:
-        tooltip("Run Recalc before searching for leech-only entries.")
+        tooltip("Run Recalc before searching for manually suspended entries.")
         return
 
-    _merge_suspended_leech_cards(entry_card_map, am_config)
+    _merge_suspended_entry_cards(entry_card_map, am_config)
 
     if not entry_card_map:
         tooltip("No cached entries found. Run Recalc first.")
@@ -1004,10 +1003,11 @@ def show_leech_only_entry_cards() -> None:
 
     priority_map = load_priority_map(normalized_selections)
 
-    leech_cards_by_entry = card_filters.find_leech_only_entry_card_ids(
+    suspended_cards_by_entry = card_filters.find_suspended_only_entry_card_ids(
         entry_card_map=entry_card_map,
         card_status_lookup=card_status_lookup,
         exception_tags=suspended_exception_tags,
+        auto_suspend_tag=auto_suspend_tag,
     )
 
     def _is_priority_entry(entry_key: tuple[str, str]) -> bool:
@@ -1022,18 +1022,18 @@ def show_leech_only_entry_cards() -> None:
                 return True
         return False
 
-    leech_cards_by_entry = {
+    suspended_cards_by_entry = {
         key: ids
-        for key, ids in leech_cards_by_entry.items()
+        for key, ids in suspended_cards_by_entry.items()
         if _is_priority_entry(key)
     }
 
-    if not leech_cards_by_entry:
-        tooltip("No leech-only entries found in the configured priority lists.")
+    if not suspended_cards_by_entry:
+        tooltip("No manually suspended entries found in the configured priority lists.")
         return
 
     card_ids_to_browse: set[int] = set()
-    for ids in leech_cards_by_entry.values():
+    for ids in suspended_cards_by_entry.values():
         card_ids_to_browse.update(ids)
 
     query = "cid:" + ",".join(str(cid) for cid in sorted(card_ids_to_browse))
@@ -1049,7 +1049,7 @@ def show_leech_only_entry_cards() -> None:
     browser_instance.onSearchActivated()
 
     tooltip(
-        f"Found {len(leech_cards_by_entry)} leech-only entr{'y' if len(leech_cards_by_entry) == 1 else 'ies'}; opened Browser with {len(card_ids_to_browse)} card(s)."
+        f"Found {len(suspended_cards_by_entry)} manually suspended entr{'y' if len(suspended_cards_by_entry) == 1 else 'ies'}; opened Browser with {len(card_ids_to_browse)} card(s)."
     )
 
 def _load_card_status_lookup(card_ids: Iterable[int]) -> dict[int, tuple[int, str]]:
@@ -1414,9 +1414,9 @@ def create_duplicate_entries_action() -> QAction:
     return action
 
 
-def create_leech_only_entries_action() -> QAction:
-    action = QAction("&Show Leech-Only Entries", mw)
-    action.triggered.connect(show_leech_only_entry_cards)
+def create_suspended_only_entries_action() -> QAction:
+    action = QAction("&Show Suspended-Only Entries", mw)
+    action.triggered.connect(show_suspended_only_entry_cards)
     return action
 
 

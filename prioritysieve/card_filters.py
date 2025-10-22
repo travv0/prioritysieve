@@ -63,29 +63,27 @@ def entry_keys_with_active_cards(
     return active_keys
 
 
-def has_leech_tag(tags_text: str | None) -> bool:
-    """Return True when the note tags include Anki's leech marker."""
-
-    tags = _normalize_tags(tags_text)
-    for tag in tags:
-        lowered = tag.lower()
-        if lowered == "leech" or lowered.startswith("leech::"):
-            return True
-    return False
-
-
-def find_leech_only_entry_card_ids(
+def find_suspended_only_entry_card_ids(
     entry_card_map: Mapping[tuple[str, str], Iterable[int]],
     card_status_lookup: Mapping[int, tuple[int, str | None]],
     exception_tags: Collection[str],
+    auto_suspend_tag: str | None,
 ) -> dict[tuple[str, str], list[int]]:
-    """Return card ids grouped by entry when only leech-tagged active cards remain."""
+    """Return card ids grouped by entry when every card is suspended without exception tags."""
 
-    leech_cards_by_entry: dict[tuple[str, str], list[int]] = {}
+    sanitized_exception_lowers = {
+        tag.strip().lower()
+        for tag in exception_tags
+        if isinstance(tag, str) and tag.strip()
+    }
+    normalized_auto_tag = auto_suspend_tag.strip() if isinstance(auto_suspend_tag, str) else ""
+    normalized_auto_tag_lower = normalized_auto_tag.lower() if normalized_auto_tag else ""
+
+    suspended_cards_by_entry: dict[tuple[str, str], list[int]] = {}
 
     for entry_key, card_ids in entry_card_map.items():
-        suspended_leech_ids: list[int] = []
-        has_active_non_leech = False
+        suspended_ids: list[int] = []
+        disqualify_entry = False
 
         for card_id in card_ids:
             status = card_status_lookup.get(card_id)
@@ -93,18 +91,24 @@ def find_leech_only_entry_card_ids(
                 continue
 
             queue, tags_text = status
-            is_leech = has_leech_tag(tags_text)
-            counts_as_active = counts_as_unsuspended(queue, tags_text, exception_tags)
-
-            if queue == QUEUE_TYPE_SUSPENDED and is_leech:
-                suspended_leech_ids.append(int(card_id))
-                continue
-
-            if counts_as_active:
-                has_active_non_leech = True
+            if queue != QUEUE_TYPE_SUSPENDED:
+                disqualify_entry = True
                 break
 
-        if not has_active_non_leech and suspended_leech_ids:
-            leech_cards_by_entry[entry_key] = suspended_leech_ids
+            normalized_tags = _normalize_tags(tags_text)
+            normalized_tags_lower = {tag.lower() for tag in normalized_tags}
 
-    return leech_cards_by_entry
+            if normalized_auto_tag_lower and normalized_auto_tag_lower in normalized_tags_lower:
+                disqualify_entry = True
+                break
+
+            if sanitized_exception_lowers and sanitized_exception_lowers.intersection(normalized_tags_lower):
+                disqualify_entry = True
+                break
+
+            suspended_ids.append(int(card_id))
+
+        if not disqualify_entry and suspended_ids:
+            suspended_cards_by_entry[entry_key] = suspended_ids
+
+    return suspended_cards_by_entry

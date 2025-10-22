@@ -5,7 +5,7 @@ from anki.consts import QUEUE_TYPE_SUSPENDED
 from prioritysieve.card_filters import (
     counts_as_unsuspended,
     entry_keys_with_active_cards,
-    find_leech_only_entry_card_ids,
+    find_suspended_only_entry_card_ids,
     has_any_tag,
 )
 
@@ -54,34 +54,34 @@ def test_entry_keys_with_active_cards_filters_using_status_lookup() -> None:
     assert result == {("has-active", ""), ("has-exception", "")}
 
 
-def test_find_leech_only_entry_card_ids_filters_mixed_entries() -> None:
+def test_find_suspended_only_entry_card_ids_filters_mixed_entries() -> None:
     entry_card_map = {
-        ("leech-only", ""): [1, 2],
-        ("has-non-leech", ""): [3, 4],
-        ("suspended-no-exception", ""): [5],
-        ("suspended-exception", ""): [6],
-        ("leech-with-treated-non-leech", ""): [7, 8],
+        ("manual-only", ""): [1, 2],
+        ("has-active", ""): [3, 4],
+        ("auto-suspended", ""): [5],
+        ("exception-tag", ""): [6],
+        ("mixed-suspended-exception", ""): [7, 8],
+        ("case-insensitive-auto", ""): [9],
     }
     card_status_lookup = {
-        1: (QUEUE_TYPE_SUSPENDED, " leech "),
-        2: (QUEUE_TYPE_SUSPENDED, " leech::extra "),
-        3: (0, " leech "),
-        4: (0, " other "),
-        5: (QUEUE_TYPE_SUSPENDED, " leech "),
-        6: (QUEUE_TYPE_SUSPENDED, " leech treat "),
-        7: (QUEUE_TYPE_SUSPENDED, " leech "),
-        8: (QUEUE_TYPE_SUSPENDED, " treat "),
-        11: (QUEUE_TYPE_SUSPENDED, " leech "),
+        1: (QUEUE_TYPE_SUSPENDED, " manual "),
+        2: (QUEUE_TYPE_SUSPENDED, " "),
+        3: (0, " manual "),
+        4: (QUEUE_TYPE_SUSPENDED, " kanjicards_new "),
+        5: (QUEUE_TYPE_SUSPENDED, " ps-suspended-automatically "),
+        6: (QUEUE_TYPE_SUSPENDED, " kanjicards_new "),
+        7: (QUEUE_TYPE_SUSPENDED, " "),
+        8: (QUEUE_TYPE_SUSPENDED, " kanjicards_new "),
+        9: (QUEUE_TYPE_SUSPENDED, " ps-suspended-automatically "),
     }
 
-    result = find_leech_only_entry_card_ids(
+    result = find_suspended_only_entry_card_ids(
         entry_card_map=entry_card_map,
         card_status_lookup=card_status_lookup,
-        exception_tags={"treat"},
+        exception_tags={"kanjicards_new"},
+        auto_suspend_tag="PS-SUSPENDED-AUTOMATICALLY",
     )
 
     assert result == {
-        ("leech-only", ""): [1, 2],
-        ("suspended-no-exception", ""): [5],
-        ("suspended-exception", ""): [6],
+        ("manual-only", ""): [1, 2],
     }
