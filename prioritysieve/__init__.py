@@ -79,6 +79,7 @@ _showed_update_warning: bool = False
 _state_before_sync_recalc: str | None = None
 _pending_changes_before_sync: bool = False
 _followup_sync_pending: bool = False
+_last_sync_was_followup: bool = False
 
 
 def _get_kanjicards_manager() -> Optional[object]:
@@ -456,6 +457,7 @@ def cache_state_before_sync() -> None:
     # want to recalc at that point.
     global _startup_sync
     global _state_before_sync_recalc
+    global _last_sync_was_followup
 
     if mw.pm.auto_syncing_enabled():
         if _startup_sync:
@@ -463,6 +465,7 @@ def cache_state_before_sync() -> None:
             # sync after the user first activates the Anki 'auto_syncing_enabled'
             # setting, but that's not a big deal.
             _startup_sync = False
+            _last_sync_was_followup = False
             return
 
     extra_settings = PrioritySieveExtraSettings()
@@ -470,6 +473,7 @@ def cache_state_before_sync() -> None:
     global _followup_sync_pending
     is_followup_sync = _followup_sync_pending
     _followup_sync_pending = False
+    _last_sync_was_followup = is_followup_sync
 
     previous_state_json = extra_settings.get_recalc_collection_state()
     previous_settings_state_json = extra_settings.get_recalc_settings_state()
@@ -550,6 +554,10 @@ def cache_state_before_sync() -> None:
 def recalc_after_sync(success: bool | None = None) -> None:
     global _state_before_sync_recalc
     global _pending_changes_before_sync
+    global _last_sync_was_followup
+
+    was_followup_sync = _last_sync_was_followup
+    _last_sync_was_followup = False
 
     extra_settings = PrioritySieveExtraSettings()
 
@@ -558,6 +566,7 @@ def recalc_after_sync(success: bool | None = None) -> None:
     if success is False:
         _state_before_sync_recalc = None
         recalc_main.set_followup_sync_callback(None)
+        _pending_changes_before_sync = False
         return
 
     am_config = PrioritySieveConfig()
@@ -567,6 +576,17 @@ def recalc_after_sync(success: bool | None = None) -> None:
         post_state = recalc_main.compute_modify_filters_state()
         post_state_json = json.dumps(post_state, sort_keys=True)
     except Exception as error:  # pylint:disable=broad-except
+        if was_followup_sync:
+            print(
+                "PrioritySieve: follow-up sync state snapshot failed; skipping post-sync recalc "
+                f"({error})"
+            )
+            try:
+                _state_before_sync_recalc = extra_settings.get_recalc_collection_state()
+            except Exception:  # pylint:disable=broad-except
+                _state_before_sync_recalc = None
+            _pending_changes_before_sync = False
+            return
         if am_config.recalc_after_sync:
             print(
                 f"PrioritySieve: running post-sync recalc (state snapshot failed: {error})"
@@ -601,6 +621,15 @@ def recalc_after_sync(success: bool | None = None) -> None:
             "pending_changes": pending_changes,
         },
     )
+
+    if was_followup_sync:
+        print("PrioritySieve: skipping post-sync recalc (follow-up sync)")
+        if post_state_json is not None:
+            extra_settings.set_recalc_collection_state(post_state_json)
+        _state_before_sync_recalc = post_state_json
+        recalc_main.set_followup_sync_callback(None)
+        _pending_changes_before_sync = False
+        return
 
     if not am_config.recalc_after_sync:
         if post_state_json is not None:

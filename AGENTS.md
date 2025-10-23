@@ -7,6 +7,7 @@ The core add-on logic lives in `prioritysieve/`, with feature-focused modules su
 - `nix-shell` (or `nix develop` with flakes) loads `shell.nix`, exporting the Qt/GL dependencies Anki expects; once inside, create and activate a venv (`python -m venv .venv && source .venv/bin/activate`).  
 - `python -m pip install -r requirements.txt` must be run from that venv for both dev and test shells so `anki`/`aqt` modules resolve.  
 - `nix-shell test/tests-shell.nix --command "source .venv/bin/activate && python -m pytest"` runs the suite with the offscreen Qt setup required by `qtbot`; add `--maxfail=1` locally to shorten feedback loops.  
+- When working from WSL, invoke pytest through the Windows interpreter via `powershell.exe -NoLogo -NoProfile -Command "python -m pytest ..."`.
 - `python -m pytest -m recalc` focuses on recalculation scenarios; pair with `--maxfail=1` when chasing regressions.  
 - `./bundle_addon.sh` strips caches, toggles `DEV_MODE` off, and emits `prioritysieve-<version>.ankiaddon` for distribution; run it from the repo root.  
 For ad-hoc checks, `python -m black prioritysieve test` and `python -m isort prioritysieve test` keep formatting consistent.
