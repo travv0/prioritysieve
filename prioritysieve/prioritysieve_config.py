@@ -64,6 +64,7 @@ class RawConfigKeys:
     RECALC_AFTER_SYNC = "recalc_after_sync"
     AUTO_SUSPEND_UNLISTED_ENTRIES = "auto_suspend_unlisted_entries"
     RECALC_OFFSET_PRIORITY_DECKS = "recalc_offset_priority_decks"
+    DISABLED_DECKS = "disabled_decks"
     HIDE_RECALC_TOOLBAR = "hide_recalc_toolbar"
     HIDE_REVIEWED_COUNTER = "hide_reviewed_counter"
     HIDE_TRACKED_COUNTER = "hide_tracked_counter"
@@ -408,6 +409,7 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes
             self.recalc_offset_priority_decks: list[str] = self._get_priority_deck_list(
                 is_default
             )
+            self.disabled_decks: list[str] = self._get_disabled_deck_list(is_default)
             self.hide_recalc_toolbar: bool = self._get_config_item(
                 key=RawConfigKeys.HIDE_RECALC_TOOLBAR,
                 expected_type=bool,
@@ -546,6 +548,47 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes
         config[RawConfigKeys.RECALC_OFFSET_PRIORITY_DECKS] = decks
         if "recalc_offset_priority_deck" in config:
             config.pop("recalc_offset_priority_deck", None)
+        mw.addonManager.writeConfig(__name__, config)
+        save_config_to_am_file(config)
+
+    def _get_disabled_deck_list(self, is_default: bool) -> list[str]:
+        key = RawConfigKeys.DISABLED_DECKS
+        source = self._default_config_dict if is_default else self._config_dict
+
+        def sanitize(decks: list[object]) -> list[str]:
+            sanitized: list[str] = []
+            seen: set[str] = set()
+            for deck in decks:
+                if not isinstance(deck, str):
+                    continue
+                trimmed = deck.strip()
+                if not trimmed or trimmed in seen:
+                    continue
+                sanitized.append(trimmed)
+                seen.add(trimmed)
+            return sanitized
+
+        if key in source:
+            decks = source[key]
+            assert isinstance(decks, list)
+            sanitized = sanitize(decks)
+            if not is_default and sanitized != decks:
+                self._persist_disabled_decks(sanitized)
+                source[key] = sanitized
+            return sanitized
+
+        default_value = self._default_config_dict.get(key, [])
+        assert isinstance(default_value, list)
+        sanitized_default = sanitize(default_value)
+        if not is_default:
+            self._persist_disabled_decks(sanitized_default)
+            source[key] = sanitized_default
+        return sanitized_default
+
+    def _persist_disabled_decks(self, decks: list[str]) -> None:
+        assert mw is not None
+        config = get_config_dict()
+        config[RawConfigKeys.DISABLED_DECKS] = decks
         mw.addonManager.writeConfig(__name__, config)
         save_config_to_am_file(config)
 

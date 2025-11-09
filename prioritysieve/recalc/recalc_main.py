@@ -324,6 +324,26 @@ def _get_deck_priority_for_ids(
     return deck_priority_lookup.get(deck_name, default_priority)
 
 
+def _get_deck_name_for_ids(
+    deck_name_cache: dict[int, str],
+    original_deck_id: int,
+    current_deck_id: int,
+) -> str:
+    assert mw is not None
+    if mw.col is None:
+        raise CancelledOperationException()
+
+    deck_id = original_deck_id or current_deck_id
+    deck_name = deck_name_cache.get(deck_id)
+    if deck_name is None:
+        deck_dict = mw.col.decks.get(deck_id)
+        name = deck_dict.get("name") if isinstance(deck_dict, dict) else None
+        deck_name = name if isinstance(name, str) else ""
+        deck_name_cache[deck_id] = deck_name
+
+    return deck_name
+
+
 def _filters_requiring_state_snapshot() -> list[PrioritySieveConfigFilter]:
     """Return filters used to snapshot collection state before recalc."""
 
@@ -572,6 +592,7 @@ def _apply_priorities(
 
     suspended_exception_tags = set(am_config.get_preprocess_ignore_suspended_unless_tag_list())
     deck_priority_lookup = _build_deck_priority_lookup(am_config.recalc_offset_priority_decks)
+    disabled_decks_set = set(am_config.disabled_decks)
     deck_name_cache: dict[int, str] = {}
     plans: dict[int, CardPlan] = {}
     duplicates: defaultdict[tuple[str, str], list[CardPlan]] = defaultdict(list)
@@ -612,7 +633,16 @@ def _apply_priorities(
                 am_config.auto_suspend_unlisted_entries
                 and entry.key() not in priority_map
             )
-            auto_suspend = base_auto_suspend or (entry_reviewed and is_new_card)
+
+            # Check if card is from a disabled deck
+            deck_name = _get_deck_name_for_ids(
+                deck_name_cache=deck_name_cache,
+                original_deck_id=card_data.original_deck_id,
+                current_deck_id=card_data.deck_id,
+            )
+            from_disabled_deck = deck_name in disabled_decks_set
+
+            auto_suspend = base_auto_suspend or (entry_reviewed and is_new_card) or from_disabled_deck
 
             manually_suspended_exception = (
                 card_data.queue == QUEUE_TYPE_SUSPENDED

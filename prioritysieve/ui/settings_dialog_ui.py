@@ -905,7 +905,7 @@ class Ui_SettingsDialog(object):
         self.autoSuspendBehaviorLabel.setText(_translate("SettingsDialog", "Recalc keeps one active card per entry. Lower-priority duplicates and entries missing from priority files can be suspended automatically."))
         self.autoSuspendUnlistedEntriesCheckBox.setText(_translate("SettingsDialog", "Suspend cards whose entry is missing from priority files"))
         self.label_priorityDeck.setText(_translate("SettingsDialog", "Deck priority for unshifted card:"))
-        self.priorityDecksHintLabel.setText(_translate("SettingsDialog", "Decks shown here currently contain cards from the configured note types. Higher items are preferred when preventing due date shifts."))
+        self.priorityDecksHintLabel.setText(_translate("SettingsDialog", "Decks shown here currently contain cards from the configured note types. Higher items are preferred when preventing due date shifts. Uncheck a deck to disable it - cards from disabled decks will be automatically suspended."))
         self.priorityDeckMoveUpButton.setText(_translate("SettingsDialog", "Move Up"))
         self.priorityDeckMoveDownButton.setText(_translate("SettingsDialog", "Move Down"))
         self.priorityDeckRefreshButton.setText(_translate("SettingsDialog", "Refresh Deck List"))

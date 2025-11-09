@@ -6,8 +6,10 @@ from aqt.qt import (  # pylint:disable=no-name-in-module
     QDialog,
     QDoubleSpinBox,
     QListWidget,
+    QListWidgetItem,
     QPushButton,
     QSpinBox,
+    Qt,
 )
 
 from .. import prioritysieve_globals as ps_globals
@@ -49,7 +51,7 @@ class CardHandlingTab(SettingsTab):
         deck_order = self._build_priority_deck_list(
             source, source.recalc_offset_priority_decks
         )
-        self._set_priority_deck_items(deck_order)
+        self._set_priority_deck_items(deck_order, source.disabled_decks)
 
     def setup_buttons(self) -> None:
         self.ui.restoreCardHandlingPushButton.setAutoDefault(False)
@@ -73,6 +75,7 @@ class CardHandlingTab(SettingsTab):
         settings[RawConfigKeys.RECALC_OFFSET_PRIORITY_DECKS] = (
             self._get_priority_decks_from_ui()
         )
+        settings[RawConfigKeys.DISABLED_DECKS] = self._get_disabled_decks_from_ui()
         return settings
 
     def _on_priority_deck_selection_changed(self, _row: int) -> None:
@@ -118,8 +121,9 @@ class CardHandlingTab(SettingsTab):
 
     def _refresh_priority_decks(self) -> None:
         preferred_order = self._get_priority_decks_from_ui()
+        disabled_decks = self._get_disabled_decks_from_ui()
         deck_order = self._build_priority_deck_list(self._config, preferred_order)
-        self._set_priority_deck_items(deck_order)
+        self._set_priority_deck_items(deck_order, disabled_decks)
 
     def _build_priority_deck_list(
         self,
@@ -145,13 +149,27 @@ class CardHandlingTab(SettingsTab):
 
         return ordered
 
-    def _set_priority_deck_items(self, deck_names: list[str]) -> None:
+    def _set_priority_deck_items(
+        self, deck_names: list[str], disabled_decks: list[str] | None = None
+    ) -> None:
+        if disabled_decks is None:
+            disabled_decks = []
+
         current_item = self._priority_deck_list_widget.currentItem()
         current_text = current_item.text() if current_item is not None else None
 
         self._priority_deck_list_widget.clear()
         for deck_name in deck_names:
-            self._priority_deck_list_widget.addItem(deck_name)
+            item = QListWidgetItem(deck_name)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            # Checked if NOT in disabled list
+            check_state = (
+                Qt.CheckState.Unchecked
+                if deck_name in disabled_decks
+                else Qt.CheckState.Checked
+            )
+            item.setCheckState(check_state)
+            self._priority_deck_list_widget.addItem(item)
 
         if deck_names:
             if current_text in deck_names:
@@ -174,6 +192,17 @@ class CardHandlingTab(SettingsTab):
             if deck_name:
                 decks.append(deck_name)
         return decks
+
+    def _get_disabled_decks_from_ui(self) -> list[str]:
+        disabled_decks: list[str] = []
+        for index in range(self._priority_deck_list_widget.count()):
+            item = self._priority_deck_list_widget.item(index)
+            if item is None:
+                continue
+            deck_name = item.text().strip()
+            if deck_name and item.checkState() == Qt.CheckState.Unchecked:
+                disabled_decks.append(deck_name)
+        return disabled_decks
 
     def _get_available_decks_for_note_types(
         self, config: PrioritySieveConfig
