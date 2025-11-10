@@ -7,6 +7,10 @@ from anki.consts import CARD_TYPE_NEW, QUEUE_TYPE_SUSPENDED
 
 from .entry import Entry
 from .entry_db import EntryDB, StoredCard
+from .kanji_utils import (
+    extract_kanji_sequence,
+    has_kanji_subsequence_relation,
+)
 from .prioritysieve_config import PrioritySieveConfig
 from .recalc import recalc_main
 
@@ -163,7 +167,7 @@ def _compute_note_counts(
                     note_id=card.note_id,
                     reading=(entry.reading or "").strip(),
                     entry_text=entry.text or "",
-                    kanji_sequence=_extract_kanji_sequence(entry.text or ""),
+                    kanji_sequence=extract_kanji_sequence(entry.text or ""),
                 )
 
     if not deduplicate or not card_entries or not note_word_infos:
@@ -300,7 +304,7 @@ def _cluster_kanji_sequences(sequences: list[str]) -> dict[str, int]:
 
     for i in range(len(sequences)):
         for j in range(i + 1, len(sequences)):
-            if _has_subsequence_relation(sequences[i], sequences[j]):
+            if has_kanji_subsequence_relation(sequences[i], sequences[j]):
                 _union(i, j)
 
     root_to_cluster: dict[int, int] = {}
@@ -317,36 +321,3 @@ def _cluster_kanji_sequences(sequences: list[str]) -> dict[str, int]:
         seq_to_cluster[seq] = cluster_id
 
     return seq_to_cluster
-
-
-def _has_subsequence_relation(seq_a: str, seq_b: str) -> bool:
-    """True when seq_a and seq_b only differ by removing kanji."""
-    return _is_subsequence(seq_a, seq_b) or _is_subsequence(seq_b, seq_a)
-
-
-def _is_subsequence(candidate: str, target: str) -> bool:
-    if len(candidate) > len(target):
-        return False
-    if not candidate:
-        return True
-
-    index = 0
-    for char in target:
-        if char == candidate[index]:
-            index += 1
-            if index == len(candidate):
-                return True
-    return index == len(candidate)
-
-
-def _extract_kanji_sequence(text: str) -> str:
-    """Return only the kanji characters from text, preserving order."""
-    return "".join(char for char in text if _is_kanji(char))
-
-
-def _is_kanji(char: str) -> bool:
-    return (
-        "\u4e00" <= char <= "\u9fff"
-        or "\u3400" <= char <= "\u4dbf"
-        or char == "々"
-    )

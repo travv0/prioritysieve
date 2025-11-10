@@ -130,6 +130,22 @@
          </widget>
         </item>
         <item>
+         <widget class="QGroupBox" name="groupBox_18">
+          <property name="title">
+           <string>Auto suspend</string>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_57">
+           <item>
+            <widget class="QCheckBox" name="autoSuspendKanjiSubsetCheckBox">
+             <property name="text">
+              <string>Auto-suspend kanji subset variants</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
          <spacer name="verticalSpacer_7">
           <property name="orientation">
            <enum>Qt::Vertical</enum>

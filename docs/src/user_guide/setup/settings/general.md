@@ -19,3 +19,8 @@ The General tab contains a handful of global behaviour toggles.
   Merge toolbar counters when multiple notes represent the same word with different kanji/kana mixes (e.g., removing
   okurigana or showing the reading only). Homophones that use different kanji remain separate so distinct words are still
   counted individually.
+
+* **Auto-suspend kanji subset variants:**  
+  When enabled, PrioritySieve keeps only the kanji-richest spelling of a word active. New cards that drop kanji you have
+  already reviewed (or that will appear sooner with a lower due value) are suspended automatically so you encounter the
+  most informative variant first.

@@ -12,6 +12,8 @@ from prioritysieve.recalc.recalc_main import CardPlan, _apply_duplicate_rules
 def _dummy_config() -> SimpleNamespace:
     return SimpleNamespace(
         tag_suspended_automatically="ps-auto-suspend",
+        tag_ready="am-ready",
+        tag_not_ready="am-not-ready",
         get_preprocess_ignore_suspended_unless_tag_list=lambda: ["kanjicards_unreviewed"],
     )
 
@@ -61,15 +63,8 @@ def _plan(
     )
 
 
-def _original_state(*plans: CardPlan) -> dict[int, tuple[list[str], list[str]]]:
-    return {plan.note_id: ([], list(plan.original_tags)) for plan in plans}
-
-
 def test_duplicate_rules_collapse_manual_exception_duplicates() -> None:
-    am_config = SimpleNamespace(
-        tag_suspended_automatically="ps-auto-suspend",
-        get_preprocess_ignore_suspended_unless_tag_list=lambda: ["kanjicards_unreviewed"],
-    )
+    am_config = _dummy_config()
 
     first_plan = _plan(
         entry_key=("雫", "しずく"),
@@ -100,7 +95,6 @@ def test_duplicate_rules_collapse_manual_exception_duplicates() -> None:
     _apply_duplicate_rules(
         am_config,
         duplicates,
-        _original_state(first_plan, second_plan),
     )
 
     active_candidates = [
@@ -146,7 +140,6 @@ def test_duplicate_rules_leave_review_cards_untouched() -> None:
     _apply_duplicate_rules(
         am_config,
         duplicates,
-        _original_state(review_plan, new_plan),
     )
 
     assert review_plan.desired_queue == QUEUE_TYPE_NEW
@@ -186,7 +179,6 @@ def test_duplicate_rules_unsuspend_single_new_card_when_allowed() -> None:
     _apply_duplicate_rules(
         am_config,
         duplicates,
-        _original_state(first_plan, second_plan),
     )
 
     assert first_plan.desired_queue == QUEUE_TYPE_NEW
@@ -225,7 +217,6 @@ def test_duplicate_rules_respect_distinct_readings() -> None:
     _apply_duplicate_rules(
         am_config,
         duplicates,
-        _original_state(reviewed_plan, new_plan),
     )
 
     assert new_plan.desired_queue == QUEUE_TYPE_NEW
@@ -263,7 +254,6 @@ def test_duplicate_rules_prefer_priority_deck() -> None:
     _apply_duplicate_rules(
         am_config,
         duplicates,
-        _original_state(high_priority_plan, low_priority_plan),
     )
 
     assert high_priority_plan.desired_queue == QUEUE_TYPE_NEW
@@ -304,7 +294,6 @@ def test_duplicate_rules_keep_manually_suspended_exception() -> None:
     _apply_duplicate_rules(
         am_config,
         duplicates,
-        _original_state(manual_plan, other_plan),
     )
 
     assert manual_plan.desired_queue == QUEUE_TYPE_SUSPENDED
@@ -335,7 +324,6 @@ def test_duplicate_rules_preserve_tag_order_with_auto_suspend() -> None:
     _apply_duplicate_rules(
         am_config,
         duplicates,
-        _original_state(base_plan),
     )
 
     assert base_plan.desired_tags == base_tags, "auto-suspend tag should remain in original position"
@@ -373,7 +361,6 @@ def test_duplicate_rules_prefer_newest_card_within_same_deck() -> None:
     _apply_duplicate_rules(
         am_config,
         duplicates,
-        _original_state(older_plan, newer_plan),
     )
 
     assert newer_plan.desired_queue == QUEUE_TYPE_NEW

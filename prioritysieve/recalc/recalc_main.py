@@ -24,6 +24,7 @@ from .. import (
 )
 from ..entry import Entry
 from ..entry_db import EntryDB
+from ..kanji_utils import extract_kanji_sequence, is_kanji_subsequence
 from ..priority_files import load_priority_map
 from ..extra_settings.prioritysieve_extra_settings import PrioritySieveExtraSettings
 from ..prioritysieve_config import PrioritySieveConfig, PrioritySieveConfigFilter
@@ -721,7 +722,8 @@ def _apply_priorities(
             card_original_state.setdefault(card_id, (plan.original_due, plan.original_queue))
             duplicates[entry.key()].append(plan)
 
-    _apply_duplicate_rules(am_config, duplicates, note_original_state)
+    _apply_kanji_subset_auto_suspend(am_config, plans)
+    _apply_duplicate_rules(am_config, duplicates)
 
     card_cache: dict[int, Card] = {}
     note_cache: dict[int, Note] = {}
@@ -965,10 +967,44 @@ def _apply_priorities(
                 print("    " + entry)
 
 
+def _force_suspend_plan(plan: CardPlan, am_config: PrioritySieveConfig) -> None:
+    has_auto_tag = am_config.tag_suspended_automatically in plan.desired_tags
+    already_auto_suspended = (
+        plan.auto_suspend
+        and plan.desired_queue == QUEUE_TYPE_SUSPENDED
+        and has_auto_tag
+    )
+    if already_auto_suspended:
+        if plan.is_new_card and plan.desired_due != DEFAULT_REVIEW_DUE:
+            plan.desired_due = DEFAULT_REVIEW_DUE
+        return
+
+    plan.auto_suspend = True
+    plan.desired_queue = QUEUE_TYPE_SUSPENDED
+    if plan.is_new_card and plan.desired_due != DEFAULT_REVIEW_DUE:
+        plan.desired_due = DEFAULT_REVIEW_DUE
+
+    updated_tags = tags_and_queue_utils.compute_entry_tags(
+        am_config=am_config,
+        tags=plan.desired_tags,
+        auto_suspend=True,
+    )
+    updated_tags = tags_and_queue_utils.ensure_tag_preserving_order_list(
+        updated_tags,
+        am_config.tag_suspended_automatically,
+        plan.original_tags,
+    )
+    updated_tags = tags_and_queue_utils.ensure_tag_preserving_order_list(
+        updated_tags,
+        am_config.tag_not_ready,
+        plan.original_tags,
+    )
+    plan.desired_tags = updated_tags
+
+
 def _apply_duplicate_rules(
     am_config: PrioritySieveConfig,
     duplicates: defaultdict[tuple[str, str], list[CardPlan]],
-    note_original_state: dict[int, tuple[list[str], list[str]]],
 ) -> None:
     suspended_exception_tags = set(am_config.get_preprocess_ignore_suspended_unless_tag_list())
 
@@ -993,22 +1029,6 @@ def _apply_duplicate_rules(
             candidate.desired_queue = QUEUE_TYPE_NEW
         _remove_auto_tag(candidate)
 
-    def _force_suspend_candidate(candidate: CardPlan) -> None:
-        candidate.auto_suspend = True
-        candidate.desired_queue = QUEUE_TYPE_SUSPENDED
-        if candidate.is_new_card and candidate.desired_due != DEFAULT_REVIEW_DUE:
-            candidate.desired_due = DEFAULT_REVIEW_DUE
-        if am_config.tag_suspended_automatically:
-            original_tags = note_original_state.get(
-                candidate.note_id,
-                ([], []),
-            )[1]
-            candidate.desired_tags = tags_and_queue_utils.ensure_tag_preserving_order_list(
-                candidate.desired_tags,
-                    am_config.tag_suspended_automatically,
-                    original_tags,
-                )
-
     def _activate_candidate(candidate: CardPlan) -> None:
         if candidate.manually_suspended:
             candidate.desired_queue = QUEUE_TYPE_SUSPENDED
@@ -1016,23 +1036,10 @@ def _apply_duplicate_rules(
         _unsuspend_candidate(candidate)
 
     def _demote_manual_candidate(candidate: CardPlan) -> None:
-        candidate.desired_queue = QUEUE_TYPE_SUSPENDED
-        candidate.auto_suspend = True
-        if candidate.is_new_card and candidate.desired_due != DEFAULT_REVIEW_DUE:
-            candidate.desired_due = DEFAULT_REVIEW_DUE
         candidate.desired_tags = [
             tag for tag in candidate.desired_tags if tag not in suspended_exception_tags
         ]
-        if am_config.tag_suspended_automatically:
-            original_tags = note_original_state.get(
-                candidate.note_id,
-                ([], []),
-            )[1]
-            candidate.desired_tags = tags_and_queue_utils.ensure_tag_preserving_order_list(
-                candidate.desired_tags,
-                am_config.tag_suspended_automatically,
-                original_tags,
-            )
+        _force_suspend_plan(candidate, am_config)
 
     def _demote_candidate(candidate: CardPlan | None) -> None:
         if candidate is None:
@@ -1040,7 +1047,7 @@ def _apply_duplicate_rules(
         if candidate.manually_suspended:
             _demote_manual_candidate(candidate)
         else:
-            _force_suspend_candidate(candidate)
+            _force_suspend_plan(candidate, am_config)
 
     for _, items in duplicates.items():
         items.sort(
@@ -1082,6 +1089,83 @@ def _apply_duplicate_rules(
                 _activate_candidate(candidate)
             else:
                 _demote_candidate(candidate)
+
+
+def _apply_kanji_subset_auto_suspend(
+    am_config: PrioritySieveConfig,
+    plans: dict[int, CardPlan],
+) -> None:
+    if not am_config.auto_suspend_kanji_subset_variants:
+        return
+
+    reading_groups: dict[str, list[CardPlan]] = defaultdict(list)
+    kanji_sequences: dict[int, str] = {}
+
+    for plan in plans.values():
+        reading = (plan.entry_key[1] or "").strip()
+        if not reading:
+            continue
+        text = plan.entry_key[0] or ""
+        kanji_sequences[plan.card_id] = extract_kanji_sequence(text)
+        reading_groups[reading].append(plan)
+
+    for group in reading_groups.values():
+        _apply_kanji_subset_rules_for_group(
+            am_config,
+            group,
+            kanji_sequences,
+        )
+
+
+def _apply_kanji_subset_rules_for_group(
+    am_config: PrioritySieveConfig,
+    group: list[CardPlan],
+    kanji_sequences: dict[int, str],
+) -> None:
+    non_new_sequences = [
+        kanji_sequences.get(plan.card_id, "")
+        for plan in group
+        if not plan.is_new_card
+    ]
+
+    if non_new_sequences:
+        for plan in group:
+            if not plan.is_new_card or plan.desired_queue != QUEUE_TYPE_NEW:
+                continue
+            sequence = kanji_sequences.get(plan.card_id, "")
+            if any(
+                sequence != candidate_sequence
+                and is_kanji_subsequence(sequence, candidate_sequence)
+                for candidate_sequence in non_new_sequences
+            ):
+                _force_suspend_plan(plan, am_config)
+
+    new_candidates = [plan for plan in group if plan.is_new_card]
+    if len(new_candidates) < 2:
+        return
+
+    ordered_new = sorted(
+        new_candidates,
+        key=lambda plan: (plan.desired_due, plan.card_id),
+    )
+
+    for index, later in enumerate(ordered_new):
+        if later.desired_queue != QUEUE_TYPE_NEW:
+            continue
+        later_sequence = kanji_sequences.get(later.card_id, "")
+        for earlier in ordered_new[:index]:
+            if (
+                earlier.desired_queue != QUEUE_TYPE_NEW
+                or earlier.desired_due >= later.desired_due
+            ):
+                continue
+            earlier_sequence = kanji_sequences.get(earlier.card_id, "")
+            if (
+                later_sequence != earlier_sequence
+                and is_kanji_subsequence(later_sequence, earlier_sequence)
+            ):
+                _force_suspend_plan(later, am_config)
+                break
 
 
 def _record_recent_changes(

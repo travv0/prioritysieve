@@ -63,6 +63,7 @@ class RawConfigKeys:
     RECALC_ON_SYNC = "recalc_on_sync"
     RECALC_AFTER_SYNC = "recalc_after_sync"
     AUTO_SUSPEND_UNLISTED_ENTRIES = "auto_suspend_unlisted_entries"
+    AUTO_SUSPEND_KANJI_SUBSET_VARIANTS = "auto_suspend_kanji_subset_variants"
     RECALC_OFFSET_PRIORITY_DECKS = "recalc_offset_priority_decks"
     DISABLED_DECKS = "disabled_decks"
     HIDE_RECALC_TOOLBAR = "hide_recalc_toolbar"
@@ -404,6 +405,11 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes
             )
             self.auto_suspend_unlisted_entries: bool = self._get_config_item(
                 key=RawConfigKeys.AUTO_SUSPEND_UNLISTED_ENTRIES,
+                expected_type=bool,
+                use_default=is_default,
+            )
+            self.auto_suspend_kanji_subset_variants: bool = self._get_config_item(
+                key=RawConfigKeys.AUTO_SUSPEND_KANJI_SUBSET_VARIANTS,
                 expected_type=bool,
                 use_default=is_default,
             )
