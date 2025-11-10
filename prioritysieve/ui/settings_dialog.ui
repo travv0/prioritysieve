@@ -136,14 +136,21 @@
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_57">
            <item>
-            <widget class="QCheckBox" name="autoSuspendKanjiSubsetCheckBox">
-             <property name="text">
-              <string>Auto-suspend kanji subset variants</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
+           <widget class="QCheckBox" name="autoSuspendKanjiSubsetCheckBox">
+            <property name="text">
+             <string>Auto-suspend kanji subset variants</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="autoSuspendOkuriganaVariantsCheckBox">
+            <property name="text">
+             <string>Also suspend okurigana-only variants</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
         </item>
         <item>
          <spacer name="verticalSpacer_7">

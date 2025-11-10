@@ -1122,23 +1122,40 @@ def _apply_kanji_subset_rules_for_group(
     group: list[CardPlan],
     kanji_sequences: dict[int, str],
 ) -> None:
-    non_new_sequences = [
-        kanji_sequences.get(plan.card_id, "")
+    non_new_entries = [
+        (
+            kanji_sequences.get(plan.card_id, ""),
+            (plan.entry_key[0] or ""),
+        )
         for plan in group
         if not plan.is_new_card
     ]
 
-    if non_new_sequences:
+    if non_new_entries:
         for plan in group:
             if not plan.is_new_card or plan.desired_queue != QUEUE_TYPE_NEW:
                 continue
             sequence = kanji_sequences.get(plan.card_id, "")
-            if any(
-                sequence != candidate_sequence
-                and is_kanji_subsequence(sequence, candidate_sequence)
-                for candidate_sequence in non_new_sequences
-            ):
-                _force_suspend_plan(plan, am_config)
+            text = plan.entry_key[0] or ""
+            for candidate_sequence, candidate_text in non_new_entries:
+                if not candidate_sequence:
+                    continue
+                matches_superset = (
+                    sequence != candidate_sequence
+                    and is_kanji_subsequence(sequence, candidate_sequence)
+                )
+                matches_same = (
+                    sequence == candidate_sequence
+                    and _should_suspend_same_kanji_variant(
+                        am_config,
+                        text,
+                        candidate_text,
+                        sequence,
+                    )
+                )
+                if matches_superset or matches_same:
+                    _force_suspend_plan(plan, am_config)
+                    break
 
     new_candidates = [plan for plan in group if plan.is_new_card]
     if len(new_candidates) < 2:
@@ -1153,6 +1170,7 @@ def _apply_kanji_subset_rules_for_group(
         if later.desired_queue != QUEUE_TYPE_NEW:
             continue
         later_sequence = kanji_sequences.get(later.card_id, "")
+        later_text = later.entry_key[0] or ""
         for earlier in ordered_new[:index]:
             if (
                 earlier.desired_queue != QUEUE_TYPE_NEW
@@ -1160,12 +1178,46 @@ def _apply_kanji_subset_rules_for_group(
             ):
                 continue
             earlier_sequence = kanji_sequences.get(earlier.card_id, "")
-            if (
+            earlier_text = earlier.entry_key[0] or ""
+            matches_superset = (
                 later_sequence != earlier_sequence
                 and is_kanji_subsequence(later_sequence, earlier_sequence)
-            ):
+            )
+            matches_same = (
+                later_sequence == earlier_sequence
+                and _should_suspend_same_kanji_variant(
+                    am_config,
+                    later_text,
+                    earlier_text,
+                    later_sequence,
+                )
+            )
+            if matches_superset or matches_same:
                 _force_suspend_plan(later, am_config)
                 break
+
+
+def _should_suspend_same_kanji_variant(
+    am_config: PrioritySieveConfig,
+    candidate_text: str,
+    reference_text: str,
+    sequence: str,
+) -> bool:
+    if not am_config.auto_suspend_okurigana_variants:
+        return False
+    if not sequence:
+        return False
+
+    candidate_text = candidate_text or ""
+    reference_text = reference_text or ""
+
+    if not candidate_text or not reference_text:
+        return False
+
+    if candidate_text == reference_text:
+        return False
+
+    return True
 
 
 def _record_recent_changes(

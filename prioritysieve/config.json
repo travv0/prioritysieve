@@ -37,6 +37,7 @@
   "recalc_after_sync": false,
   "auto_suspend_unlisted_entries": false,
   "auto_suspend_kanji_subset_variants": false,
+  "auto_suspend_okurigana_variants": false,
   "recalc_offset_priority_decks": [],
   "disabled_decks": [],
   "tag_ready": "ps-ready",

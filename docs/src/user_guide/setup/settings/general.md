@@ -24,3 +24,5 @@ The General tab contains a handful of global behaviour toggles.
   When enabled, PrioritySieve keeps only the kanji-richest spelling of a word active. New cards that drop kanji you have
   already reviewed (or that will appear sooner with a lower due value) are suspended automatically so you encounter the
   most informative variant first.
+  * Enable **Also suspend okurigana-only variants** to extend the rule to spellings that share the exact same kanji (e.g.,
+    `入口` vs `入り口`). Purely kana spellings stay active so homophones without kanji aren’t suppressed.
