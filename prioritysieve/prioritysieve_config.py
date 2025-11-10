@@ -69,6 +69,7 @@ class RawConfigKeys:
     HIDE_REVIEWED_COUNTER = "hide_reviewed_counter"
     HIDE_TRACKED_COUNTER = "hide_tracked_counter"
     HIDE_PENDING_COUNTER = "hide_pending_counter"
+    DEDUPLICATE_TOOLBAR_COUNTS = "deduplicate_toolbar_counts"
     TAG_READY = "tag_ready"
     TAG_NOT_READY = "tag_not_ready"
     TAG_KNOWN_MANUALLY = "tag_known_manually"
@@ -427,6 +428,11 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes
             )
             self.hide_pending_counter: bool = self._get_config_item(
                 key=RawConfigKeys.HIDE_PENDING_COUNTER,
+                expected_type=bool,
+                use_default=is_default,
+            )
+            self.deduplicate_toolbar_counts: bool = self._get_config_item(
+                key=RawConfigKeys.DEDUPLICATE_TOOLBAR_COUNTS,
                 expected_type=bool,
                 use_default=is_default,
             )

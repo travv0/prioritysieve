@@ -25,6 +25,7 @@ class GeneralTab(SettingsTab):
             RawConfigKeys.HIDE_TRACKED_COUNTER: self.ui.hideTrackedCheckBox,
             RawConfigKeys.HIDE_REVIEWED_COUNTER: self.ui.hideReviewedCheckBox,
             RawConfigKeys.HIDE_PENDING_COUNTER: self.ui.hidePendingCheckBox,
+            RawConfigKeys.DEDUPLICATE_TOOLBAR_COUNTS: self.ui.deduplicateToolbarCountsCheckBox,
         }
 
         self._raw_config_key_to_spin_box = {}

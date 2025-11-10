@@ -14,3 +14,8 @@ The General tab contains a handful of global behaviour toggles.
 * **Hide toolbar items:**  
   Toggle the visibility of each [toolbar item](../../installation/changes-to-anki.md#toolbar) individually. The three counters
   now appear as single-letter labels (**T**, **R**, **P**) for tracked, reviewed, and pending entries respectively.
+
+* **Deduplicate toolbar counts:**  
+  Merge toolbar counters when multiple notes represent the same word with different kanji/kana mixes (e.g., removing
+  okurigana or showing the reading only). Homophones that use different kanji remain separate so distinct words are still
+  counted individually.

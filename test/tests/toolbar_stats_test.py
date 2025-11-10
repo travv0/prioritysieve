@@ -10,6 +10,7 @@ from anki.consts import (
     QUEUE_TYPE_SUSPENDED,
 )
 
+from prioritysieve.entry import Entry
 from prioritysieve.entry_db import StoredCard
 from prioritysieve.toolbar_stats import _compute_note_counts
 
@@ -117,3 +118,255 @@ def test_counts_include_active_new_and_review_cards_per_note() -> None:
 
     assert tracked == 1
     assert reviewed == 1
+
+
+def test_deduplicate_counts_merges_spelling_variants_for_omoi_dasu() -> None:
+    config = _config()
+    cards = [
+        StoredCard(
+            card_id=1,
+            note_id=11,
+            note_type_id=1,
+            card_type=CARD_TYPE_NEW,
+            tags="",
+            card_queue=QUEUE_TYPE_NEW,
+        ),
+        StoredCard(
+            card_id=2,
+            note_id=22,
+            note_type_id=1,
+            card_type=CARD_TYPE_REV,
+            tags="",
+            card_queue=QUEUE_TYPE_REV,
+        ),
+        StoredCard(
+            card_id=3,
+            note_id=33,
+            note_type_id=1,
+            card_type=CARD_TYPE_REV,
+            tags="",
+            card_queue=QUEUE_TYPE_REV,
+        ),
+        StoredCard(
+            card_id=4,
+            note_id=44,
+            note_type_id=1,
+            card_type=CARD_TYPE_NEW,
+            tags="",
+            card_queue=QUEUE_TYPE_NEW,
+        ),
+    ]
+    card_entries = {
+        1: Entry(text="思い出す", reading="おもいだす", reviewed=False),
+        2: Entry(text="思いだす", reading="おもいだす", reviewed=False),
+        3: Entry(text="おもい出す", reading="おもいだす", reviewed=False),
+        4: Entry(text="おもいだす", reading="おもいだす", reviewed=False),
+    }
+
+    tracked, reviewed = _compute_note_counts(
+        config,
+        cards,
+        card_entries=card_entries,
+        deduplicate=True,
+    )
+
+    assert tracked == 1
+    assert reviewed == 1
+
+
+def test_deduplicate_counts_keeps_public_vs_regret_separate() -> None:
+    config = _config()
+    cards = [
+        StoredCard(
+            card_id=1,
+            note_id=11,
+            note_type_id=1,
+            card_type=CARD_TYPE_REV,
+            tags="",
+            card_queue=QUEUE_TYPE_REV,
+        ),
+        StoredCard(
+            card_id=2,
+            note_id=22,
+            note_type_id=1,
+            card_type=CARD_TYPE_REV,
+            tags="",
+            card_queue=QUEUE_TYPE_REV,
+        ),
+    ]
+    card_entries = {
+        1: Entry(text="公開", reading="こうかい", reviewed=False),
+        2: Entry(text="後悔", reading="こうかい", reviewed=False),
+    }
+
+    tracked, reviewed = _compute_note_counts(
+        config,
+        cards,
+        card_entries=card_entries,
+        deduplicate=True,
+    )
+
+    assert tracked == 2
+    assert reviewed == 2
+
+
+def test_deduplicate_counts_keeps_homophone_au_variants_separate() -> None:
+    config = _config()
+    cards = [
+        StoredCard(
+            card_id=1,
+            note_id=11,
+            note_type_id=1,
+            card_type=CARD_TYPE_REV,
+            tags="",
+            card_queue=QUEUE_TYPE_REV,
+        ),
+        StoredCard(
+            card_id=2,
+            note_id=22,
+            note_type_id=1,
+            card_type=CARD_TYPE_REV,
+            tags="",
+            card_queue=QUEUE_TYPE_REV,
+        ),
+        StoredCard(
+            card_id=3,
+            note_id=33,
+            note_type_id=1,
+            card_type=CARD_TYPE_REV,
+            tags="",
+            card_queue=QUEUE_TYPE_REV,
+        ),
+    ]
+    card_entries = {
+        1: Entry(text="会う", reading="あう", reviewed=False),
+        2: Entry(text="逢う", reading="あう", reviewed=False),
+        3: Entry(text="遭う", reading="あう", reviewed=False),
+    }
+
+    tracked, reviewed = _compute_note_counts(
+        config,
+        cards,
+        card_entries=card_entries,
+        deduplicate=True,
+    )
+
+    assert tracked == 3
+    assert reviewed == 3
+
+
+def test_deduplicate_counts_merges_unambiguous_wakaru_variants() -> None:
+    config = _config()
+    cards = [
+        StoredCard(
+            card_id=1,
+            note_id=11,
+            note_type_id=1,
+            card_type=CARD_TYPE_REV,
+            tags="",
+            card_queue=QUEUE_TYPE_REV,
+        ),
+        StoredCard(
+            card_id=2,
+            note_id=22,
+            note_type_id=1,
+            card_type=CARD_TYPE_NEW,
+            tags="",
+            card_queue=QUEUE_TYPE_NEW,
+        ),
+    ]
+    card_entries = {
+        1: Entry(text="分る", reading="わかる", reviewed=False),
+        2: Entry(text="わかる", reading="わかる", reviewed=False),
+    }
+
+    tracked, reviewed = _compute_note_counts(
+        config,
+        cards,
+        card_entries=card_entries,
+        deduplicate=True,
+    )
+
+    assert tracked == 1
+    assert reviewed == 1
+
+
+def test_deduplicate_counts_merges_iriguchi_okurigana_variants() -> None:
+    config = _config()
+    cards = [
+        StoredCard(
+            card_id=1,
+            note_id=11,
+            note_type_id=1,
+            card_type=CARD_TYPE_REV,
+            tags="",
+            card_queue=QUEUE_TYPE_REV,
+        ),
+        StoredCard(
+            card_id=2,
+            note_id=22,
+            note_type_id=1,
+            card_type=CARD_TYPE_NEW,
+            tags="",
+            card_queue=QUEUE_TYPE_NEW,
+        ),
+    ]
+    card_entries = {
+        1: Entry(text="入口", reading="いりぐち", reviewed=False),
+        2: Entry(text="入り口", reading="いりぐち", reviewed=False),
+    }
+
+    tracked, reviewed = _compute_note_counts(
+        config,
+        cards,
+        card_entries=card_entries,
+        deduplicate=True,
+    )
+
+    assert tracked == 1
+    assert reviewed == 1
+
+
+def test_deduplicate_counts_keeps_ambiguous_all_kana_separate() -> None:
+    config = _config()
+    cards = [
+        StoredCard(
+            card_id=1,
+            note_id=11,
+            note_type_id=1,
+            card_type=CARD_TYPE_REV,
+            tags="",
+            card_queue=QUEUE_TYPE_REV,
+        ),
+        StoredCard(
+            card_id=2,
+            note_id=22,
+            note_type_id=1,
+            card_type=CARD_TYPE_REV,
+            tags="",
+            card_queue=QUEUE_TYPE_REV,
+        ),
+        StoredCard(
+            card_id=3,
+            note_id=33,
+            note_type_id=1,
+            card_type=CARD_TYPE_NEW,
+            tags="",
+            card_queue=QUEUE_TYPE_NEW,
+        ),
+    ]
+    card_entries = {
+        1: Entry(text="公開", reading="こうかい", reviewed=False),
+        2: Entry(text="後悔", reading="こうかい", reviewed=False),
+        3: Entry(text="こうかい", reading="こうかい", reviewed=False),
+    }
+
+    tracked, reviewed = _compute_note_counts(
+        config,
+        cards,
+        card_entries=card_entries,
+        deduplicate=True,
+    )
+
+    assert tracked == 3
+    assert reviewed == 2

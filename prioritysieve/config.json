@@ -45,5 +45,6 @@
   "hide_recalc_toolbar": false,
   "hide_reviewed_counter": false,
   "hide_tracked_counter": false,
-  "hide_pending_counter": false
+  "hide_pending_counter": false,
+  "deduplicate_toolbar_counts": false
 }
