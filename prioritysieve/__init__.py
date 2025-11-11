@@ -12,6 +12,7 @@
 
 import json
 import sqlite3
+from dataclasses import dataclass
 from collections.abc import Iterable
 from functools import partial
 from pathlib import Path
@@ -57,6 +58,7 @@ from . import (
     toolbar_stats,
 )
 from .entry_db import EntryDB
+from .kanji_utils import extract_kanji_sequence, is_kanji_subsequence
 from .prioritysieve_config import PrioritySieveConfig, PrioritySieveConfigFilter
 from .extra_settings import prioritysieve_extra_settings, extra_settings_keys
 from .extra_settings.prioritysieve_extra_settings import PrioritySieveExtraSettings
@@ -376,6 +378,7 @@ def init_tool_menu_and_actions() -> None:
     progression_action = create_progression_dialog_action(am_config)
     reset_tags_action = create_tag_reset_action()
     duplicate_entries_action = create_duplicate_entries_action()
+    variant_entries_action = create_variant_entries_action()
     suspended_only_entries_action = create_suspended_only_entries_action()
     missing_priority_cards_action = create_missing_priority_cards_action()
     missing_priority_entries_action = create_missing_priority_entries_action()
@@ -391,6 +394,7 @@ def init_tool_menu_and_actions() -> None:
     am_tool_menu.addAction(known_entries_exporter_action)
     am_tool_menu.addAction(reset_tags_action)
     am_tool_menu.addAction(duplicate_entries_action)
+    am_tool_menu.addAction(variant_entries_action)
     am_tool_menu.addAction(suspended_only_entries_action)
     am_tool_menu.addAction(missing_priority_cards_action)
     am_tool_menu.addAction(missing_priority_entries_action)
@@ -846,6 +850,123 @@ def find_duplicate_non_new_entry_cards() -> None:
 
     tooltip(
         f"Found {len(duplicates)} duplicate entry group(s); opened Browser with {len(card_ids_to_browse)} card(s)."
+    )
+
+
+@dataclass
+class _VariantCard:
+    card_id: int
+    text: str
+    reading: str
+    kanji_sequence: str
+
+
+def find_variant_entry_cards() -> None:
+    """Show all non-new cards that represent variant spellings of the same word."""
+
+    assert mw is not None
+    assert mw.col is not None
+
+    am_config = PrioritySieveConfig()
+    if not am_config.auto_suspend_variant_spellings:
+        tooltip("Enable 'Auto-suspend variant spellings' in Settings first.")
+        return
+
+    exception_tags = set(
+        am_config.get_preprocess_ignore_suspended_unless_tag_list()
+    )
+
+    try:
+        with EntryDB() as entry_db:
+            cards = entry_db.get_cards()
+            entry_cache = entry_db.get_card_entry_cache()
+    except sqlite3.OperationalError:
+        tooltip("Run Recalc before searching for variant spellings.")
+        return
+
+    reading_groups: dict[str, list[_VariantCard]] = {}
+
+    for stored_card in cards:
+        if stored_card.card_type == CARD_TYPE_NEW:
+            continue
+
+        entry = entry_cache.get(stored_card.card_id)
+        if entry is None:
+            continue
+
+        if not card_filters.counts_as_unsuspended(
+            queue=stored_card.card_queue,
+            tags_text=stored_card.tags,
+            exception_tags=exception_tags,
+        ):
+            continue
+
+        reading = (entry.reading or "").strip()
+        if not reading:
+            continue
+
+        text = entry.text or ""
+        variant = _VariantCard(
+            card_id=stored_card.card_id,
+            text=text,
+            reading=reading,
+            kanji_sequence=extract_kanji_sequence(text),
+        )
+        reading_groups.setdefault(reading, []).append(variant)
+
+    variant_card_ids = _collect_variant_card_ids(reading_groups)
+    if not variant_card_ids:
+        tooltip("No variant spellings found among non-new cards.")
+        return
+
+    query = "cid:" + ",".join(str(card_id) for card_id in sorted(variant_card_ids))
+
+    browser_instance = aqt.dialogs.open("Browser", mw)
+    assert browser_instance is not None
+
+    browser_utils.browser = browser_instance
+    search_edit = browser_instance.form.searchEdit.lineEdit()
+    assert search_edit is not None
+
+    search_edit.setText(query)
+    browser_instance.onSearchActivated()
+
+    tooltip(
+        f"Found {len(variant_card_ids)} card(s) with variant spellings; opened Browser."
+    )
+
+
+def _collect_variant_card_ids(
+    reading_groups: dict[str, list[_VariantCard]],
+) -> set[int]:
+    variant_card_ids: set[int] = set()
+
+    for variants in reading_groups.values():
+        if len(variants) < 2:
+            continue
+
+        for i in range(len(variants)):
+            current = variants[i]
+            for j in range(i + 1, len(variants)):
+                other = variants[j]
+
+                if _are_variant_spellings(current, other):
+                    variant_card_ids.add(current.card_id)
+                    variant_card_ids.add(other.card_id)
+
+    return variant_card_ids
+
+
+def _are_variant_spellings(left: _VariantCard, right: _VariantCard) -> bool:
+    seq_left = left.kanji_sequence
+    seq_right = right.kanji_sequence
+
+    if seq_left == seq_right:
+        return left.text != right.text
+
+    return is_kanji_subsequence(seq_left, seq_right) or is_kanji_subsequence(
+        seq_right,
+        seq_left,
     )
 
 
@@ -1440,6 +1561,12 @@ def create_settings_action(am_config: PrioritySieveConfig) -> QAction:
 def create_duplicate_entries_action() -> QAction:
     action = QAction("&Find Duplicate Entry Cards", mw)
     action.triggered.connect(find_duplicate_non_new_entry_cards)
+    return action
+
+
+def create_variant_entries_action() -> QAction:
+    action = QAction("&Show Variant Entry Cards", mw)
+    action.triggered.connect(find_variant_entry_cards)
     return action
 
 
