@@ -1,4 +1,9 @@
-from prioritysieve.__init__ import _VariantCard, _collect_variant_card_ids
+from prioritysieve import prioritysieve_globals as ps_globals
+from prioritysieve.__init__ import (
+    _VariantCard,
+    _collect_variant_card_ids,
+    _entry_priority_due,
+)
 from prioritysieve.kanji_utils import extract_kanji_sequence
 
 
@@ -63,3 +68,25 @@ def test_collect_variant_card_ids_all_kanji_ignored() -> None:
     card_ids = _collect_variant_card_ids(groups)
 
     assert card_ids == set()
+
+
+def test_entry_priority_due_prefers_exact_reading() -> None:
+    priority_map = {("入口", "いりぐち"): 42, ("入口", ""): 99}
+
+    due = _entry_priority_due("入口", "  いりぐち  ", priority_map)
+
+    assert due == 42
+
+
+def test_entry_priority_due_falls_back_to_text_only_entry() -> None:
+    priority_map = {("入口", ""): 17}
+
+    due = _entry_priority_due("入口", "いりぐち", priority_map)
+
+    assert due == 17
+
+
+def test_entry_priority_due_defaults_when_missing() -> None:
+    due = _entry_priority_due("入口", "いりぐち", {})
+
+    assert due == ps_globals.DEFAULT_REVIEW_DUE

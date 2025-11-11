@@ -877,6 +877,22 @@ def find_variant_entry_cards() -> None:
         am_config.get_preprocess_ignore_suspended_unless_tag_list()
     )
 
+    selections: set[str] = set()
+    for config_filter in am_config.filters:
+        selections.update(config_filter.priority_files)
+
+    normalized_priority_files = [
+        selection
+        for selection in selections
+        if selection and selection != ps_globals.NONE_OPTION
+    ]
+
+    priority_map = (
+        load_priority_map(normalized_priority_files)
+        if normalized_priority_files
+        else {}
+    )
+
     try:
         with EntryDB() as entry_db:
             cards = entry_db.get_cards()
@@ -907,7 +923,7 @@ def find_variant_entry_cards() -> None:
             continue
 
         text = entry.text or ""
-        due_value = _get_card_due(stored_card.card_id)
+        due_value = _entry_priority_due(text, reading, priority_map)
         variant = _VariantCard(
             card_id=stored_card.card_id,
             text=text,
@@ -1069,13 +1085,21 @@ def _has_strict_subsequence_relation(seq_a: str, seq_b: str) -> bool:
     return is_kanji_subsequence(seq_a, seq_b) or is_kanji_subsequence(seq_b, seq_a)
 
 
-def _get_card_due(card_id: int) -> int:
-    assert mw is not None
-    try:
-        card = mw.col.get_card(card_id)
-        return int(getattr(card, "due", DEFAULT_REVIEW_DUE))
-    except Exception:  # pragma: no cover - defensive
-        return DEFAULT_REVIEW_DUE
+def _entry_priority_due(
+    text: str,
+    reading: str,
+    priority_map: dict[tuple[str, str], int],
+) -> int:
+    normalized_reading = normalize_reading(reading.strip()) if reading else ""
+    key_exact = (text, normalized_reading)
+    priority = priority_map.get(key_exact)
+    if priority is not None:
+        return priority
+    if normalized_reading:
+        fallback_priority = priority_map.get((text, ""))
+        if fallback_priority is not None:
+            return fallback_priority
+    return ps_globals.DEFAULT_REVIEW_DUE
 
 
 def _are_variant_spellings(left: _VariantCard, right: _VariantCard) -> bool:
