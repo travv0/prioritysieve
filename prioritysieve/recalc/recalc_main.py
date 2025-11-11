@@ -1217,7 +1217,14 @@ def _should_suspend_same_kanji_variant(
     if candidate_text == reference_text:
         return False
 
-    return True
+    return _contains_kana(candidate_text) or _contains_kana(reference_text)
+
+
+def _contains_kana(text: str) -> bool:
+    for char in text:
+        if ("ぁ" <= char <= "ゖ") or ("ァ" <= char <= "ヺ"):
+            return True
+    return False
 
 
 def _record_recent_changes(

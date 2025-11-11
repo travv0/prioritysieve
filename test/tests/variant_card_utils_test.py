@@ -49,3 +49,16 @@ def test_collect_variant_card_ids_pure_kana_skipped() -> None:
     card_ids = _collect_variant_card_ids(groups)
 
     assert card_ids == {1, 2}
+
+
+def test_collect_variant_card_ids_all_kanji_ignored() -> None:
+    groups = {
+        "はね": [
+            _variant(1, "羽", "はね"),
+            _variant(2, "羽根", "はね"),
+        ]
+    }
+
+    card_ids = _collect_variant_card_ids(groups)
+
+    assert card_ids == set()

@@ -958,6 +958,9 @@ def _collect_variant_card_ids(
 
 
 def _are_variant_spellings(left: _VariantCard, right: _VariantCard) -> bool:
+    if not (_has_kana(left.text) or _has_kana(right.text)):
+        return False
+
     seq_left = left.kanji_sequence
     seq_right = right.kanji_sequence
 
@@ -1745,3 +1748,8 @@ def test_function() -> None:
 
 
 main()
+def _has_kana(text: str) -> bool:
+    for char in text:
+        if ("ぁ" <= char <= "ゖ") or ("ァ" <= char <= "ヺ"):
+            return True
+    return False

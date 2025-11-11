@@ -336,6 +336,7 @@ def _cluster_kanji_sequences(
                 merge_same_sequence
                 and seq_i
                 and seq_i == seq_j
+                and _contains_kana_sequence(seq_i, seq_j)
             ):
                 should_merge = True
             elif merge_supersets and _has_strict_subsequence_relation(seq_i, seq_j):
