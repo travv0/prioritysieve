@@ -859,6 +859,7 @@ class _VariantCard:
     text: str
     reading: str
     kanji_sequence: str
+    due: int
 
 
 def find_variant_entry_cards() -> None:
@@ -906,11 +907,13 @@ def find_variant_entry_cards() -> None:
             continue
 
         text = entry.text or ""
+        due_value = _get_card_due(stored_card.card_id)
         variant = _VariantCard(
             card_id=stored_card.card_id,
             text=text,
             reading=reading,
             kanji_sequence=extract_kanji_sequence(text),
+            due=due_value,
         )
         reading_groups.setdefault(reading, []).append(variant)
 
@@ -942,19 +945,137 @@ def _collect_variant_card_ids(
     variant_card_ids: set[int] = set()
 
     for variants in reading_groups.values():
-        if len(variants) < 2:
+        count = len(variants)
+        if count < 2:
             continue
 
-        for i in range(len(variants)):
-            current = variants[i]
-            for j in range(i + 1, len(variants)):
-                other = variants[j]
+        parent = list(range(count))
 
-                if _are_variant_spellings(current, other):
-                    variant_card_ids.add(current.card_id)
-                    variant_card_ids.add(other.card_id)
+        def _find(index: int) -> int:
+            while parent[index] != index:
+                parent[index] = parent[parent[index]]
+                index = parent[index]
+            return index
+
+        def _union(left: int, right: int) -> None:
+            root_left = _find(left)
+            root_right = _find(right)
+            if root_left == root_right:
+                return
+            parent[root_right] = root_left
+
+        non_empty_indices = [
+            idx for idx, variant in enumerate(variants) if variant.kanji_sequence
+        ]
+        empty_indices = [
+            idx for idx, variant in enumerate(variants) if not variant.kanji_sequence
+        ]
+
+        for i in non_empty_indices:
+            for j in non_empty_indices:
+                if i >= j:
+                    continue
+
+                if _should_link_non_empty_variants(variants[i], variants[j]):
+                    _union(i, j)
+
+        components: dict[int, list[int]] = {}
+
+        for idx in non_empty_indices:
+            root = _find(idx)
+            components.setdefault(root, []).append(idx)
+
+        for idx in empty_indices:
+            candidate_idx = _select_best_matching_variant(idx, variants, non_empty_indices)
+            if candidate_idx is None:
+                continue
+            root = _find(candidate_idx)
+            components.setdefault(root, []).append(idx)
+
+        for indices in components.values():
+            if len(indices) < 2:
+                continue
+            component_variants = [variants[idx] for idx in indices]
+            canonical = _select_primary_variant(component_variants)
+            skipped_primary = False
+            for variant in component_variants:
+                if not skipped_primary and variant.card_id == canonical.card_id:
+                    skipped_primary = True
+                    continue
+                variant_card_ids.add(variant.card_id)
 
     return variant_card_ids
+
+
+def _select_primary_variant(variants: list[_VariantCard]) -> _VariantCard:
+    best_variant = variants[0]
+    best_score = _variant_score(best_variant)
+
+    for variant in variants[1:]:
+        score = _variant_score(variant)
+        if score > best_score:
+            best_variant = variant
+            best_score = score
+
+    return best_variant
+
+
+def _variant_score(variant: _VariantCard) -> tuple[int, int, int, int]:
+    kanji_len = len(variant.kanji_sequence)
+    due_score = -variant.due
+    text_len = -len(variant.text)
+    card_id_score = -variant.card_id
+    return (kanji_len, due_score, text_len, card_id_score)
+
+
+def _should_link_non_empty_variants(left: _VariantCard, right: _VariantCard) -> bool:
+    seq_left = left.kanji_sequence
+    seq_right = right.kanji_sequence
+    has_kana = contains_kana(left.text) or contains_kana(right.text)
+
+    if not has_kana:
+        return False
+
+    if seq_left == seq_right:
+        return True
+
+    return _has_strict_subsequence_relation(seq_left, seq_right)
+
+
+def _select_best_matching_variant(
+    empty_idx: int,
+    variants: list[_VariantCard],
+    non_empty_indices: list[int],
+) -> int | None:
+    best_idx: int | None = None
+    best_score: tuple[int, int, int, int] | None = None
+    empty_variant = variants[empty_idx]
+
+    for idx in non_empty_indices:
+        candidate = variants[idx]
+        if not _are_variant_spellings(empty_variant, candidate):
+            continue
+        score = _variant_score(candidate)
+        if best_score is None or score > best_score:
+            best_score = score
+            best_idx = idx
+
+    return best_idx
+
+
+def _has_strict_subsequence_relation(seq_a: str, seq_b: str) -> bool:
+    if seq_a == seq_b:
+        return False
+    return is_kanji_subsequence(seq_a, seq_b) or is_kanji_subsequence(seq_b, seq_a)
+
+
+def _get_card_due(card_id: int) -> int:
+    assert mw is not None
+    try:
+        card = mw.col.get_card(card_id)
+        return int(getattr(card, "due", DEFAULT_REVIEW_DUE))
+    except Exception:  # pragma: no cover - defensive
+        return DEFAULT_REVIEW_DUE
 
 
 def _are_variant_spellings(left: _VariantCard, right: _VariantCard) -> bool:
