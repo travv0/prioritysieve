@@ -13,11 +13,9 @@ _NOTE_SEQUENCE = 0
 
 def _config(
     enabled: bool = True,
-    okurigana_enabled: bool = False,
 ) -> SimpleNamespace:
     return SimpleNamespace(
-        auto_suspend_kanji_subset_variants=enabled,
-        auto_suspend_okurigana_variants=okurigana_enabled,
+        auto_suspend_variant_spellings=enabled,
         tag_ready="ps-ready",
         tag_not_ready="ps-not-ready",
         tag_suspended_automatically="ps-auto-suspend",
@@ -177,7 +175,7 @@ def test_due_rule_skips_superset_that_is_already_suspended() -> None:
 
 
 def test_okurigana_variant_requires_setting() -> None:
-    config = _config()
+    config = _config(enabled=False)
     review_plan = _plan(
         text="入口",
         reading="いりぐち",
@@ -199,30 +197,10 @@ def test_okurigana_variant_requires_setting() -> None:
     assert new_plan.desired_due == 10
 
 
-def test_okurigana_option_requires_base_toggle() -> None:
-    config = _config(enabled=False, okurigana_enabled=True)
-    review_plan = _plan(
-        text="入口",
-        reading="いりぐち",
-        is_new=False,
-        due=5,
-        queue=QUEUE_TYPE_NEW,
-    )
-    new_plan = _plan(
-        text="入り口",
-        reading="いりぐち",
-        is_new=True,
-        due=10,
-    )
-
-    plans = {review_plan.card_id: review_plan, new_plan.card_id: new_plan}
-    _apply_kanji_subset_auto_suspend(config, plans)
-
-    assert new_plan.desired_queue == QUEUE_TYPE_NEW
 
 
 def test_okurigana_variant_suspends_when_enabled() -> None:
-    config = _config(okurigana_enabled=True)
+    config = _config()
     review_plan = _plan(
         text="入口",
         reading="いりぐち",
@@ -246,7 +224,7 @@ def test_okurigana_variant_suspends_when_enabled() -> None:
 
 
 def test_okurigana_variant_due_rule() -> None:
-    config = _config(okurigana_enabled=True)
+    config = _config()
     early_plan = _plan(
         text="入口",
         reading="いりぐち",
@@ -268,7 +246,7 @@ def test_okurigana_variant_due_rule() -> None:
 
 
 def test_okurigana_variant_ignored_for_pure_kana() -> None:
-    config = _config(okurigana_enabled=True)
+    config = _config()
     review_plan = _plan(
         text="おもいだす",
         reading="おもいだす",

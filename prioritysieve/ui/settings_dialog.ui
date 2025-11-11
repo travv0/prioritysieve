@@ -138,14 +138,7 @@
            <item>
            <widget class="QCheckBox" name="autoSuspendKanjiSubsetCheckBox">
             <property name="text">
-             <string>Auto-suspend kanji subset variants</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QCheckBox" name="autoSuspendOkuriganaVariantsCheckBox">
-            <property name="text">
-             <string>Also suspend okurigana-only variants</string>
+             <string>Auto-suspend variant spellings (kanji subsets &amp; okurigana)</string>
             </property>
            </widget>
           </item>

@@ -26,8 +26,7 @@ class GeneralTab(SettingsTab):
             RawConfigKeys.HIDE_REVIEWED_COUNTER: self.ui.hideReviewedCheckBox,
             RawConfigKeys.HIDE_PENDING_COUNTER: self.ui.hidePendingCheckBox,
             RawConfigKeys.DEDUPLICATE_TOOLBAR_COUNTS: self.ui.deduplicateToolbarCountsCheckBox,
-            RawConfigKeys.AUTO_SUSPEND_KANJI_SUBSET_VARIANTS: self.ui.autoSuspendKanjiSubsetCheckBox,
-            RawConfigKeys.AUTO_SUSPEND_OKURIGANA_VARIANTS: self.ui.autoSuspendOkuriganaVariantsCheckBox,
+            RawConfigKeys.AUTO_SUSPEND_VARIANT_SPELLINGS: self.ui.autoSuspendKanjiSubsetCheckBox,
         }
 
         self._raw_config_key_to_spin_box = {}

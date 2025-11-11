@@ -1095,7 +1095,7 @@ def _apply_kanji_subset_auto_suspend(
     am_config: PrioritySieveConfig,
     plans: dict[int, CardPlan],
 ) -> None:
-    if not am_config.auto_suspend_kanji_subset_variants:
+    if not am_config.auto_suspend_variant_spellings:
         return
 
     reading_groups: dict[str, list[CardPlan]] = defaultdict(list)
@@ -1203,7 +1203,7 @@ def _should_suspend_same_kanji_variant(
     reference_text: str,
     sequence: str,
 ) -> bool:
-    if not am_config.auto_suspend_okurigana_variants:
+    if not am_config.auto_suspend_variant_spellings:
         return False
     if not sequence:
         return False

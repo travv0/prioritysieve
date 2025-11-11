@@ -11,7 +11,6 @@ from anki.consts import (
 )
 
 from prioritysieve.entry import Entry
-from prioritysieve.entry import Entry
 from prioritysieve.entry_db import StoredCard
 from prioritysieve.toolbar_stats import _compute_note_counts
 
@@ -27,7 +26,7 @@ def _config(
         tag_suspended_automatically=auto_tag,
         tag_known_manually=known_manual_tag,
         get_preprocess_ignore_suspended_unless_tag_list=lambda: exceptions or [],
-        auto_suspend_okurigana_variants=okurigana_filter,
+        auto_suspend_variant_spellings=okurigana_filter,
     )
 
 

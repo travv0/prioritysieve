@@ -77,7 +77,7 @@ class EntryToolbarStats:
             cards,
             card_entries=card_entries,
             deduplicate=config.deduplicate_toolbar_counts,
-            filter_okurigana=config.auto_suspend_okurigana_variants
+            filter_okurigana=config.auto_suspend_variant_spellings
             and config.deduplicate_toolbar_counts,
         )
         pending_count = max(tracked_count - reviewed_count, 0)
