@@ -24,7 +24,7 @@ from .. import (
 )
 from ..entry import Entry
 from ..entry_db import EntryDB
-from ..kanji_utils import extract_kanji_sequence, is_kanji_subsequence
+from ..kanji_utils import contains_kana, extract_kanji_sequence, is_kanji_subsequence
 from ..priority_files import load_priority_map
 from ..extra_settings.prioritysieve_extra_settings import PrioritySieveExtraSettings
 from ..prioritysieve_config import PrioritySieveConfig, PrioritySieveConfigFilter
@@ -1217,14 +1217,7 @@ def _should_suspend_same_kanji_variant(
     if candidate_text == reference_text:
         return False
 
-    return _contains_kana(candidate_text) or _contains_kana(reference_text)
-
-
-def _contains_kana(text: str) -> bool:
-    for char in text:
-        if ("ぁ" <= char <= "ゖ") or ("ァ" <= char <= "ヺ"):
-            return True
-    return False
+    return contains_kana(candidate_text) or contains_kana(reference_text)
 
 
 def _record_recent_changes(

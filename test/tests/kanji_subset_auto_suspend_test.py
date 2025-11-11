@@ -265,3 +265,25 @@ def test_okurigana_variant_ignored_for_pure_kana() -> None:
     _apply_kanji_subset_auto_suspend(config, plans)
 
     assert new_plan.desired_queue == QUEUE_TYPE_NEW
+
+
+def test_pure_kanji_variants_not_suspended() -> None:
+    config = _config()
+    review_plan = _plan(
+        text="羽",
+        reading="はね",
+        is_new=False,
+        due=5,
+        queue=QUEUE_TYPE_NEW,
+    )
+    new_plan = _plan(
+        text="羽根",
+        reading="はね",
+        is_new=True,
+        due=10,
+    )
+
+    plans = {review_plan.card_id: review_plan, new_plan.card_id: new_plan}
+    _apply_kanji_subset_auto_suspend(config, plans)
+
+    assert new_plan.desired_queue == QUEUE_TYPE_NEW

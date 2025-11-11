@@ -443,3 +443,40 @@ def test_okurigana_filter_applies_with_dedup() -> None:
 
     assert tracked == 1
     assert reviewed == 1
+
+
+def test_deduplicate_counts_ignore_pure_kanji_same_sequence() -> None:
+    config = _config(okurigana_filter=True)
+    cards = [
+        StoredCard(
+            card_id=1,
+            note_id=11,
+            note_type_id=1,
+            card_type=CARD_TYPE_NEW,
+            tags="",
+            card_queue=QUEUE_TYPE_NEW,
+        ),
+        StoredCard(
+            card_id=2,
+            note_id=22,
+            note_type_id=1,
+            card_type=CARD_TYPE_REV,
+            tags="",
+            card_queue=QUEUE_TYPE_REV,
+        ),
+    ]
+    card_entries = {
+        1: Entry(text="羽", reading="はね", reviewed=False),
+        2: Entry(text="羽根", reading="はね", reviewed=True),
+    }
+
+    tracked, reviewed = _compute_note_counts(
+        config,
+        cards,
+        card_entries=card_entries,
+        deduplicate=True,
+        filter_okurigana=True,
+    )
+
+    assert tracked == 2
+    assert reviewed == 1

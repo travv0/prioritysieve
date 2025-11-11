@@ -7,7 +7,7 @@ from anki.consts import CARD_TYPE_NEW, QUEUE_TYPE_SUSPENDED
 
 from .entry import Entry
 from .entry_db import EntryDB, StoredCard
-from .kanji_utils import extract_kanji_sequence, is_kanji_subsequence
+from .kanji_utils import contains_kana, extract_kanji_sequence, is_kanji_subsequence
 from .prioritysieve_config import PrioritySieveConfig
 from .recalc import recalc_main
 
@@ -231,21 +231,29 @@ def _aggregate_clusters_for_reading(
     kanji cluster.
     """
     non_empty_sequences: dict[str, list[_WordInfo]] = {}
+    sequence_has_kana: dict[str, bool] = {}
     empty_sequences: list[_WordInfo] = []
 
     for info in word_infos:
         if info.kanji_sequence:
             non_empty_sequences.setdefault(info.kanji_sequence, []).append(info)
+            if contains_kana(info.entry_text):
+                sequence_has_kana[info.kanji_sequence] = True
+            else:
+                sequence_has_kana.setdefault(info.kanji_sequence, False)
         else:
             empty_sequences.append(info)
 
     cluster_note_ids: list[list[int]] = []
 
     if non_empty_sequences:
+        sequence_list = list(non_empty_sequences.keys())
+        sequence_flags = [sequence_has_kana.get(seq, False) for seq in sequence_list]
         seq_to_cluster = _cluster_kanji_sequences(
-            list(non_empty_sequences.keys()),
+            sequence_list,
             merge_supersets=merge_supersets,
             merge_same_sequence=merge_same_sequence,
+            sequence_flags=sequence_flags,
         )
         cluster_map: dict[int, list[int]] = {}
         for seq, infos in non_empty_sequences.items():
@@ -307,6 +315,7 @@ def _cluster_kanji_sequences(
     sequences: list[str],
     merge_supersets: bool,
     merge_same_sequence: bool,
+    sequence_flags: list[bool],
 ) -> dict[str, int]:
     """Return a mapping of kanji sequence to a cluster id."""
     if not sequences:
@@ -336,11 +345,12 @@ def _cluster_kanji_sequences(
                 merge_same_sequence
                 and seq_i
                 and seq_i == seq_j
-                and _contains_kana_sequence(seq_i, seq_j)
+                and sequence_flags[i]
             ):
                 should_merge = True
             elif merge_supersets and _has_strict_subsequence_relation(seq_i, seq_j):
-                should_merge = True
+                if sequence_flags[i] or sequence_flags[j]:
+                    should_merge = True
 
             if should_merge:
                 _union(i, j)

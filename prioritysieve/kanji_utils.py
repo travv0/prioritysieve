@@ -38,3 +38,12 @@ def has_kanji_subsequence_relation(left: str, right: str) -> bool:
     """Return True when ``left`` and ``right`` share a subsequence relation."""
 
     return is_kanji_subsequence(left, right) or is_kanji_subsequence(right, left)
+
+
+def contains_kana(text: str) -> bool:
+    """Return True when ``text`` contains at least one kana character."""
+
+    for char in text:
+        if ("ぁ" <= char <= "ゖ") or ("ァ" <= char <= "ヺ"):
+            return True
+    return False
