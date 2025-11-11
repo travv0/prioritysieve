@@ -88,7 +88,7 @@ def compute_entry_tags(
         _remove_tag(am_config.tag_not_ready)
         _insert_tag(am_config.tag_ready)
 
-    return cleaned_tags
+    return sorted(cleaned_tags, key=lambda tag: tag.lower())
 
 
 def apply_entry_tags(
