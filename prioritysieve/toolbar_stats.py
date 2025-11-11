@@ -7,10 +7,7 @@ from anki.consts import CARD_TYPE_NEW, QUEUE_TYPE_SUSPENDED
 
 from .entry import Entry
 from .entry_db import EntryDB, StoredCard
-from .kanji_utils import (
-    extract_kanji_sequence,
-    has_kanji_subsequence_relation,
-)
+from .kanji_utils import extract_kanji_sequence, is_kanji_subsequence
 from .prioritysieve_config import PrioritySieveConfig
 from .recalc import recalc_main
 
@@ -80,6 +77,8 @@ class EntryToolbarStats:
             cards,
             card_entries=card_entries,
             deduplicate=config.deduplicate_toolbar_counts,
+            filter_okurigana=config.auto_suspend_okurigana_variants
+            and config.deduplicate_toolbar_counts,
         )
         pending_count = max(tracked_count - reviewed_count, 0)
 
@@ -125,6 +124,7 @@ def _compute_note_counts(
     cards: TypingIterable[StoredCard],
     card_entries: dict[int, Entry] | None = None,
     deduplicate: bool = False,
+    filter_okurigana: bool = False,
 ) -> tuple[int, int]:
     """Return (tracked_notes, reviewed_notes) counts."""
 
@@ -136,6 +136,7 @@ def _compute_note_counts(
 
     note_states: dict[int, _NoteState] = {}
     note_word_infos: dict[int, _WordInfo] = {}
+    collect_word_infos = deduplicate and card_entries is not None
 
     for card in cards:
         state = note_states.get(card.note_id)
@@ -156,12 +157,8 @@ def _compute_note_counts(
             state.active_any = True
             if card.card_type != CARD_TYPE_NEW:
                 state.active_non_new = True
-        if (
-            deduplicate
-            and card_entries
-            and card.note_id not in note_word_infos
-        ):
-            entry = card_entries.get(card.card_id)
+        if collect_word_infos and card.note_id not in note_word_infos:
+            entry = card_entries.get(card.card_id) if card_entries else None
             if entry is not None:
                 note_word_infos[card.note_id] = _WordInfo(
                     note_id=card.note_id,
@@ -170,20 +167,28 @@ def _compute_note_counts(
                     kanji_sequence=extract_kanji_sequence(entry.text or ""),
                 )
 
-    if not deduplicate or not card_entries or not note_word_infos:
-        tracked_notes = sum(1 for state in note_states.values() if state.active_any)
-        reviewed_notes = sum(1 for state in note_states.values() if state.active_non_new)
+    should_aggregate = collect_word_infos and note_word_infos
+    if should_aggregate:
+        aggregated_states = _aggregate_word_states(
+            note_states=note_states,
+            note_word_infos=note_word_infos,
+            merge_supersets=deduplicate,
+            merge_same_sequence=deduplicate or filter_okurigana,
+        )
+        tracked_notes = sum(1 for state in aggregated_states if state.active_any)
+        reviewed_notes = sum(1 for state in aggregated_states if state.active_non_new)
         return tracked_notes, reviewed_notes
 
-    aggregated_states = _aggregate_word_states(note_states, note_word_infos)
-    tracked_notes = sum(1 for state in aggregated_states if state.active_any)
-    reviewed_notes = sum(1 for state in aggregated_states if state.active_non_new)
+    tracked_notes = sum(1 for state in note_states.values() if state.active_any)
+    reviewed_notes = sum(1 for state in note_states.values() if state.active_non_new)
     return tracked_notes, reviewed_notes
 
 
 def _aggregate_word_states(
     note_states: dict[int, _NoteState],
     note_word_infos: dict[int, _WordInfo],
+    merge_supersets: bool,
+    merge_same_sequence: bool,
 ) -> list[_AggregatedState]:
     """Merge note states that represent the same lexical entry."""
     aggregated: list[_AggregatedState] = []
@@ -197,7 +202,14 @@ def _aggregate_word_states(
         reading_groups.setdefault(info.reading, []).append(info)
 
     for infos in reading_groups.values():
-        aggregated.extend(_aggregate_clusters_for_reading(infos, note_states))
+        aggregated.extend(
+            _aggregate_clusters_for_reading(
+                infos,
+                note_states,
+                merge_supersets=merge_supersets,
+                merge_same_sequence=merge_same_sequence,
+            )
+        )
 
     return aggregated
 
@@ -205,13 +217,18 @@ def _aggregate_word_states(
 def _aggregate_clusters_for_reading(
     word_infos: list[_WordInfo],
     note_states: dict[int, _NoteState],
+    merge_supersets: bool,
+    merge_same_sequence: bool,
 ) -> list[_AggregatedState]:
     """
     Group variants that share a reading.
 
     Kanji sequences that are subsequences of each other (differing only by
-    removed kanji or okurigana) share a cluster. Pure kana spellings only join
-    a cluster when that reading has a single unambiguous kanji cluster.
+    removed kanji or okurigana) share a cluster when ``merge_supersets`` is True.
+    When ``merge_same_sequence`` is True, spellings that use the exact same
+    kanji (but differ in surrounding okurigana) are also collapsed. Pure kana
+    spellings only join a cluster when that reading has a single unambiguous
+    kanji cluster.
     """
     non_empty_sequences: dict[str, list[_WordInfo]] = {}
     empty_sequences: list[_WordInfo] = []
@@ -225,7 +242,11 @@ def _aggregate_clusters_for_reading(
     cluster_note_ids: list[list[int]] = []
 
     if non_empty_sequences:
-        seq_to_cluster = _cluster_kanji_sequences(list(non_empty_sequences.keys()))
+        seq_to_cluster = _cluster_kanji_sequences(
+            list(non_empty_sequences.keys()),
+            merge_supersets=merge_supersets,
+            merge_same_sequence=merge_same_sequence,
+        )
         cluster_map: dict[int, list[int]] = {}
         for seq, infos in non_empty_sequences.items():
             cluster_id = seq_to_cluster[seq]
@@ -282,7 +303,11 @@ def _group_infos_by_text(word_infos: list[_WordInfo]) -> list[list[_WordInfo]]:
     return list(grouped.values())
 
 
-def _cluster_kanji_sequences(sequences: list[str]) -> dict[str, int]:
+def _cluster_kanji_sequences(
+    sequences: list[str],
+    merge_supersets: bool,
+    merge_same_sequence: bool,
+) -> dict[str, int]:
     """Return a mapping of kanji sequence to a cluster id."""
     if not sequences:
         return {}
@@ -304,7 +329,19 @@ def _cluster_kanji_sequences(sequences: list[str]) -> dict[str, int]:
 
     for i in range(len(sequences)):
         for j in range(i + 1, len(sequences)):
-            if has_kanji_subsequence_relation(sequences[i], sequences[j]):
+            seq_i = sequences[i]
+            seq_j = sequences[j]
+            should_merge = False
+            if (
+                merge_same_sequence
+                and seq_i
+                and seq_i == seq_j
+            ):
+                should_merge = True
+            elif merge_supersets and _has_strict_subsequence_relation(seq_i, seq_j):
+                should_merge = True
+
+            if should_merge:
                 _union(i, j)
 
     root_to_cluster: dict[int, int] = {}
@@ -321,3 +358,9 @@ def _cluster_kanji_sequences(sequences: list[str]) -> dict[str, int]:
         seq_to_cluster[seq] = cluster_id
 
     return seq_to_cluster
+
+
+def _has_strict_subsequence_relation(seq_a: str, seq_b: str) -> bool:
+    if seq_a == seq_b:
+        return False
+    return is_kanji_subsequence(seq_a, seq_b) or is_kanji_subsequence(seq_b, seq_a)

@@ -11,6 +11,7 @@ from anki.consts import (
 )
 
 from prioritysieve.entry import Entry
+from prioritysieve.entry import Entry
 from prioritysieve.entry_db import StoredCard
 from prioritysieve.toolbar_stats import _compute_note_counts
 
@@ -20,11 +21,13 @@ def _config(
     auto_tag: str = "ps-auto-suspend",
     known_manual_tag: str = "ps-known-manually",
     exceptions: list[str] | None = None,
+    okurigana_filter: bool = False,
 ) -> SimpleNamespace:
     return SimpleNamespace(
         tag_suspended_automatically=auto_tag,
         tag_known_manually=known_manual_tag,
         get_preprocess_ignore_suspended_unless_tag_list=lambda: exceptions or [],
+        auto_suspend_okurigana_variants=okurigana_filter,
     )
 
 
@@ -370,3 +373,74 @@ def test_deduplicate_counts_keeps_ambiguous_all_kana_separate() -> None:
 
     assert tracked == 3
     assert reviewed == 2
+
+
+def test_okurigana_filter_without_full_dedup() -> None:
+    config = _config(okurigana_filter=True)
+    cards = [
+        StoredCard(
+            card_id=1,
+            note_id=11,
+            note_type_id=1,
+            card_type=CARD_TYPE_NEW,
+            tags="",
+            card_queue=QUEUE_TYPE_NEW,
+        ),
+        StoredCard(
+            card_id=2,
+            note_id=22,
+            note_type_id=1,
+            card_type=CARD_TYPE_REV,
+            tags="",
+            card_queue=QUEUE_TYPE_REV,
+        ),
+    ]
+    card_entries = {}
+
+    tracked, reviewed = _compute_note_counts(
+        config,
+        cards,
+        card_entries=None,
+        deduplicate=False,
+        filter_okurigana=False,
+    )
+
+    assert tracked == 2
+    assert reviewed == 1
+
+
+def test_okurigana_filter_applies_with_dedup() -> None:
+    config = _config(okurigana_filter=True)
+    cards = [
+        StoredCard(
+            card_id=1,
+            note_id=11,
+            note_type_id=1,
+            card_type=CARD_TYPE_NEW,
+            tags="",
+            card_queue=QUEUE_TYPE_NEW,
+        ),
+        StoredCard(
+            card_id=2,
+            note_id=22,
+            note_type_id=1,
+            card_type=CARD_TYPE_REV,
+            tags="",
+            card_queue=QUEUE_TYPE_REV,
+        ),
+    ]
+    card_entries = {
+        1: Entry(text="入口", reading="いりぐち", reviewed=False),
+        2: Entry(text="入り口", reading="いりぐち", reviewed=True),
+    }
+
+    tracked, reviewed = _compute_note_counts(
+        config,
+        cards,
+        card_entries=card_entries,
+        deduplicate=True,
+        filter_okurigana=True,
+    )
+
+    assert tracked == 1
+    assert reviewed == 1
