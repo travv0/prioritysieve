@@ -374,6 +374,78 @@ def test_deduplicate_counts_keeps_ambiguous_all_kana_separate() -> None:
     assert reviewed == 2
 
 
+def test_deduplicate_counts_merge_hiragana_katakana_variants() -> None:
+    config = _config()
+    cards = [
+        StoredCard(
+            card_id=1,
+            note_id=11,
+            note_type_id=1,
+            card_type=CARD_TYPE_REV,
+            tags="",
+            card_queue=QUEUE_TYPE_REV,
+        ),
+        StoredCard(
+            card_id=2,
+            note_id=22,
+            note_type_id=1,
+            card_type=CARD_TYPE_REV,
+            tags="",
+            card_queue=QUEUE_TYPE_REV,
+        ),
+    ]
+    card_entries = {
+        1: Entry(text="げーむ", reading="げーむ", reviewed=False),
+        2: Entry(text="ゲーム", reading="げーむ", reviewed=False),
+    }
+
+    tracked, reviewed = _compute_note_counts(
+        config,
+        cards,
+        card_entries=card_entries,
+        deduplicate=True,
+    )
+
+    assert tracked == 1
+    assert reviewed == 1
+
+
+def test_deduplicate_counts_require_both_kana_scripts() -> None:
+    config = _config()
+    cards = [
+        StoredCard(
+            card_id=1,
+            note_id=11,
+            note_type_id=1,
+            card_type=CARD_TYPE_REV,
+            tags="",
+            card_queue=QUEUE_TYPE_REV,
+        ),
+        StoredCard(
+            card_id=2,
+            note_id=22,
+            note_type_id=1,
+            card_type=CARD_TYPE_REV,
+            tags="",
+            card_queue=QUEUE_TYPE_REV,
+        ),
+    ]
+    card_entries = {
+        1: Entry(text="げーむ", reading="げーむ", reviewed=False),
+        2: Entry(text="げえむ", reading="げーむ", reviewed=False),
+    }
+
+    tracked, reviewed = _compute_note_counts(
+        config,
+        cards,
+        card_entries=card_entries,
+        deduplicate=True,
+    )
+
+    assert tracked == 2
+    assert reviewed == 2
+
+
 def test_okurigana_filter_without_full_dedup() -> None:
     config = _config(okurigana_filter=True)
     cards = [

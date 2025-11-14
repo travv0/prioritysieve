@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Collection
 from dataclasses import dataclass
 from typing import Iterable as TypingIterable
 
@@ -7,8 +8,15 @@ from anki.consts import CARD_TYPE_NEW, QUEUE_TYPE_SUSPENDED
 
 from .entry import Entry
 from .entry_db import EntryDB, StoredCard
-from .kanji_utils import contains_kana, extract_kanji_sequence, is_kanji_subsequence
+from .kanji_utils import (
+    contains_hiragana,
+    contains_kana,
+    contains_katakana,
+    extract_kanji_sequence,
+    is_kanji_subsequence,
+)
 from .prioritysieve_config import PrioritySieveConfig
+from .reading_utils import normalize_reading
 from .recalc import recalc_main
 
 _COUNTER_DEFINITIONS: tuple[tuple[str, str], ...] = (
@@ -17,6 +25,8 @@ _COUNTER_DEFINITIONS: tuple[tuple[str, str], ...] = (
     ("pending", "Pending"),
 )
 _LAST_KNOWN_VALUES: dict[str, int] | None = None
+_HIRAGANA_SCRIPT = "hiragana"
+_KATAKANA_SCRIPT = "katakana"
 
 
 @dataclass(slots=True)
@@ -227,8 +237,8 @@ def _aggregate_clusters_for_reading(
     removed kanji or okurigana) share a cluster when ``merge_supersets`` is True.
     When ``merge_same_sequence`` is True, spellings that use the exact same
     kanji (but differ in surrounding okurigana) are also collapsed. Pure kana
-    spellings only join a cluster when that reading has a single unambiguous
-    kanji cluster.
+    spellings join a cluster when the reading has a single unambiguous
+    kanji spelling or when the same word appears in both hiragana and katakana.
     """
     non_empty_sequences: dict[str, list[_WordInfo]] = {}
     sequence_has_kana: dict[str, bool] = {}
@@ -270,12 +280,12 @@ def _aggregate_clusters_for_reading(
             else:
                 cluster_note_ids.extend(
                     [info.note_id for info in group]
-                    for group in _group_infos_by_text(empty_sequences)
+                    for group in _group_pure_kana_infos(empty_sequences)
                 )
     elif empty_sequences:
         cluster_note_ids.extend(
             [info.note_id for info in group]
-            for group in _group_infos_by_text(empty_sequences)
+            for group in _group_pure_kana_infos(empty_sequences)
         )
 
     aggregated = [
@@ -309,6 +319,60 @@ def _group_infos_by_text(word_infos: list[_WordInfo]) -> list[list[_WordInfo]]:
         key = info.entry_text or ""
         grouped.setdefault(key, []).append(info)
     return list(grouped.values())
+
+
+def _group_pure_kana_infos(word_infos: list[_WordInfo]) -> list[list[_WordInfo]]:
+    grouped_by_text = _group_infos_by_text(word_infos)
+    normalized_groups: dict[str, list[list[_WordInfo]]] = {}
+    script_presence: dict[str, set[str]] = {}
+    order_markers: list[tuple[str, str | list[_WordInfo]]] = []
+
+    for group in grouped_by_text:
+        if not group:
+            continue
+        text = group[0].entry_text or ""
+        stripped = text.strip()
+        normalized = normalize_reading(stripped) if stripped else ""
+        has_hiragana = contains_hiragana(stripped)
+        has_katakana = contains_katakana(stripped)
+        if normalized and (has_hiragana or has_katakana):
+            if normalized not in normalized_groups:
+                normalized_groups[normalized] = []
+            normalized_groups[normalized].append(group)
+            scripts = script_presence.setdefault(normalized, set())
+            if has_hiragana:
+                scripts.add(_HIRAGANA_SCRIPT)
+            if has_katakana:
+                scripts.add(_KATAKANA_SCRIPT)
+            order_markers.append(("normalized", normalized))
+        else:
+            order_markers.append(("group", group))
+
+    merged: list[list[_WordInfo]] = []
+    processed_normals: set[str] = set()
+
+    for marker, value in order_markers:
+        if marker == "group":
+            assert isinstance(value, list)
+            merged.append(value)
+            continue
+        normalized = value
+        if not isinstance(normalized, str):
+            continue
+        if normalized in processed_normals:
+            continue
+        processed_normals.add(normalized)
+        groups = normalized_groups.get(normalized, [])
+        scripts = script_presence.get(normalized, set())
+        if len(groups) >= 2 and _has_both_scripts(scripts):
+            combined: list[_WordInfo] = []
+            for group in groups:
+                combined.extend(group)
+            merged.append(combined)
+        else:
+            merged.extend(groups)
+
+    return merged
 
 
 def _cluster_kanji_sequences(
@@ -369,6 +433,10 @@ def _cluster_kanji_sequences(
         seq_to_cluster[seq] = cluster_id
 
     return seq_to_cluster
+
+
+def _has_both_scripts(scripts: Collection[str]) -> bool:
+    return (_HIRAGANA_SCRIPT in scripts) and (_KATAKANA_SCRIPT in scripts)
 
 
 def _has_strict_subsequence_relation(seq_a: str, seq_b: str) -> bool:
