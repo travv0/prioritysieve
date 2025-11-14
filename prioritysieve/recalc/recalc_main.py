@@ -24,7 +24,13 @@ from .. import (
 )
 from ..entry import Entry
 from ..entry_db import EntryDB
-from ..kanji_utils import contains_kana, extract_kanji_sequence, is_kanji_subsequence
+from ..kanji_utils import (
+    contains_hiragana,
+    contains_kana,
+    contains_katakana,
+    extract_kanji_sequence,
+    is_kanji_subsequence,
+)
 from ..priority_files import load_priority_map
 from ..extra_settings.prioritysieve_extra_settings import PrioritySieveExtraSettings
 from ..prioritysieve_config import PrioritySieveConfig, PrioritySieveConfigFilter
@@ -38,6 +44,7 @@ from ..exceptions import (
     PriorityFileMalformedException,
     PriorityFileNotFoundException,
 )
+from ..reading_utils import normalize_reading
 from . import caching
 from .anki_data_utils import AnkiCardData, create_card_data_dict
 
@@ -73,6 +80,11 @@ class CardPlan:
     desired_tags: list[str]
     extra_reading_field_index: int | None
     desired_reading: str | None
+
+
+PureKanaInfo = tuple[str, frozenset[str]]
+_HIRAGANA_SCRIPT = "hiragana"
+_KATAKANA_SCRIPT = "katakana"
 
 
 def set_followup_sync_callback(callback: Callable[[], None] | None) -> None:
@@ -1100,13 +1112,19 @@ def _apply_kanji_subset_auto_suspend(
 
     reading_groups: dict[str, list[CardPlan]] = defaultdict(list)
     kanji_sequences: dict[int, str] = {}
+    pure_kana_variants: dict[int, PureKanaInfo] = {}
 
     for plan in plans.values():
         reading = (plan.entry_key[1] or "").strip()
         if not reading:
             continue
         text = plan.entry_key[0] or ""
-        kanji_sequences[plan.card_id] = extract_kanji_sequence(text)
+        sequence = extract_kanji_sequence(text)
+        kanji_sequences[plan.card_id] = sequence
+        if not sequence:
+            pure_info = _pure_kana_variant_info(text)
+            if pure_info is not None:
+                pure_kana_variants[plan.card_id] = pure_info
         reading_groups[reading].append(plan)
 
     for group in reading_groups.values():
@@ -1114,6 +1132,7 @@ def _apply_kanji_subset_auto_suspend(
             am_config,
             group,
             kanji_sequences,
+            pure_kana_variants,
         )
 
 
@@ -1121,6 +1140,7 @@ def _apply_kanji_subset_rules_for_group(
     am_config: PrioritySieveConfig,
     group: list[CardPlan],
     kanji_sequences: dict[int, str],
+    pure_kana_variants: dict[int, PureKanaInfo],
 ) -> None:
     non_new_entries = [
         (
@@ -1130,6 +1150,17 @@ def _apply_kanji_subset_rules_for_group(
         for plan in group
         if not plan.is_new_card
     ]
+    non_new_pure_kana: dict[str, set[str]] = {}
+
+    for plan in group:
+        if plan.is_new_card:
+            continue
+        info = pure_kana_variants.get(plan.card_id)
+        if info is None:
+            continue
+        normalized, scripts = info
+        scripts_set = non_new_pure_kana.setdefault(normalized, set())
+        scripts_set.update(scripts)
 
     if non_new_entries:
         for plan in group:
@@ -1137,6 +1168,7 @@ def _apply_kanji_subset_rules_for_group(
                 continue
             sequence = kanji_sequences.get(plan.card_id, "")
             text = plan.entry_key[0] or ""
+            suspended = False
             for candidate_sequence, candidate_text in non_new_entries:
                 if not candidate_sequence:
                     continue
@@ -1155,7 +1187,22 @@ def _apply_kanji_subset_rules_for_group(
                 )
                 if matches_superset or matches_same:
                     _force_suspend_plan(plan, am_config)
+                    suspended = True
                     break
+            if suspended:
+                continue
+
+            pure_info = pure_kana_variants.get(plan.card_id)
+            if pure_info is None:
+                continue
+            normalized, scripts = pure_info
+            existing_scripts = non_new_pure_kana.get(normalized)
+            if not existing_scripts:
+                continue
+            combined_scripts = set(existing_scripts)
+            combined_scripts.update(scripts)
+            if _has_both_scripts(combined_scripts):
+                _force_suspend_plan(plan, am_config)
 
     new_candidates = [plan for plan in group if plan.is_new_card]
     if len(new_candidates) < 2:
@@ -1183,15 +1230,21 @@ def _apply_kanji_subset_rules_for_group(
                 later_sequence != earlier_sequence
                 and is_kanji_subsequence(later_sequence, earlier_sequence)
             )
-            matches_same = (
-                later_sequence == earlier_sequence
-                and _should_suspend_same_kanji_variant(
-                    am_config,
-                    later_text,
-                    earlier_text,
-                    later_sequence,
-                )
-            )
+            matches_same = False
+            if later_sequence == earlier_sequence:
+                if later_sequence:
+                    matches_same = _should_suspend_same_kanji_variant(
+                        am_config,
+                        later_text,
+                        earlier_text,
+                        later_sequence,
+                    )
+                else:
+                    matches_same = _should_suspend_pure_kana_variant(
+                        later.card_id,
+                        earlier.card_id,
+                        pure_kana_variants,
+                    )
             if matches_superset or matches_same:
                 _force_suspend_plan(later, am_config)
                 break
@@ -1218,6 +1271,45 @@ def _should_suspend_same_kanji_variant(
         return False
 
     return contains_kana(candidate_text) or contains_kana(reference_text)
+
+
+def _should_suspend_pure_kana_variant(
+    later_card_id: int,
+    earlier_card_id: int,
+    pure_kana_variants: dict[int, PureKanaInfo],
+) -> bool:
+    later = pure_kana_variants.get(later_card_id)
+    earlier = pure_kana_variants.get(earlier_card_id)
+    if not later or not earlier:
+        return False
+    later_key, later_scripts = later
+    earlier_key, earlier_scripts = earlier
+    if later_key != earlier_key:
+        return False
+    combined_scripts = set(later_scripts)
+    combined_scripts.update(earlier_scripts)
+    return _has_both_scripts(combined_scripts)
+
+
+def _has_both_scripts(scripts: Collection[str]) -> bool:
+    return (_HIRAGANA_SCRIPT in scripts) and (_KATAKANA_SCRIPT in scripts)
+
+
+def _pure_kana_variant_info(text: str) -> PureKanaInfo | None:
+    stripped = (text or "").strip()
+    if not stripped:
+        return None
+    normalized = normalize_reading(stripped)
+    if not normalized:
+        return None
+    scripts: set[str] = set()
+    if contains_hiragana(stripped):
+        scripts.add(_HIRAGANA_SCRIPT)
+    if contains_katakana(stripped):
+        scripts.add(_KATAKANA_SCRIPT)
+    if not scripts:
+        return None
+    return (normalized, frozenset(scripts))
 
 
 def _record_recent_changes(
