@@ -65,7 +65,7 @@ def test_collect_variant_card_ids_merges_hiragana_and_katakana() -> None:
         ]
     }
 
-    card_ids = _collect_variant_card_ids(groups)
+    card_ids = _collect_variant_card_ids(groups, merge_kana_variants=True)
 
     assert card_ids == {1}
 
@@ -78,7 +78,7 @@ def test_collect_variant_card_ids_requires_both_scripts() -> None:
         ]
     }
 
-    card_ids = _collect_variant_card_ids(groups)
+    card_ids = _collect_variant_card_ids(groups, merge_kana_variants=True)
 
     assert card_ids == set()
 
@@ -92,6 +92,19 @@ def test_collect_variant_card_ids_all_kanji_ignored() -> None:
     }
 
     card_ids = _collect_variant_card_ids(groups)
+
+    assert card_ids == set()
+
+
+def test_collect_variant_card_ids_kana_variants_disabled_when_setting_off() -> None:
+    groups = {
+        "げーむ": [
+            _variant(1, "げーむ", "げーむ", due=20),
+            _variant(2, "ゲーム", "げーむ", due=5),
+        ]
+    }
+
+    card_ids = _collect_variant_card_ids(groups, merge_kana_variants=False)
 
     assert card_ids == set()
 

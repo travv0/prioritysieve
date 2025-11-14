@@ -24,3 +24,8 @@ The General tab contains a handful of global behaviour toggles.
   Keeps only the most informative spelling of each entry active. Cards whose kanji are a strict subset of a reviewed
   spelling, or that differ only by okurigana, get suspended (and treated as a single entry in the toolbar counts). Purely
   kana spellings stay active so distinct homophones without kanji aren’t hidden.
+
+* **Treat hiragana & katakana spellings as variants:**  
+  When enabled, words written entirely in kana are also treated as duplicates if the same text appears in both hiragana
+  and katakana. The higher-frequency spelling stays active while the alternate spelling is suspended, and toolbar counts
+  collapse those duplicates alongside the Browser tool.

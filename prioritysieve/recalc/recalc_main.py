@@ -1110,6 +1110,7 @@ def _apply_kanji_subset_auto_suspend(
     if not am_config.auto_suspend_variant_spellings:
         return
 
+    merge_kana_variants = getattr(am_config, "merge_kana_variant_spellings", False)
     reading_groups: dict[str, list[CardPlan]] = defaultdict(list)
     kanji_sequences: dict[int, str] = {}
     pure_kana_variants: dict[int, PureKanaInfo] = {}
@@ -1121,7 +1122,7 @@ def _apply_kanji_subset_auto_suspend(
         text = plan.entry_key[0] or ""
         sequence = extract_kanji_sequence(text)
         kanji_sequences[plan.card_id] = sequence
-        if not sequence:
+        if merge_kana_variants and not sequence:
             pure_info = _pure_kana_variant_info(text)
             if pure_info is not None:
                 pure_kana_variants[plan.card_id] = pure_info
@@ -1133,6 +1134,7 @@ def _apply_kanji_subset_auto_suspend(
             group,
             kanji_sequences,
             pure_kana_variants,
+            merge_kana_variants,
         )
 
 
@@ -1141,6 +1143,7 @@ def _apply_kanji_subset_rules_for_group(
     group: list[CardPlan],
     kanji_sequences: dict[int, str],
     pure_kana_variants: dict[int, PureKanaInfo],
+    merge_kana_variants: bool,
 ) -> None:
     non_new_entries = [
         (
@@ -1152,15 +1155,16 @@ def _apply_kanji_subset_rules_for_group(
     ]
     non_new_pure_kana: dict[str, set[str]] = {}
 
-    for plan in group:
-        if plan.is_new_card:
-            continue
-        info = pure_kana_variants.get(plan.card_id)
-        if info is None:
-            continue
-        normalized, scripts = info
-        scripts_set = non_new_pure_kana.setdefault(normalized, set())
-        scripts_set.update(scripts)
+    if merge_kana_variants:
+        for plan in group:
+            if plan.is_new_card:
+                continue
+            info = pure_kana_variants.get(plan.card_id)
+            if info is None:
+                continue
+            normalized, scripts = info
+            scripts_set = non_new_pure_kana.setdefault(normalized, set())
+            scripts_set.update(scripts)
 
     if non_new_entries:
         for plan in group:
@@ -1189,7 +1193,7 @@ def _apply_kanji_subset_rules_for_group(
                     _force_suspend_plan(plan, am_config)
                     suspended = True
                     break
-            if suspended:
+            if suspended or not merge_kana_variants:
                 continue
 
             pure_info = pure_kana_variants.get(plan.card_id)
@@ -1240,11 +1244,13 @@ def _apply_kanji_subset_rules_for_group(
                         later_sequence,
                     )
                 else:
-                    matches_same = _should_suspend_pure_kana_variant(
-                        later.card_id,
-                        earlier.card_id,
-                        pure_kana_variants,
-                    )
+                    matches_same = False
+                    if merge_kana_variants:
+                        matches_same = _should_suspend_pure_kana_variant(
+                            later.card_id,
+                            earlier.card_id,
+                            pure_kana_variants,
+                        )
             if matches_superset or matches_same:
                 _force_suspend_plan(later, am_config)
                 break

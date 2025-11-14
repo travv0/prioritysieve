@@ -939,7 +939,11 @@ def find_variant_entry_cards() -> None:
         )
         reading_groups.setdefault(reading, []).append(variant)
 
-    variant_card_ids = _collect_variant_card_ids(reading_groups)
+    merge_kana_variants = am_config.merge_kana_variant_spellings
+    variant_card_ids = _collect_variant_card_ids(
+        reading_groups,
+        merge_kana_variants=merge_kana_variants,
+    )
     if not variant_card_ids:
         tooltip("No variant spellings found among non-new cards.")
         return
@@ -963,6 +967,8 @@ def find_variant_entry_cards() -> None:
 
 def _collect_variant_card_ids(
     reading_groups: dict[str, list[_VariantCard]],
+    *,
+    merge_kana_variants: bool = False,
 ) -> set[int]:
     variant_card_ids: set[int] = set()
 
@@ -1007,7 +1013,8 @@ def _collect_variant_card_ids(
         for idx in non_empty_indices:
             root = _find(idx)
             components.setdefault(root, []).append(idx)
-            assigned_indices.add(idx)
+            if merge_kana_variants:
+                assigned_indices.add(idx)
 
         for idx in empty_indices:
             candidate_idx = _select_best_matching_variant(idx, variants, non_empty_indices)
@@ -1015,43 +1022,47 @@ def _collect_variant_card_ids(
                 continue
             root = _find(candidate_idx)
             components.setdefault(root, []).append(idx)
-            assigned_indices.add(idx)
+            if merge_kana_variants:
+                assigned_indices.add(idx)
 
         pure_kana_components: list[list[int]] = []
-        remaining_empty_indices = [idx for idx in empty_indices if idx not in assigned_indices]
-        if remaining_empty_indices:
-            normalized_groups: dict[str, list[int]] = {}
-            script_presence: dict[str, set[str]] = {}
+        if merge_kana_variants:
+            remaining_empty_indices = [
+                idx for idx in empty_indices if idx not in assigned_indices
+            ]
+            if remaining_empty_indices:
+                normalized_groups: dict[str, list[int]] = {}
+                script_presence: dict[str, set[str]] = {}
 
-            for idx in remaining_empty_indices:
-                variant = variants[idx]
-                text = (variant.text or "").strip()
-                if not text:
-                    continue
+                for idx in remaining_empty_indices:
+                    variant = variants[idx]
+                    text = (variant.text or "").strip()
+                    if not text:
+                        continue
 
-                normalized_text = normalize_reading(text)
-                if not normalized_text:
-                    continue
+                    normalized_text = normalize_reading(text)
+                    if not normalized_text:
+                        continue
 
-                has_hiragana = contains_hiragana(text)
-                has_katakana = contains_katakana(text)
-                if not (has_hiragana or has_katakana):
-                    continue
+                    has_hiragana = contains_hiragana(text)
+                    has_katakana = contains_katakana(text)
+                    if not (has_hiragana or has_katakana):
+                        continue
 
-                normalized_groups.setdefault(normalized_text, []).append(idx)
-                scripts = script_presence.setdefault(normalized_text, set())
-                if has_hiragana:
-                    scripts.add("hiragana")
-                if has_katakana:
-                    scripts.add("katakana")
+                    normalized_groups.setdefault(normalized_text, []).append(idx)
+                    scripts = script_presence.setdefault(normalized_text, set())
+                    if has_hiragana:
+                        scripts.add("hiragana")
+                    if has_katakana:
+                        scripts.add("katakana")
 
-            for normalized_text, indices in normalized_groups.items():
-                if len(indices) < 2:
-                    continue
-                scripts = script_presence.get(normalized_text)
-                if not scripts or "hiragana" not in scripts or "katakana" not in scripts:
-                    continue
-                pure_kana_components.append(indices)
+                for normalized_text, indices in normalized_groups.items():
+                    if len(indices) < 2:
+                        continue
+                    scripts = script_presence.get(normalized_text)
+                    if not scripts or "hiragana" not in scripts or "katakana" not in scripts:
+                        continue
+                    pure_kana_components.append(indices)
 
         all_components = list(components.values()) + pure_kana_components
 

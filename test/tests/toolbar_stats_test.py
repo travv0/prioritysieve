@@ -21,12 +21,14 @@ def _config(
     known_manual_tag: str = "ps-known-manually",
     exceptions: list[str] | None = None,
     okurigana_filter: bool = False,
+    kana_variants: bool = False,
 ) -> SimpleNamespace:
     return SimpleNamespace(
         tag_suspended_automatically=auto_tag,
         tag_known_manually=known_manual_tag,
         get_preprocess_ignore_suspended_unless_tag_list=lambda: exceptions or [],
         auto_suspend_variant_spellings=okurigana_filter,
+        merge_kana_variant_spellings=kana_variants,
     )
 
 
@@ -375,7 +377,7 @@ def test_deduplicate_counts_keeps_ambiguous_all_kana_separate() -> None:
 
 
 def test_deduplicate_counts_merge_hiragana_katakana_variants() -> None:
-    config = _config()
+    config = _config(kana_variants=True)
     cards = [
         StoredCard(
             card_id=1,
@@ -410,8 +412,44 @@ def test_deduplicate_counts_merge_hiragana_katakana_variants() -> None:
     assert reviewed == 1
 
 
-def test_deduplicate_counts_require_both_kana_scripts() -> None:
+def test_deduplicate_counts_kana_variants_respect_setting() -> None:
     config = _config()
+    cards = [
+        StoredCard(
+            card_id=1,
+            note_id=11,
+            note_type_id=1,
+            card_type=CARD_TYPE_REV,
+            tags="",
+            card_queue=QUEUE_TYPE_REV,
+        ),
+        StoredCard(
+            card_id=2,
+            note_id=22,
+            note_type_id=1,
+            card_type=CARD_TYPE_REV,
+            tags="",
+            card_queue=QUEUE_TYPE_REV,
+        ),
+    ]
+    card_entries = {
+        1: Entry(text="げーむ", reading="げーむ", reviewed=False),
+        2: Entry(text="ゲーム", reading="げーむ", reviewed=False),
+    }
+
+    tracked, reviewed = _compute_note_counts(
+        config,
+        cards,
+        card_entries=card_entries,
+        deduplicate=True,
+    )
+
+    assert tracked == 2
+    assert reviewed == 2
+
+
+def test_deduplicate_counts_require_both_kana_scripts() -> None:
+    config = _config(kana_variants=True)
     cards = [
         StoredCard(
             card_id=1,

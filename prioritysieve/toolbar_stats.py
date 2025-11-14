@@ -177,6 +177,11 @@ def _compute_note_counts(
                     kanji_sequence=extract_kanji_sequence(entry.text or ""),
                 )
 
+    merge_kana_variants = (
+        getattr(config, "merge_kana_variant_spellings", False)
+        if (collect_word_infos and note_word_infos)
+        else False
+    )
     should_aggregate = collect_word_infos and note_word_infos
     if should_aggregate:
         aggregated_states = _aggregate_word_states(
@@ -184,6 +189,7 @@ def _compute_note_counts(
             note_word_infos=note_word_infos,
             merge_supersets=deduplicate,
             merge_same_sequence=deduplicate or filter_okurigana,
+            merge_kana_variants=merge_kana_variants,
         )
         tracked_notes = sum(1 for state in aggregated_states if state.active_any)
         reviewed_notes = sum(1 for state in aggregated_states if state.active_non_new)
@@ -199,6 +205,7 @@ def _aggregate_word_states(
     note_word_infos: dict[int, _WordInfo],
     merge_supersets: bool,
     merge_same_sequence: bool,
+    merge_kana_variants: bool,
 ) -> list[_AggregatedState]:
     """Merge note states that represent the same lexical entry."""
     aggregated: list[_AggregatedState] = []
@@ -218,6 +225,7 @@ def _aggregate_word_states(
                 note_states,
                 merge_supersets=merge_supersets,
                 merge_same_sequence=merge_same_sequence,
+                merge_kana_variants=merge_kana_variants,
             )
         )
 
@@ -229,6 +237,7 @@ def _aggregate_clusters_for_reading(
     note_states: dict[int, _NoteState],
     merge_supersets: bool,
     merge_same_sequence: bool,
+    merge_kana_variants: bool,
 ) -> list[_AggregatedState]:
     """
     Group variants that share a reading.
@@ -256,6 +265,8 @@ def _aggregate_clusters_for_reading(
 
     cluster_note_ids: list[list[int]] = []
 
+    grouping_fn = _group_pure_kana_infos if merge_kana_variants else _group_infos_by_text
+
     if non_empty_sequences:
         sequence_list = list(non_empty_sequences.keys())
         sequence_flags = [sequence_has_kana.get(seq, False) for seq in sequence_list]
@@ -280,12 +291,12 @@ def _aggregate_clusters_for_reading(
             else:
                 cluster_note_ids.extend(
                     [info.note_id for info in group]
-                    for group in _group_pure_kana_infos(empty_sequences)
+                    for group in grouping_fn(empty_sequences)
                 )
     elif empty_sequences:
         cluster_note_ids.extend(
             [info.note_id for info in group]
-            for group in _group_pure_kana_infos(empty_sequences)
+            for group in grouping_fn(empty_sequences)
         )
 
     aggregated = [

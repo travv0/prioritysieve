@@ -13,9 +13,11 @@ _NOTE_SEQUENCE = 0
 
 def _config(
     enabled: bool = True,
+    kana_variants: bool = False,
 ) -> SimpleNamespace:
     return SimpleNamespace(
         auto_suspend_variant_spellings=enabled,
+        merge_kana_variant_spellings=kana_variants,
         tag_ready="ps-ready",
         tag_not_ready="ps-not-ready",
         tag_suspended_automatically="ps-auto-suspend",
@@ -268,7 +270,7 @@ def test_okurigana_variant_ignored_for_pure_kana() -> None:
 
 
 def test_kana_variant_non_new_suspends_new() -> None:
-    config = _config()
+    config = _config(kana_variants=True)
     review_plan = _plan(
         text="ゲーム",
         reading="げーむ",
@@ -290,8 +292,31 @@ def test_kana_variant_non_new_suspends_new() -> None:
     assert new_plan.desired_due == DEFAULT_REVIEW_DUE
 
 
+def test_kana_variant_non_new_requires_setting() -> None:
+    config = _config(kana_variants=False)
+    review_plan = _plan(
+        text="ゲーム",
+        reading="げーむ",
+        is_new=False,
+        due=5,
+        queue=QUEUE_TYPE_NEW,
+    )
+    new_plan = _plan(
+        text="げーむ",
+        reading="げーむ",
+        is_new=True,
+        due=10,
+    )
+
+    plans = {review_plan.card_id: review_plan, new_plan.card_id: new_plan}
+    _apply_kanji_subset_auto_suspend(config, plans)
+
+    assert new_plan.desired_queue == QUEUE_TYPE_NEW
+    assert new_plan.desired_due == 10
+
+
 def test_kana_variant_due_prefers_earlier_new_card() -> None:
-    config = _config()
+    config = _config(kana_variants=True)
     early_plan = _plan(
         text="ゲーム",
         reading="げーむ",
@@ -313,7 +338,7 @@ def test_kana_variant_due_prefers_earlier_new_card() -> None:
 
 
 def test_kana_variant_same_script_not_suspended() -> None:
-    config = _config()
+    config = _config(kana_variants=True)
     early_plan = _plan(
         text="げーむ",
         reading="げーむ",
