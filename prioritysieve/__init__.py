@@ -58,7 +58,13 @@ from . import (
     toolbar_stats,
 )
 from .entry_db import EntryDB
-from .kanji_utils import contains_kana, extract_kanji_sequence, is_kanji_subsequence
+from .kanji_utils import (
+    contains_hiragana,
+    contains_kana,
+    contains_katakana,
+    extract_kanji_sequence,
+    is_kanji_subsequence,
+)
 from .prioritysieve_config import PrioritySieveConfig, PrioritySieveConfigFilter
 from .extra_settings import prioritysieve_extra_settings, extra_settings_keys
 from .extra_settings.prioritysieve_extra_settings import PrioritySieveExtraSettings
@@ -996,10 +1002,12 @@ def _collect_variant_card_ids(
                     _union(i, j)
 
         components: dict[int, list[int]] = {}
+        assigned_indices: set[int] = set()
 
         for idx in non_empty_indices:
             root = _find(idx)
             components.setdefault(root, []).append(idx)
+            assigned_indices.add(idx)
 
         for idx in empty_indices:
             candidate_idx = _select_best_matching_variant(idx, variants, non_empty_indices)
@@ -1007,8 +1015,47 @@ def _collect_variant_card_ids(
                 continue
             root = _find(candidate_idx)
             components.setdefault(root, []).append(idx)
+            assigned_indices.add(idx)
 
-        for indices in components.values():
+        pure_kana_components: list[list[int]] = []
+        remaining_empty_indices = [idx for idx in empty_indices if idx not in assigned_indices]
+        if remaining_empty_indices:
+            normalized_groups: dict[str, list[int]] = {}
+            script_presence: dict[str, set[str]] = {}
+
+            for idx in remaining_empty_indices:
+                variant = variants[idx]
+                text = (variant.text or "").strip()
+                if not text:
+                    continue
+
+                normalized_text = normalize_reading(text)
+                if not normalized_text:
+                    continue
+
+                has_hiragana = contains_hiragana(text)
+                has_katakana = contains_katakana(text)
+                if not (has_hiragana or has_katakana):
+                    continue
+
+                normalized_groups.setdefault(normalized_text, []).append(idx)
+                scripts = script_presence.setdefault(normalized_text, set())
+                if has_hiragana:
+                    scripts.add("hiragana")
+                if has_katakana:
+                    scripts.add("katakana")
+
+            for normalized_text, indices in normalized_groups.items():
+                if len(indices) < 2:
+                    continue
+                scripts = script_presence.get(normalized_text)
+                if not scripts or "hiragana" not in scripts or "katakana" not in scripts:
+                    continue
+                pure_kana_components.append(indices)
+
+        all_components = list(components.values()) + pure_kana_components
+
+        for indices in all_components:
             if len(indices) < 2:
                 continue
             component_variants = [variants[idx] for idx in indices]

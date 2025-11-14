@@ -57,6 +57,32 @@ def test_collect_variant_card_ids_pure_kana_skipped() -> None:
     assert card_ids == {1}
 
 
+def test_collect_variant_card_ids_merges_hiragana_and_katakana() -> None:
+    groups = {
+        "げーむ": [
+            _variant(1, "げーむ", "げーむ", due=20),
+            _variant(2, "ゲーム", "げーむ", due=5),
+        ]
+    }
+
+    card_ids = _collect_variant_card_ids(groups)
+
+    assert card_ids == {1}
+
+
+def test_collect_variant_card_ids_requires_both_scripts() -> None:
+    groups = {
+        "ねこ": [
+            _variant(1, "ねこ", "ねこ", due=10),
+            _variant(2, "ねこ", "ねこ", due=5),
+        ]
+    }
+
+    card_ids = _collect_variant_card_ids(groups)
+
+    assert card_ids == set()
+
+
 def test_collect_variant_card_ids_all_kanji_ignored() -> None:
     groups = {
         "はね": [

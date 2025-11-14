@@ -40,10 +40,19 @@ def has_kanji_subsequence_relation(left: str, right: str) -> bool:
     return is_kanji_subsequence(left, right) or is_kanji_subsequence(right, left)
 
 
+def contains_hiragana(text: str) -> bool:
+    """Return True when ``text`` contains any hiragana characters."""
+
+    return any("ぁ" <= char <= "ゖ" for char in text)
+
+
+def contains_katakana(text: str) -> bool:
+    """Return True when ``text`` contains any katakana characters."""
+
+    return any(("ァ" <= char <= "ヺ") or ("\uff66" <= char <= "\uff9f") for char in text)
+
+
 def contains_kana(text: str) -> bool:
     """Return True when ``text`` contains at least one kana character."""
 
-    for char in text:
-        if ("ぁ" <= char <= "ゖ") or ("ァ" <= char <= "ヺ"):
-            return True
-    return False
+    return contains_hiragana(text) or contains_katakana(text)
