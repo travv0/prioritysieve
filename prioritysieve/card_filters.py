@@ -211,6 +211,11 @@ def _would_be_variant_suspended(
             ):
                 return True
         return False
+    # Pure or all-kana candidate: if there is any anchor with kanji (a non-empty sequence),
+    # treat it as a variant of that canonical form.
+    for anchor_text, anchor_sequence, _ in anchors:
+        if anchor_sequence:
+            return True
 
     candidate_info = _pure_kana_variant_info(text)
     if candidate_info is None:
