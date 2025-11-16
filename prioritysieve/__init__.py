@@ -1356,6 +1356,7 @@ def show_suspended_only_entry_cards() -> None:
         return
 
     card_status_lookup = _load_card_status_lookup(all_card_ids)
+    card_status_with_type = _load_card_status_lookup_with_type(all_card_ids)
 
     priority_map = load_priority_map(normalized_selections)
 
@@ -1383,6 +1384,15 @@ def show_suspended_only_entry_cards() -> None:
         for key, ids in suspended_cards_by_entry.items()
         if _is_priority_entry(key)
     }
+
+    suspended_cards_by_entry = card_filters.filter_variant_shadowed_entries(
+        suspended_cards_by_entry=suspended_cards_by_entry,
+        entry_card_map=entry_card_map,
+        card_status_lookup=card_status_with_type,
+        exception_tags=suspended_exception_tags,
+        merge_kana_variants=am_config.merge_kana_variant_spellings,
+        auto_suspend_variants=am_config.auto_suspend_variant_spellings,
+    )
 
     if not suspended_cards_by_entry:
         tooltip("No manually suspended entries found in the configured priority lists.")
@@ -1445,6 +1455,48 @@ def _load_card_status_lookup(card_ids: Iterable[int]) -> dict[int, tuple[int, st
         for card_id, queue, note_tags in rows:
             text = note_tags if isinstance(note_tags, str) else ""
             lookup[int(card_id)] = (int(queue), text)
+    return lookup
+
+
+def _load_card_status_lookup_with_type(
+    card_ids: Iterable[int],
+) -> dict[int, tuple[int, str, int]]:
+    assert mw is not None
+    assert mw.col is not None
+    assert mw.col.db is not None
+
+    unique_ids: list[int] = []
+    seen: set[int] = set()
+    for card_id in card_ids:
+        normalized = int(card_id)
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        unique_ids.append(normalized)
+
+    if not unique_ids:
+        return {}
+
+    lookup: dict[int, tuple[int, str, int]] = {}
+    chunk_size = 900
+    for start in range(0, len(unique_ids), chunk_size):
+        chunk = unique_ids[start : start + chunk_size]
+        placeholders = ",".join("?" for _ in chunk)
+        if not placeholders:
+            continue
+        chunk_args = [int(card_id) for card_id in chunk]
+        rows = mw.col.db.all(
+            f"""
+            SELECT cards.id, cards.queue, cards.type, notes.tags
+            FROM cards
+            JOIN notes ON notes.id = cards.nid
+            WHERE cards.id IN ({placeholders})
+            """,
+            *chunk_args,
+        )
+        for card_id, queue, card_type, note_tags in rows:
+            text = note_tags if isinstance(note_tags, str) else ""
+            lookup[int(card_id)] = (int(queue), text, int(card_type))
     return lookup
 
 
