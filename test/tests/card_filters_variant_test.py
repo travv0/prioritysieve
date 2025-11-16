@@ -70,3 +70,26 @@ def test_filter_variant_shadowed_entries_merges_kana_scripts() -> None:
     )
 
     assert filtered == {}
+
+
+def test_filter_variant_shadowed_entries_drops_suspended_review_variant() -> None:
+    entry_card_map = {
+        ("入口", "いりぐち"): [1],
+        ("口", "いりぐち"): [2],
+    }
+    suspended_cards_by_entry = {("口", "いりぐち"): [2]}
+    card_status_lookup = {
+        1: (0, "", CARD_TYPE_REV),  # active review card
+        2: (QUEUE_TYPE_SUSPENDED, "", CARD_TYPE_REV),  # suspended review card
+    }
+
+    filtered = card_filters.filter_variant_shadowed_entries(
+        suspended_cards_by_entry=suspended_cards_by_entry,
+        entry_card_map=entry_card_map,
+        card_status_lookup=card_status_lookup,
+        exception_tags=set(),
+        merge_kana_variants=True,
+        auto_suspend_variants=True,
+    )
+
+    assert filtered == {}

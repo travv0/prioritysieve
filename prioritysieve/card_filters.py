@@ -194,14 +194,6 @@ def _would_be_variant_suspended(
     if not anchors:
         return False
 
-    # Only new cards are auto-suspended as variants
-    has_new_card = any(
-        (card_status_lookup.get(card_id) or (None, None, None))[2] == CARD_TYPE_NEW
-        for card_id in card_ids
-    )
-    if not has_new_card:
-        return False
-
     sequence = extract_kanji_sequence(text or "")
     if sequence:
         for anchor_text, anchor_sequence, _ in anchors:
@@ -213,11 +205,10 @@ def _would_be_variant_suspended(
                 return True
         return False
 
-    if not merge_kana_variants:
-        return False
-
     candidate_info = _pure_kana_variant_info(text)
     if candidate_info is None:
+        return False
+    if not merge_kana_variants:
         return False
 
     candidate_key, candidate_scripts = candidate_info
