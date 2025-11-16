@@ -13,6 +13,7 @@ from .kanji_utils import (
     is_kanji_subsequence,
 )
 from .reading_utils import normalize_reading
+from .recalc import recalc_main
 
 
 def _normalize_tags(tags_text: str | None) -> set[str]:
@@ -184,6 +185,7 @@ def _would_be_variant_suspended(
     card_status_lookup: Mapping[int, tuple[int, str | None, int]],
     active_by_reading: Mapping[str, list[tuple[str, str, tuple[str, frozenset[str]] | None]]],
     merge_kana_variants: bool,
+    am_config,
 ) -> bool:
     text, reading = entry_key
     normalized_reading = normalize_reading(reading or "")
@@ -201,7 +203,12 @@ def _would_be_variant_suspended(
                 continue
             if sequence != anchor_sequence and is_kanji_subsequence(sequence, anchor_sequence):
                 return True
-            if sequence == anchor_sequence and (contains_kana(text) or contains_kana(anchor_text)):
+            if sequence == anchor_sequence and recalc_main._should_suspend_same_kanji_variant(
+                am_config,
+                text,
+                anchor_text,
+                sequence,
+            ):
                 return True
         return False
 
@@ -232,6 +239,7 @@ def filter_variant_shadowed_entries(
     exception_tags: Collection[str],
     merge_kana_variants: bool,
     auto_suspend_variants: bool,
+    am_config,
 ) -> dict[tuple[str, str], list[int]]:
     """
     Drop entries whose suspended cards would be auto-suspended as variant spellings.
@@ -251,6 +259,7 @@ def filter_variant_shadowed_entries(
             card_status_lookup,
             active_by_reading,
             merge_kana_variants,
+            am_config,
         ):
             filtered[entry_key] = card_ids
     return filtered

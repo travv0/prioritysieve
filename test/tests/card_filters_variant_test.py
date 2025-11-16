@@ -21,6 +21,7 @@ def test_filter_variant_shadowed_entries_removes_kanji_subset() -> None:
         exception_tags=set(),
         merge_kana_variants=True,
         auto_suspend_variants=True,
+        am_config=None,
     )
 
     assert filtered == {}
@@ -44,6 +45,7 @@ def test_filter_variant_shadowed_entries_respects_flag() -> None:
         exception_tags=set(),
         merge_kana_variants=True,
         auto_suspend_variants=False,
+        am_config=None,
     )
 
     assert filtered == suspended_cards_by_entry
@@ -67,20 +69,21 @@ def test_filter_variant_shadowed_entries_merges_kana_scripts() -> None:
         exception_tags=set(),
         merge_kana_variants=True,
         auto_suspend_variants=True,
+        am_config=None,
     )
 
     assert filtered == {}
 
 
-def test_filter_variant_shadowed_entries_drops_suspended_review_variant() -> None:
+def test_filter_variant_shadowed_entries_respects_kana_setting_disabled() -> None:
     entry_card_map = {
-        ("入口", "いりぐち"): [1],
-        ("口", "いりぐち"): [2],
+        ("カタカナ", "かたかな"): [1],
+        ("かたかな", "かたかな"): [2],
     }
-    suspended_cards_by_entry = {("口", "いりぐち"): [2]}
+    suspended_cards_by_entry = {("かたかな", "かたかな"): [2]}
     card_status_lookup = {
-        1: (0, "", CARD_TYPE_REV),  # active review card
-        2: (QUEUE_TYPE_SUSPENDED, "", CARD_TYPE_REV),  # suspended review card
+        1: (0, "", CARD_TYPE_REV),
+        2: (QUEUE_TYPE_SUSPENDED, "", CARD_TYPE_NEW),
     }
 
     filtered = card_filters.filter_variant_shadowed_entries(
@@ -88,8 +91,9 @@ def test_filter_variant_shadowed_entries_drops_suspended_review_variant() -> Non
         entry_card_map=entry_card_map,
         card_status_lookup=card_status_lookup,
         exception_tags=set(),
-        merge_kana_variants=True,
+        merge_kana_variants=False,
         auto_suspend_variants=True,
+        am_config=None,
     )
 
-    assert filtered == {}
+    assert filtered == suspended_cards_by_entry

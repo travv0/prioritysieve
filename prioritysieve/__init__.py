@@ -1392,6 +1392,7 @@ def show_suspended_only_entry_cards() -> None:
         exception_tags=suspended_exception_tags,
         merge_kana_variants=am_config.merge_kana_variant_spellings,
         auto_suspend_variants=am_config.auto_suspend_variant_spellings,
+        am_config=am_config,
     )
 
     if not suspended_cards_by_entry:
