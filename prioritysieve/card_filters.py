@@ -152,19 +152,19 @@ def _pure_kana_variant_info(text: str) -> tuple[str, frozenset[str]] | None:
     return (normalized, frozenset(scripts))
 
 
-def _active_non_new_by_reading(
+def _active_entries_by_reading(
     entry_card_map: Mapping[tuple[str, str], Iterable[int]],
     card_status_lookup: Mapping[int, tuple[int, str | None, int]],
     exception_tags: Collection[str],
 ) -> dict[str, list[tuple[str, str, tuple[str, frozenset[str]] | None]]]:
     """
-    Return mapping of normalized reading to tuples of (text, sequence, pure_kana_info).
-    Only cards treated as unsuspended and not new are included.
+    Return mapping of reading to tuples of (text, sequence, pure_kana_info).
+    Only cards treated as unsuspended are included (new or review).
     """
     active: dict[str, list[tuple[str, str, tuple[str, frozenset[str]] | None]]] = defaultdict(list)
     for (text, reading), card_ids in entry_card_map.items():
-        normalized_reading = normalize_reading(reading or "")
-        if not normalized_reading:
+        reading_key = (reading or "").strip()
+        if not reading_key:
             continue
         sequence = extract_kanji_sequence(text or "")
         pure_info = _pure_kana_variant_info(text)
@@ -172,9 +172,9 @@ def _active_non_new_by_reading(
             status = card_status_lookup.get(card_id)
             if status is None:
                 continue
-            queue, tags_text, card_type = status
-            if counts_as_unsuspended(queue, tags_text, exception_tags) and card_type != CARD_TYPE_NEW:
-                active[normalized_reading].append((text or "", sequence, pure_info))
+            queue, tags_text, _card_type = status
+            if counts_as_unsuspended(queue, tags_text, exception_tags):
+                active[reading_key].append((text or "", sequence, pure_info))
                 break
     return active
 
@@ -188,11 +188,11 @@ def _would_be_variant_suspended(
     am_config,
 ) -> bool:
     text, reading = entry_key
-    normalized_reading = normalize_reading(reading or "")
-    if not normalized_reading:
+    reading_key = (reading or "").strip()
+    if not reading_key:
         return False
 
-    anchors = active_by_reading.get(normalized_reading)
+    anchors = active_by_reading.get(reading_key)
     if not anchors:
         return False
 
@@ -247,7 +247,7 @@ def filter_variant_shadowed_entries(
     if not auto_suspend_variants:
         return dict(suspended_cards_by_entry)
 
-    active_by_reading = _active_non_new_by_reading(
+    active_by_reading = _active_entries_by_reading(
         entry_card_map, card_status_lookup, exception_tags
     )
 
