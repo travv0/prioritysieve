@@ -91,6 +91,13 @@ def test_kana_vs_kanji_variant_suppressed() -> None:
     assert filtered == {}
 
 
+def test_kanji_not_hidden_by_active_kana() -> None:
+    entry_card_map = {("うれしい", "うれしい"): [1], ("嬉しい", "うれしい"): [2]}
+    suspended = {("嬉しい", "うれしい"): [2]}
+    filtered = _filter(entry_card_map, suspended, merge_kana_variants=True, auto_suspend=True)
+    assert filtered == suspended
+
+
 def test_kana_same_script_not_suspended() -> None:
     entry_card_map = {("げーむ", "げーむ"): [1], ("げーむ", "げーむ"): [2]}
     suspended = {("げーむ", "げーむ"): [2]}
