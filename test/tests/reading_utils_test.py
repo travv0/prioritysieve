@@ -1,4 +1,5 @@
 from prioritysieve.reading_utils import (
+    canonicalize_long_vowels,
     expand_long_vowel_variants,
     normalize_reading,
     parse_furigana_field,
@@ -88,3 +89,9 @@ def test_expand_long_vowel_variants_handles_o_sound() -> None:
     assert "こー" in variants
     assert "こう" in variants
     assert "こお" in variants
+
+
+def test_canonicalize_long_vowels_returns_stable_variant() -> None:
+    assert canonicalize_long_vowels("ぎょーざ") in {"ぎょーざ", "ぎょうざ", "ぎょおざ"}
+    assert canonicalize_long_vowels("ぎょうざ") == "ぎょうざ"
+    assert canonicalize_long_vowels("") == ""

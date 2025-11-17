@@ -7,7 +7,7 @@ from typing import Iterable
 from aqt import mw
 
 from . import prioritysieve_globals
-from .reading_utils import normalize_reading
+from .reading_utils import expand_long_vowel_variants, normalize_reading
 
 DEFAULT_PRIORITY_DIR = "prioritysieve-priority-files"
 KNOWN_ENTRIES_DIR = "prioritysieve-known-entries"
@@ -45,9 +45,12 @@ def load_priority_map(priority_files: Iterable[str]) -> dict[tuple[str, str], in
         if not path.is_file():
             continue
         for key, value in _read_priority_file(path):
-            existing = merged.get(key)
-            if existing is None or value < existing:
-                merged[key] = value
+            text, reading = key
+            for variant in expand_long_vowel_variants(reading):
+                variant_key = (text, variant)
+                existing = merged.get(variant_key)
+                if existing is None or value < existing:
+                    merged[variant_key] = value
 
     return merged
 

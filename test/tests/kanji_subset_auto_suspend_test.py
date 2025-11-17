@@ -107,6 +107,52 @@ def test_non_new_subset_does_not_suspend_new_variant() -> None:
     assert new_plan.desired_due == 10
 
 
+def test_long_vowel_reading_variants_share_group() -> None:
+    config = _config()
+    review_plan = _plan(
+        text="焼き餃子",
+        reading="ぎょーざ",
+        is_new=False,
+        due=5,
+        queue=QUEUE_TYPE_NEW,
+    )
+    new_plan = _plan(
+        text="餃子",
+        reading="ぎょうざ",
+        is_new=True,
+        due=10,
+    )
+
+    plans = {review_plan.card_id: review_plan, new_plan.card_id: new_plan}
+    _apply_kanji_subset_auto_suspend(config, plans)
+
+    assert new_plan.desired_queue == QUEUE_TYPE_SUSPENDED
+    assert new_plan.desired_due == DEFAULT_REVIEW_DUE
+
+
+def test_pure_kanji_subset_does_not_suspend() -> None:
+    config = _config()
+    review_plan = _plan(
+        text="焼餃子",
+        reading="ぎょーざ",
+        is_new=False,
+        due=5,
+        queue=QUEUE_TYPE_NEW,
+    )
+    new_plan = _plan(
+        text="餃子",
+        reading="ぎょうざ",
+        is_new=True,
+        due=10,
+    )
+
+    plans = {review_plan.card_id: review_plan, new_plan.card_id: new_plan}
+    _apply_kanji_subset_auto_suspend(config, plans)
+
+    assert new_plan.desired_queue == QUEUE_TYPE_NEW
+    assert new_plan.desired_due == 10
+
+
 def test_due_order_prefers_kanji_superset_variant() -> None:
     config = _config()
     early_plan = _plan(

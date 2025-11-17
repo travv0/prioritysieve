@@ -127,6 +127,15 @@ def expand_long_vowel_variants(reading: str) -> set[str]:
     return variants
 
 
+def canonicalize_long_vowels(reading: str) -> str:
+    """Return a deterministic representative for a reading across long-vowel spellings."""
+
+    variants = expand_long_vowel_variants(reading)
+    if not variants:
+        return ""
+    return min(variants)
+
+
 def _extract_trailing_kana(text: str) -> str:
     """Return the trailing run of kana characters (and long vowels) in ``text``."""
 

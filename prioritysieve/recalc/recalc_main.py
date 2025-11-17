@@ -44,7 +44,7 @@ from ..exceptions import (
     PriorityFileMalformedException,
     PriorityFileNotFoundException,
 )
-from ..reading_utils import normalize_reading
+from ..reading_utils import canonicalize_long_vowels, normalize_reading
 from . import caching
 from .anki_data_utils import AnkiCardData, create_card_data_dict
 
@@ -732,7 +732,8 @@ def _apply_priorities(
 
             plans[card_id] = plan
             card_original_state.setdefault(card_id, (plan.original_due, plan.original_queue))
-            duplicates[entry.key()].append(plan)
+            duplicate_key = (entry.text, canonicalize_long_vowels(entry.reading))
+            duplicates[duplicate_key].append(plan)
 
     _apply_kanji_subset_auto_suspend(am_config, plans)
     _apply_duplicate_rules(am_config, duplicates)
@@ -1116,7 +1117,7 @@ def _apply_kanji_subset_auto_suspend(
     pure_kana_variants: dict[int, PureKanaInfo] = {}
 
     for plan in plans.values():
-        reading = (plan.entry_key[1] or "").strip()
+        reading = canonicalize_long_vowels((plan.entry_key[1] or "").strip())
         if not reading:
             continue
         text = plan.entry_key[0] or ""
@@ -1179,6 +1180,10 @@ def _apply_kanji_subset_rules_for_group(
                 matches_superset = (
                     sequence != candidate_sequence
                     and is_kanji_subsequence(sequence, candidate_sequence)
+                    and (
+                        contains_kana(text)
+                        or contains_kana(candidate_text)
+                    )
                 )
                 matches_same = (
                     sequence == candidate_sequence

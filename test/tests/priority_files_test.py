@@ -42,3 +42,11 @@ def test_priority_files_helpers(tmp_path, monkeypatch) -> None:
     )
     priority_map = priority_files.load_priority_map(["legacy.csv"])
     assert priority_map[("alpha", "alt")] == 5
+
+    (priority_dir / "long.csv").write_text(
+        "Entry,Reading,Priority\n餃子,ギョーザ,42\n",
+        encoding="utf-8",
+    )
+    priority_map = priority_files.load_priority_map(["long.csv"])
+    assert priority_map[("餃子", "ぎょーざ")] == 42
+    assert priority_map[("餃子", "ぎょうざ")] == 42
