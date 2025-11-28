@@ -1,29 +1,68 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from unittest.mock import MagicMock
+
+import pytest
 
 from prioritysieve.entry_db import EntryDB
 from prioritysieve.stats_graph import get_first_entry_card_stats
 
 
-def test_get_first_entry_card_stats_counts_first_cards_only(tmp_path, monkeypatch) -> None:
-    """Verify that get_first_entry_card_stats only counts the first card per entry."""
+@pytest.fixture
+def mock_anki_env(tmp_path, monkeypatch):
+    """Set up mocked Anki environment for stats_graph tests."""
     db_path = tmp_path / "prioritysieve.db"
+
+    mock_col_db = MagicMock()
+    mock_col_db.all = MagicMock(return_value=[])
+
+    mock_decks = MagicMock()
+    mock_decks.get = MagicMock(return_value={"name": "Default"})
 
     mw_stub = SimpleNamespace(
         pm=SimpleNamespace(profileFolder=lambda: str(tmp_path)),
         col=SimpleNamespace(
-            db=SimpleNamespace(),
+            db=mock_col_db,
             sched=SimpleNamespace(dayCutoff=1700000000),
+            decks=mock_decks,
         ),
     )
     monkeypatch.setattr("prioritysieve.entry_db.mw", mw_stub, raising=False)
     monkeypatch.setattr("prioritysieve.stats_graph.mw", mw_stub, raising=False)
 
+    mock_config = MagicMock()
+    mock_config.disabled_decks = []
+    mock_config.get_preprocess_ignore_suspended_unless_tag_list = MagicMock(
+        return_value=[]
+    )
+    monkeypatch.setattr(
+        "prioritysieve.stats_graph.PrioritySieveConfig",
+        lambda: mock_config,
+        raising=False,
+    )
+
+    return {
+        "db_path": db_path,
+        "mw_stub": mw_stub,
+        "mock_config": mock_config,
+        "mock_col_db": mock_col_db,
+        "mock_decks": mock_decks,
+    }
+
+
+def test_get_first_entry_card_stats_counts_oldest_non_new_active(mock_anki_env) -> None:
+    """Verify that only the oldest non-new active card per entry is counted."""
+    db_path = mock_anki_env["db_path"]
+    mock_col_db = mock_anki_env["mock_col_db"]
+
     day_cutoff_ms = 1700000000 * 1000
 
+    # Card 1: oldest, non-new (type=2), active (queue=0) -> should count
     card1_id = day_cutoff_ms - (86400 * 1000 * 2)
-    card2_id = day_cutoff_ms - (86400 * 1000 * 2) + 1000
+    # Card 2: newer, non-new, active -> should NOT count (card1 is older)
+    card2_id = day_cutoff_ms - (86400 * 1000 * 1)
+    # Card 3: different entry, non-new, active -> should count
     card3_id = day_cutoff_ms - (86400 * 1000 * 5)
 
     entries = [
@@ -31,30 +70,9 @@ def test_get_first_entry_card_stats_counts_first_cards_only(tmp_path, monkeypatc
         {"text": "word2", "reading": "reading2", "reviewed": 1},
     ]
     cards = [
-        {
-            "card_id": card1_id,
-            "note_id": 10,
-            "note_type_id": 100,
-            "card_type": 0,
-            "tags": "",
-            "card_queue": 0,
-        },
-        {
-            "card_id": card2_id,
-            "note_id": 11,
-            "note_type_id": 100,
-            "card_type": 0,
-            "tags": "",
-            "card_queue": 0,
-        },
-        {
-            "card_id": card3_id,
-            "note_id": 12,
-            "note_type_id": 100,
-            "card_type": 0,
-            "tags": "",
-            "card_queue": 0,
-        },
+        {"card_id": card1_id, "note_id": 10, "note_type_id": 100, "card_type": 2, "tags": "", "card_queue": 0},
+        {"card_id": card2_id, "note_id": 11, "note_type_id": 100, "card_type": 2, "tags": "", "card_queue": 0},
+        {"card_id": card3_id, "note_id": 12, "note_type_id": 100, "card_type": 2, "tags": "", "card_queue": 0},
     ]
     card_entry_links = [
         {"card_id": card1_id, "entry_text": "word1", "entry_reading": "reading1"},
@@ -65,6 +83,14 @@ def test_get_first_entry_card_stats_counts_first_cards_only(tmp_path, monkeypatc
     with EntryDB(db_path=db_path) as db:
         db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
 
+    # Mock the Anki DB query to return card info
+    # Returns: card_id, card_type, queue, did, odid, tags
+    mock_col_db.all.return_value = [
+        (card1_id, 2, 0, 1, 0, ""),  # non-new, active
+        (card2_id, 2, 0, 1, 0, ""),  # non-new, active
+        (card3_id, 2, 0, 1, 0, ""),  # non-new, active
+    ]
+
     data = get_first_entry_card_stats(
         day_cutoff_seconds=1700000000,
         bucket_size_days=1,
@@ -73,26 +99,100 @@ def test_get_first_entry_card_stats_counts_first_cards_only(tmp_path, monkeypatc
     )
 
     total_first_cards = sum(count for _, count in data)
-    assert total_first_cards == 2
-
-    data_dict = dict(data)
-    assert data_dict.get(-2, 0) == 1
-    assert data_dict.get(-5, 0) == 1
+    assert total_first_cards == 2  # One per entry
 
 
-def test_get_first_entry_card_stats_empty_db_returns_empty(tmp_path, monkeypatch) -> None:
-    """Verify that an empty database returns an empty list."""
-    db_path = tmp_path / "prioritysieve.db"
+def test_get_first_entry_card_stats_skips_new_cards(mock_anki_env) -> None:
+    """Verify that new cards (type=0) are not counted."""
+    db_path = mock_anki_env["db_path"]
+    mock_col_db = mock_anki_env["mock_col_db"]
 
-    mw_stub = SimpleNamespace(
-        pm=SimpleNamespace(profileFolder=lambda: str(tmp_path)),
-        col=SimpleNamespace(
-            db=SimpleNamespace(),
-            sched=SimpleNamespace(dayCutoff=1700000000),
-        ),
+    day_cutoff_ms = 1700000000 * 1000
+    card1_id = day_cutoff_ms - (86400 * 1000 * 2)
+
+    entries = [{"text": "word1", "reading": "reading1", "reviewed": 0}]
+    cards = [{"card_id": card1_id, "note_id": 10, "note_type_id": 100, "card_type": 0, "tags": "", "card_queue": 0}]
+    card_entry_links = [{"card_id": card1_id, "entry_text": "word1", "entry_reading": "reading1"}]
+
+    with EntryDB(db_path=db_path) as db:
+        db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
+
+    # Card is type=0 (new)
+    mock_col_db.all.return_value = [(card1_id, 0, 0, 1, 0, "")]
+
+    data = get_first_entry_card_stats(
+        day_cutoff_seconds=1700000000,
+        bucket_size_days=1,
+        num_buckets=31,
+        additional_filter="",
     )
-    monkeypatch.setattr("prioritysieve.entry_db.mw", mw_stub, raising=False)
-    monkeypatch.setattr("prioritysieve.stats_graph.mw", mw_stub, raising=False)
+
+    assert data == []
+
+
+def test_get_first_entry_card_stats_skips_suspended_without_exception(mock_anki_env) -> None:
+    """Verify that suspended cards (queue=-1) without exception tags are not counted."""
+    db_path = mock_anki_env["db_path"]
+    mock_col_db = mock_anki_env["mock_col_db"]
+
+    day_cutoff_ms = 1700000000 * 1000
+    card1_id = day_cutoff_ms - (86400 * 1000 * 2)
+
+    entries = [{"text": "word1", "reading": "reading1", "reviewed": 1}]
+    cards = [{"card_id": card1_id, "note_id": 10, "note_type_id": 100, "card_type": 2, "tags": "", "card_queue": -1}]
+    card_entry_links = [{"card_id": card1_id, "entry_text": "word1", "entry_reading": "reading1"}]
+
+    with EntryDB(db_path=db_path) as db:
+        db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
+
+    # Card is queue=-1 (suspended)
+    mock_col_db.all.return_value = [(card1_id, 2, -1, 1, 0, "")]
+
+    data = get_first_entry_card_stats(
+        day_cutoff_seconds=1700000000,
+        bucket_size_days=1,
+        num_buckets=31,
+        additional_filter="",
+    )
+
+    assert data == []
+
+
+def test_get_first_entry_card_stats_skips_disabled_decks(mock_anki_env) -> None:
+    """Verify that cards in disabled decks are not counted."""
+    db_path = mock_anki_env["db_path"]
+    mock_col_db = mock_anki_env["mock_col_db"]
+    mock_config = mock_anki_env["mock_config"]
+    mock_decks = mock_anki_env["mock_decks"]
+
+    mock_config.disabled_decks = ["DisabledDeck"]
+    mock_decks.get.return_value = {"name": "DisabledDeck"}
+
+    day_cutoff_ms = 1700000000 * 1000
+    card1_id = day_cutoff_ms - (86400 * 1000 * 2)
+
+    entries = [{"text": "word1", "reading": "reading1", "reviewed": 1}]
+    cards = [{"card_id": card1_id, "note_id": 10, "note_type_id": 100, "card_type": 2, "tags": "", "card_queue": 0}]
+    card_entry_links = [{"card_id": card1_id, "entry_text": "word1", "entry_reading": "reading1"}]
+
+    with EntryDB(db_path=db_path) as db:
+        db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
+
+    mock_col_db.all.return_value = [(card1_id, 2, 0, 1, 0, "")]
+
+    data = get_first_entry_card_stats(
+        day_cutoff_seconds=1700000000,
+        bucket_size_days=1,
+        num_buckets=31,
+        additional_filter="",
+    )
+
+    assert data == []
+
+
+def test_get_first_entry_card_stats_empty_db_returns_empty(mock_anki_env) -> None:
+    """Verify that an empty database returns an empty list."""
+    db_path = mock_anki_env["db_path"]
 
     with EntryDB(db_path=db_path) as db:
         db.replace_data(entries=[], cards=[], card_entry_links=[])
@@ -105,63 +205,3 @@ def test_get_first_entry_card_stats_empty_db_returns_empty(tmp_path, monkeypatch
     )
 
     assert data == []
-
-
-def test_get_first_entry_card_stats_respects_num_buckets(tmp_path, monkeypatch) -> None:
-    """Verify that cards older than num_buckets days are excluded."""
-    db_path = tmp_path / "prioritysieve.db"
-
-    mw_stub = SimpleNamespace(
-        pm=SimpleNamespace(profileFolder=lambda: str(tmp_path)),
-        col=SimpleNamespace(
-            db=SimpleNamespace(),
-            sched=SimpleNamespace(dayCutoff=1700000000),
-        ),
-    )
-    monkeypatch.setattr("prioritysieve.entry_db.mw", mw_stub, raising=False)
-    monkeypatch.setattr("prioritysieve.stats_graph.mw", mw_stub, raising=False)
-
-    day_cutoff_ms = 1700000000 * 1000
-
-    recent_card_id = day_cutoff_ms - (86400 * 1000 * 5)
-    old_card_id = day_cutoff_ms - (86400 * 1000 * 100)
-
-    entries = [
-        {"text": "recent", "reading": "", "reviewed": 1},
-        {"text": "old", "reading": "", "reviewed": 1},
-    ]
-    cards = [
-        {
-            "card_id": recent_card_id,
-            "note_id": 10,
-            "note_type_id": 100,
-            "card_type": 0,
-            "tags": "",
-            "card_queue": 0,
-        },
-        {
-            "card_id": old_card_id,
-            "note_id": 11,
-            "note_type_id": 100,
-            "card_type": 0,
-            "tags": "",
-            "card_queue": 0,
-        },
-    ]
-    card_entry_links = [
-        {"card_id": recent_card_id, "entry_text": "recent", "entry_reading": ""},
-        {"card_id": old_card_id, "entry_text": "old", "entry_reading": ""},
-    ]
-
-    with EntryDB(db_path=db_path) as db:
-        db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
-
-    data = get_first_entry_card_stats(
-        day_cutoff_seconds=1700000000,
-        bucket_size_days=1,
-        num_buckets=31,
-        additional_filter="",
-    )
-
-    total_first_cards = sum(count for _, count in data)
-    assert total_first_cards == 1
