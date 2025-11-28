@@ -205,9 +205,10 @@ def _find_first_entry_card(
     """
     Find the card that introduced this entry, if any.
 
-    Returns the card_id of the oldest card in an enabled deck,
-    but only if no older non-new, non-suspended card exists for this entry
-    (which would mean the entry was already known before this card was added).
+    Returns the card_id of the oldest card in an enabled deck, but only if
+    no older non-new card exists for this entry in ANY deck (including
+    disabled decks). A non-new card in any deck means the entry was already
+    "known" before this card was added.
     """
     cards_with_info: list[tuple[int, _CardInfo]] = []
     for cid in card_ids:
@@ -220,27 +221,31 @@ def _find_first_entry_card(
 
     cards_with_info.sort(key=lambda x: x[0])
 
-    oldest_card_id = cards_with_info[0][0]
-    oldest_card_info = cards_with_info[0][1]
-
-    # Check if there's an older non-new active card - if so, the entry
-    # was already "known" before this card was added
+    # Find the oldest non-new card across ALL decks (including disabled)
+    oldest_non_new_id: int | None = None
     for cid, info in cards_with_info:
-        if cid == oldest_card_id:
-            continue
-        # If an older card is non-new and active, entry was already known
-        if info.card_type != CARD_TYPE_NEW and info.is_active:
-            # This shouldn't happen since we sorted by card_id,
-            # but check anyway for safety
-            if cid < oldest_card_id:
-                return None
+        if info.card_type != CARD_TYPE_NEW:
+            oldest_non_new_id = cid
+            break
 
-    # Check if the oldest card is in a disabled deck
-    deck_name = _get_deck_name(oldest_card_info.deck_id, oldest_card_info.odid, deck_name_cache)
-    if deck_name in disabled_deck_names:
+    # Find the oldest card in an enabled deck
+    oldest_enabled_id: int | None = None
+    oldest_enabled_info: _CardInfo | None = None
+    for cid, info in cards_with_info:
+        deck_name = _get_deck_name(info.deck_id, info.odid, deck_name_cache)
+        if deck_name not in disabled_deck_names:
+            oldest_enabled_id = cid
+            oldest_enabled_info = info
+            break
+
+    if oldest_enabled_id is None:
         return None
 
-    return oldest_card_id
+    # If there's an older non-new card (in any deck), the entry was already known
+    if oldest_non_new_id is not None and oldest_non_new_id < oldest_enabled_id:
+        return None
+
+    return oldest_enabled_id
 
 
 def _round_up_max(max_val: int | float) -> int:

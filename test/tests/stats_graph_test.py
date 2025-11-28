@@ -207,3 +207,57 @@ def test_get_first_entry_card_stats_empty_db_returns_empty(mock_anki_env) -> Non
     )
 
     assert data == []
+
+
+def test_get_first_entry_card_stats_skips_if_older_non_new_in_disabled_deck(mock_anki_env) -> None:
+    """Verify that entries with older non-new cards in disabled decks are not counted."""
+    db_path = mock_anki_env["db_path"]
+    mock_col_db = mock_anki_env["mock_col_db"]
+    mock_config = mock_anki_env["mock_config"]
+    mock_decks = mock_anki_env["mock_decks"]
+
+    mock_config.disabled_decks = ["DisabledDeck"]
+
+    day_cutoff_ms = 1700000000 * 1000
+    # Older card in disabled deck (non-new)
+    old_card_id = day_cutoff_ms - (86400 * 1000 * 10)
+    # Newer card in enabled deck
+    new_card_id = day_cutoff_ms - (86400 * 1000 * 2)
+
+    entries = [{"text": "word1", "reading": "reading1", "reviewed": 1}]
+    cards = [
+        {"card_id": old_card_id, "note_id": 10, "note_type_id": 100, "card_type": 2, "tags": "", "card_queue": 0},
+        {"card_id": new_card_id, "note_id": 11, "note_type_id": 100, "card_type": 0, "tags": "", "card_queue": 0},
+    ]
+    card_entry_links = [
+        {"card_id": old_card_id, "entry_text": "word1", "entry_reading": "reading1"},
+        {"card_id": new_card_id, "entry_text": "word1", "entry_reading": "reading1"},
+    ]
+
+    with EntryDB(db_path=db_path) as db:
+        db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
+
+    # Old card in disabled deck (did=2), new card in enabled deck (did=1)
+    mock_col_db.all.return_value = [
+        (old_card_id, 2, 0, 2, 0, ""),  # non-new, in deck 2
+        (new_card_id, 0, 0, 1, 0, ""),  # new, in deck 1
+    ]
+
+    def mock_get_deck(deck_id):
+        if deck_id == 1:
+            return {"name": "EnabledDeck"}
+        elif deck_id == 2:
+            return {"name": "DisabledDeck"}
+        return {"name": "Default"}
+
+    mock_decks.get.side_effect = mock_get_deck
+
+    data = get_first_entry_card_stats(
+        day_cutoff_seconds=1700000000,
+        bucket_size_days=1,
+        num_buckets=31,
+        additional_filter="",
+    )
+
+    # Should not count because there's an older non-new card in a disabled deck
+    assert data == []
