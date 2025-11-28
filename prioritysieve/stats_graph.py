@@ -430,107 +430,164 @@ def _inject_new_stats_graph(webview) -> None:
     (function() {{
         if (document.getElementById('prioritysieve-new-entries-graph')) return;
 
-        const container = document.createElement('div');
-        container.id = 'prioritysieve-new-entries-graph';
-        container.style.cssText = 'margin: 20px; padding: 20px; background: var(--canvas); border-radius: 8px;';
-
-        const title = document.createElement('h2');
-        title.textContent = 'New Entries Added';
-        title.style.cssText = 'margin: 0 0 5px 0; font-size: 1.2em;';
-        container.appendChild(title);
-
-        const subtitle = document.createElement('p');
-        subtitle.textContent = 'First card added per entry (excluding disabled decks)';
-        subtitle.style.cssText = 'margin: 0 0 15px 0; font-size: 0.9em; opacity: 0.7;';
-        container.appendChild(subtitle);
-
-        const canvas = document.createElement('canvas');
-        canvas.id = 'prioritysieve-chart-canvas';
-        canvas.width = 800;
-        canvas.height = 400;
-        canvas.style.cssText = 'width: 100%; height: 200px; display: block;';
-        container.appendChild(canvas);
-
-        const statsDiv = document.createElement('div');
-        statsDiv.style.cssText = 'margin-top: 10px; font-size: 0.9em;';
-
         const xData = {json.dumps(x_values)};
         const yData = {json.dumps(y_values)};
         const cumData = {json.dumps(cumulative)};
 
+        if (!xData.length) return;
+
+        // Find the graphs container and clone its structure
+        const existingGraph = document.querySelector('.graph');
+        if (!existingGraph) return;
+
+        const container = existingGraph.cloneNode(false);
+        container.id = 'prioritysieve-new-entries-graph';
+
+        // Create header
+        const header = document.createElement('div');
+        header.className = 'graph-header';
+        header.innerHTML = '<div class="graph-title">New Entries Added</div><div class="graph-subtitle">First card added per entry (excluding disabled decks)</div>';
+        container.appendChild(header);
+
+        // Create SVG container
+        const svgContainer = document.createElement('div');
+        svgContainer.className = 'graph-svg-container';
+        container.appendChild(svgContainer);
+
+        // Create table for stats
         const totalEntries = cumData[cumData.length - 1] || 0;
         const avgPerDay = yData.length > 0 ? (totalEntries / yData.length).toFixed(1) : 0;
 
-        statsDiv.innerHTML = '<b>Average:</b> ' + avgPerDay + ' entries/day &nbsp;&nbsp; <b>Total:</b> ' + totalEntries + ' entries (last 31 days)';
-        container.appendChild(statsDiv);
+        const table = document.createElement('div');
+        table.className = 'graph-table';
+        table.innerHTML = `
+            <div class="table-row"><span class="table-label">Average</span><span class="table-value">${{avgPerDay}} entries/day</span></div>
+            <div class="table-row"><span class="table-label">Total</span><span class="table-value">${{totalEntries}} entries</span></div>
+        `;
+        container.appendChild(table);
 
+        // Insert after the Added graph or at the end
         const graphsContainer = document.querySelector('.graphs-container');
         if (graphsContainer) {{
             graphsContainer.appendChild(container);
-        }} else {{
-            document.body.appendChild(container);
         }}
 
-        // Draw simple bar chart on canvas
-        const ctx = canvas.getContext('2d');
-        const width = 800;
-        const height = 400;
-        const padding = 50;
-        const barWidth = Math.max(1, (width - padding * 2) / xData.length - 2);
-        const maxY = Math.max(...yData, 10);
+        // Use D3 to create the graph (D3 is available in Anki's stats page)
+        const bounds = {{ width: 600, height: 200, marginLeft: 50, marginRight: 50, marginTop: 20, marginBottom: 40 }};
 
-        // Clear and set background
-        ctx.fillStyle = 'var(--canvas-elevated, #fff)';
-        ctx.fillRect(0, 0, width, height);
+        const svg = d3.select(svgContainer)
+            .append('svg')
+            .attr('viewBox', `0 0 ${{bounds.width}} ${{bounds.height}}`)
+            .attr('preserveAspectRatio', 'xMidYMid meet')
+            .style('width', '100%')
+            .style('height', 'auto');
 
-        // Draw bars
-        ctx.fillStyle = '#9467bd';
-        for (let i = 0; i < yData.length; i++) {{
-            const barHeight = (yData[i] / maxY) * (height - padding * 2);
-            const x = padding + i * (barWidth + 2);
-            const y = height - padding - barHeight;
-            ctx.fillRect(x, y, barWidth, barHeight);
-        }}
+        const maxY = Math.max(...yData, 1);
+        const maxCum = Math.max(...cumData, 1);
 
-        // Draw cumulative line
-        ctx.strokeStyle = '#9467bd';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        const maxCum = Math.max(...cumData, 10);
-        for (let i = 0; i < cumData.length; i++) {{
-            const x = padding + i * (barWidth + 2) + barWidth / 2;
-            const y = height - padding - (cumData[i] / maxCum) * (height - padding * 2);
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-        }}
-        ctx.stroke();
+        // Scales
+        const x = d3.scaleBand()
+            .domain(xData.map(String))
+            .range([bounds.marginLeft, bounds.width - bounds.marginRight])
+            .padding(0.1);
 
-        // Draw axes
-        ctx.strokeStyle = '#666';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(padding, padding);
-        ctx.lineTo(padding, height - padding);
-        ctx.lineTo(width - padding, height - padding);
-        ctx.stroke();
+        const y = d3.scaleLinear()
+            .domain([0, maxY])
+            .nice()
+            .range([bounds.height - bounds.marginBottom, bounds.marginTop]);
 
-        // Labels
-        ctx.fillStyle = '#666';
-        ctx.font = '14px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('Days ago', width / 2, height - 10);
+        const yCum = d3.scaleLinear()
+            .domain([0, maxCum])
+            .nice()
+            .range([bounds.height - bounds.marginBottom, bounds.marginTop]);
 
-        // Y-axis labels
-        ctx.textAlign = 'right';
-        ctx.fillText('0', padding - 5, height - padding + 4);
-        ctx.fillText(String(maxY), padding - 5, padding + 4);
+        // X axis
+        svg.append('g')
+            .attr('transform', `translate(0,${{bounds.height - bounds.marginBottom}})`)
+            .attr('class', 'x-ticks')
+            .attr('opacity', 0.5)
+            .call(d3.axisBottom(x).tickValues(x.domain().filter((d, i) => i % Math.ceil(xData.length / 7) === 0)));
 
-        // X-axis labels (first and last)
-        ctx.textAlign = 'center';
-        if (xData.length > 0) {{
-            ctx.fillText(String(xData[0]), padding + barWidth / 2, height - padding + 18);
-            ctx.fillText(String(xData[xData.length - 1]), padding + (xData.length - 1) * (barWidth + 2) + barWidth / 2, height - padding + 18);
-        }}
+        // Y axis (left)
+        svg.append('g')
+            .attr('transform', `translate(${{bounds.marginLeft}},0)`)
+            .attr('class', 'y-ticks')
+            .attr('opacity', 0.5)
+            .call(d3.axisLeft(y).ticks(5));
+
+        // Y axis (right) for cumulative
+        svg.append('g')
+            .attr('transform', `translate(${{bounds.width - bounds.marginRight}},0)`)
+            .attr('class', 'y2-ticks')
+            .attr('opacity', 0.5)
+            .call(d3.axisRight(yCum).ticks(5));
+
+        // Bars
+        svg.append('g')
+            .attr('class', 'bars')
+            .selectAll('rect')
+            .data(yData)
+            .join('rect')
+            .attr('x', (d, i) => x(String(xData[i])))
+            .attr('y', d => y(d))
+            .attr('width', x.bandwidth())
+            .attr('height', d => y(0) - y(d))
+            .attr('fill', '#9467bd')
+            .attr('rx', 1);
+
+        // Cumulative area
+        const area = d3.area()
+            .curve(d3.curveBasis)
+            .x((d, i) => x(String(xData[i])) + x.bandwidth() / 2)
+            .y0(bounds.height - bounds.marginBottom)
+            .y1(d => yCum(d));
+
+        svg.append('path')
+            .datum(cumData)
+            .attr('class', 'cumulative-overlay')
+            .attr('fill', 'rgba(148, 103, 189, 0.3)')
+            .attr('d', area);
+
+        // Hover columns for tooltip
+        const tooltip = d3.select('body').append('div')
+            .attr('class', 'prioritysieve-tooltip')
+            .style('position', 'absolute')
+            .style('background', 'var(--canvas-elevated, #333)')
+            .style('color', 'var(--fg, #fff)')
+            .style('padding', '8px 12px')
+            .style('border-radius', '4px')
+            .style('font-size', '12px')
+            .style('pointer-events', 'none')
+            .style('opacity', 0)
+            .style('z-index', 1000);
+
+        svg.append('g')
+            .attr('class', 'hover-columns')
+            .selectAll('rect')
+            .data(yData)
+            .join('rect')
+            .attr('x', (d, i) => x(String(xData[i])))
+            .attr('y', bounds.marginTop)
+            .attr('width', x.bandwidth())
+            .attr('height', bounds.height - bounds.marginTop - bounds.marginBottom)
+            .attr('fill', 'transparent')
+            .on('mouseover', function(event, d) {{
+                const i = yData.indexOf(d);
+                const dayLabel = xData[i] === 0 ? 'Today' : xData[i] === -1 ? 'Yesterday' : `${{Math.abs(xData[i])}} days ago`;
+                tooltip
+                    .style('opacity', 1)
+                    .html(`<strong>${{dayLabel}}</strong><br>Added: ${{d}}<br>Cumulative: ${{cumData[i]}}`);
+                d3.select(this).attr('fill', 'rgba(148, 103, 189, 0.2)');
+            }})
+            .on('mousemove', function(event) {{
+                tooltip
+                    .style('left', (event.pageX + 10) + 'px')
+                    .style('top', (event.pageY - 10) + 'px');
+            }})
+            .on('mouseout', function() {{
+                tooltip.style('opacity', 0);
+                d3.select(this).attr('fill', 'transparent');
+            }});
     }})();
     """
 
