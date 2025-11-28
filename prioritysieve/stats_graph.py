@@ -33,9 +33,8 @@ def get_first_entry_card_stats(
 
     A card counts as introducing an entry if:
     1. It's in an enabled deck (not in disabled_decks)
-    2. It's non-new (has been studied)
-    3. It's the oldest non-new card for its entry
-    4. No older non-new, non-suspended card exists for that entry
+    2. It's the oldest card for its entry (by card_id/creation time)
+    3. No older non-new, non-suspended card exists for that entry
        (across any configured note type, regardless of deck)
 
     Returns a list of (bucket_offset, count) tuples.
@@ -71,14 +70,14 @@ def get_first_entry_card_stats(
     first_entry_card_ids: set[int] = set()
 
     for entry_key, card_ids in card_ids_by_entry.items():
-        dominated_card_id = _find_first_entry_card(
+        first_card_id = _find_first_entry_card(
             card_ids=card_ids,
             card_info=card_info,
             disabled_deck_names=disabled_deck_names,
             deck_name_cache=deck_name_cache,
         )
-        if dominated_card_id is not None:
-            first_entry_card_ids.add(dominated_card_id)
+        if first_card_id is not None:
+            first_entry_card_ids.add(first_card_id)
 
     if not first_entry_card_ids:
         return []
@@ -206,8 +205,9 @@ def _find_first_entry_card(
     """
     Find the card that introduced this entry, if any.
 
-    Returns the card_id of the oldest non-new card in an enabled deck,
-    but only if no older non-new active card exists for this entry.
+    Returns the card_id of the oldest card in an enabled deck,
+    but only if no older non-new, non-suspended card exists for this entry
+    (which would mean the entry was already known before this card was added).
     """
     cards_with_info: list[tuple[int, _CardInfo]] = []
     for cid in card_ids:
@@ -220,22 +220,27 @@ def _find_first_entry_card(
 
     cards_with_info.sort(key=lambda x: x[0])
 
-    oldest_active_non_new_id: int | None = None
+    oldest_card_id = cards_with_info[0][0]
+    oldest_card_info = cards_with_info[0][1]
+
+    # Check if there's an older non-new active card - if so, the entry
+    # was already "known" before this card was added
     for cid, info in cards_with_info:
+        if cid == oldest_card_id:
+            continue
+        # If an older card is non-new and active, entry was already known
         if info.card_type != CARD_TYPE_NEW and info.is_active:
-            oldest_active_non_new_id = cid
-            break
+            # This shouldn't happen since we sorted by card_id,
+            # but check anyway for safety
+            if cid < oldest_card_id:
+                return None
 
-    if oldest_active_non_new_id is None:
-        return None
-
-    info = card_info[oldest_active_non_new_id]
-    deck_name = _get_deck_name(info.deck_id, info.odid, deck_name_cache)
-
+    # Check if the oldest card is in a disabled deck
+    deck_name = _get_deck_name(oldest_card_info.deck_id, oldest_card_info.odid, deck_name_cache)
     if deck_name in disabled_deck_names:
         return None
 
-    return oldest_active_non_new_id
+    return oldest_card_id
 
 
 def _round_up_max(max_val: int | float) -> int:
@@ -279,8 +284,8 @@ def _plot_first_entry_cards(
         cumulative_total += y
         cumulative_data.append((x, cumulative_total))
 
-    title = "New Entries Learned"
-    subtitle = "First non-new card per entry (excluding disabled decks)"
+    title = "New Entries Added"
+    subtitle = "First card added per entry (excluding disabled decks)"
 
     txt = stats_self._title(title, subtitle)
 

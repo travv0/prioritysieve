@@ -51,18 +51,18 @@ def mock_anki_env(tmp_path, monkeypatch):
     }
 
 
-def test_get_first_entry_card_stats_counts_oldest_non_new_active(mock_anki_env) -> None:
-    """Verify that only the oldest non-new active card per entry is counted."""
+def test_get_first_entry_card_stats_counts_oldest_card_per_entry(mock_anki_env) -> None:
+    """Verify that only the oldest card per entry is counted."""
     db_path = mock_anki_env["db_path"]
     mock_col_db = mock_anki_env["mock_col_db"]
 
     day_cutoff_ms = 1700000000 * 1000
 
-    # Card 1: oldest, non-new (type=2), active (queue=0) -> should count
+    # Card 1: oldest for word1 -> should count
     card1_id = day_cutoff_ms - (86400 * 1000 * 2)
-    # Card 2: newer, non-new, active -> should NOT count (card1 is older)
+    # Card 2: newer for word1 -> should NOT count (card1 is older)
     card2_id = day_cutoff_ms - (86400 * 1000 * 1)
-    # Card 3: different entry, non-new, active -> should count
+    # Card 3: oldest for word2 -> should count
     card3_id = day_cutoff_ms - (86400 * 1000 * 5)
 
     entries = [
@@ -102,8 +102,8 @@ def test_get_first_entry_card_stats_counts_oldest_non_new_active(mock_anki_env) 
     assert total_first_cards == 2  # One per entry
 
 
-def test_get_first_entry_card_stats_skips_new_cards(mock_anki_env) -> None:
-    """Verify that new cards (type=0) are not counted."""
+def test_get_first_entry_card_stats_counts_new_cards(mock_anki_env) -> None:
+    """Verify that new cards (type=0) ARE counted if they're the first for their entry."""
     db_path = mock_anki_env["db_path"]
     mock_col_db = mock_anki_env["mock_col_db"]
 
@@ -117,7 +117,7 @@ def test_get_first_entry_card_stats_skips_new_cards(mock_anki_env) -> None:
     with EntryDB(db_path=db_path) as db:
         db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
 
-    # Card is type=0 (new)
+    # Card is type=0 (new) but should still count
     mock_col_db.all.return_value = [(card1_id, 0, 0, 1, 0, "")]
 
     data = get_first_entry_card_stats(
@@ -127,11 +127,12 @@ def test_get_first_entry_card_stats_skips_new_cards(mock_anki_env) -> None:
         additional_filter="",
     )
 
-    assert data == []
+    total_first_cards = sum(count for _, count in data)
+    assert total_first_cards == 1
 
 
-def test_get_first_entry_card_stats_skips_suspended_without_exception(mock_anki_env) -> None:
-    """Verify that suspended cards (queue=-1) without exception tags are not counted."""
+def test_get_first_entry_card_stats_counts_suspended_cards(mock_anki_env) -> None:
+    """Verify that suspended cards ARE counted if they're the first for their entry."""
     db_path = mock_anki_env["db_path"]
     mock_col_db = mock_anki_env["mock_col_db"]
 
@@ -145,7 +146,7 @@ def test_get_first_entry_card_stats_skips_suspended_without_exception(mock_anki_
     with EntryDB(db_path=db_path) as db:
         db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
 
-    # Card is queue=-1 (suspended)
+    # Card is queue=-1 (suspended) but should still count as it's the first card for this entry
     mock_col_db.all.return_value = [(card1_id, 2, -1, 1, 0, "")]
 
     data = get_first_entry_card_stats(
@@ -155,7 +156,8 @@ def test_get_first_entry_card_stats_skips_suspended_without_exception(mock_anki_
         additional_filter="",
     )
 
-    assert data == []
+    total_first_cards = sum(count for _, count in data)
+    assert total_first_cards == 1
 
 
 def test_get_first_entry_card_stats_skips_disabled_decks(mock_anki_env) -> None:
