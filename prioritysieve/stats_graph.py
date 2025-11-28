@@ -393,16 +393,25 @@ def first_entry_cards_graph(*args, **kwargs) -> str:
 
 def _inject_new_stats_graph(webview) -> None:
     """Inject the graph into the new stats page."""
+    print("PrioritySieve: _inject_new_stats_graph called")
+
     try:
         from aqt.webview import AnkiWebViewKind
     except ImportError:
+        print("PrioritySieve: AnkiWebViewKind not available")
         return
 
+    print(f"PrioritySieve: webview.kind = {webview.kind}, DECK_STATS = {AnkiWebViewKind.DECK_STATS}")
+
     if webview.kind != AnkiWebViewKind.DECK_STATS:
+        print("PrioritySieve: Not deck stats, skipping")
         return
+
+    print("PrioritySieve: This is deck stats page, proceeding")
 
     assert mw is not None
     if mw.col is None:
+        print("PrioritySieve: mw.col is None, skipping")
         return
 
     data = get_first_entry_card_stats(
@@ -429,13 +438,23 @@ def _inject_new_stats_graph(webview) -> None:
     js_code = f"""
     (function() {{
         try {{
-            if (document.getElementById('prioritysieve-new-entries-graph')) return;
+            console.log('PrioritySieve: Starting graph injection');
+
+            if (document.getElementById('prioritysieve-new-entries-graph')) {{
+                console.log('PrioritySieve: Graph already exists, skipping');
+                return;
+            }}
 
             const xData = {json.dumps(x_values)};
             const yData = {json.dumps(y_values)};
             const cumData = {json.dumps(cumulative)};
 
-            if (!xData.length) return;
+            console.log('PrioritySieve: Data loaded, xData length:', xData.length);
+
+            if (!xData.length) {{
+                console.log('PrioritySieve: No data, skipping');
+                return;
+            }}
 
             const totalEntries = cumData[cumData.length - 1] || 0;
             const avgPerDay = yData.length > 0 ? (totalEntries / yData.length).toFixed(1) : 0;
@@ -445,13 +464,34 @@ def _inject_new_stats_graph(webview) -> None:
                            document.querySelector('[class*="night-mode"]') !== null;
 
             // Find the grid container that holds the graphs
-            const gridContainer = document.querySelector('div[style*="grid-template-columns"]') ||
-                                  document.querySelector('.graphs-container');
+            // Log what we find for debugging
+            console.log('PrioritySieve: Looking for grid container...');
+            console.log('PrioritySieve: All divs with style:', document.querySelectorAll('div[style]').length);
+
+            let gridContainer = document.querySelector('div[style*="grid-template-columns"]');
+            console.log('PrioritySieve: grid-template-columns selector:', gridContainer);
 
             if (!gridContainer) {{
-                console.log('PrioritySieve: Could not find graph grid container');
-                return;
+                gridContainer = document.querySelector('.graphs-container');
+                console.log('PrioritySieve: .graphs-container selector:', gridContainer);
             }}
+
+            if (!gridContainer) {{
+                // Try to find any container that looks like it holds graphs
+                const containers = document.querySelectorAll('div.container');
+                console.log('PrioritySieve: Found', containers.length, 'div.container elements');
+                if (containers.length > 0) {{
+                    gridContainer = containers[0].parentElement;
+                    console.log('PrioritySieve: Using parent of first container:', gridContainer);
+                }}
+            }}
+
+            if (!gridContainer) {{
+                console.log('PrioritySieve: Could not find graph grid container, using body');
+                gridContainer = document.body;
+            }}
+
+            console.log('PrioritySieve: Found grid container:', gridContainer.tagName, gridContainer.className);
 
             // Create container matching Anki's TitledContainer exactly
             const container = document.createElement('div');
