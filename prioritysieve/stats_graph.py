@@ -428,166 +428,156 @@ def _inject_new_stats_graph(webview) -> None:
 
     js_code = f"""
     (function() {{
-        if (document.getElementById('prioritysieve-new-entries-graph')) return;
+        try {{
+            if (document.getElementById('prioritysieve-new-entries-graph')) return;
 
-        const xData = {json.dumps(x_values)};
-        const yData = {json.dumps(y_values)};
-        const cumData = {json.dumps(cumulative)};
+            const xData = {json.dumps(x_values)};
+            const yData = {json.dumps(y_values)};
+            const cumData = {json.dumps(cumulative)};
 
-        if (!xData.length) return;
+            if (!xData.length) return;
 
-        // Find the graphs container and clone its structure
-        const existingGraph = document.querySelector('.graph');
-        if (!existingGraph) return;
+            // Create container
+            const container = document.createElement('div');
+            container.id = 'prioritysieve-new-entries-graph';
+            container.style.cssText = 'margin: 1em; padding: 1em;';
 
-        const container = existingGraph.cloneNode(false);
-        container.id = 'prioritysieve-new-entries-graph';
+            // Create header
+            const title = document.createElement('h1');
+            title.textContent = 'New Entries Added';
+            title.style.cssText = 'font-size: 1.2em; margin: 0 0 0.25em 0;';
+            container.appendChild(title);
 
-        // Create header
-        const header = document.createElement('div');
-        header.className = 'graph-header';
-        header.innerHTML = '<div class="graph-title">New Entries Added</div><div class="graph-subtitle">First card added per entry (excluding disabled decks)</div>';
-        container.appendChild(header);
+            const subtitle = document.createElement('div');
+            subtitle.textContent = 'First card added per entry (excluding disabled decks)';
+            subtitle.style.cssText = 'font-size: 0.9em; opacity: 0.7; margin-bottom: 1em;';
+            container.appendChild(subtitle);
 
-        // Create SVG container
-        const svgContainer = document.createElement('div');
-        svgContainer.className = 'graph-svg-container';
-        container.appendChild(svgContainer);
+            // Create SVG
+            const svgNS = 'http://www.w3.org/2000/svg';
+            const width = 600;
+            const height = 200;
+            const margin = {{ left: 45, right: 45, top: 10, bottom: 30 }};
+            const innerWidth = width - margin.left - margin.right;
+            const innerHeight = height - margin.top - margin.bottom;
 
-        // Create table for stats
-        const totalEntries = cumData[cumData.length - 1] || 0;
-        const avgPerDay = yData.length > 0 ? (totalEntries / yData.length).toFixed(1) : 0;
+            const svg = document.createElementNS(svgNS, 'svg');
+            svg.setAttribute('viewBox', `0 0 ${{width}} ${{height}}`);
+            svg.style.cssText = 'width: 100%; height: auto; display: block;';
+            container.appendChild(svg);
 
-        const table = document.createElement('div');
-        table.className = 'graph-table';
-        table.innerHTML = `
-            <div class="table-row"><span class="table-label">Average</span><span class="table-value">${{avgPerDay}} entries/day</span></div>
-            <div class="table-row"><span class="table-label">Total</span><span class="table-value">${{totalEntries}} entries</span></div>
-        `;
-        container.appendChild(table);
+            const maxY = Math.max(...yData, 1);
+            const maxCum = Math.max(...cumData, 1);
+            const barWidth = innerWidth / xData.length - 1;
 
-        // Insert after the Added graph or at the end
-        const graphsContainer = document.querySelector('.graphs-container');
-        if (graphsContainer) {{
-            graphsContainer.appendChild(container);
+            // Draw bars
+            for (let i = 0; i < yData.length; i++) {{
+                const barHeight = (yData[i] / maxY) * innerHeight;
+                const x = margin.left + i * (barWidth + 1);
+                const y = margin.top + innerHeight - barHeight;
+
+                const rect = document.createElementNS(svgNS, 'rect');
+                rect.setAttribute('x', x);
+                rect.setAttribute('y', y);
+                rect.setAttribute('width', Math.max(barWidth, 1));
+                rect.setAttribute('height', barHeight);
+                rect.setAttribute('fill', '#9467bd');
+                rect.setAttribute('rx', '1');
+                svg.appendChild(rect);
+            }}
+
+            // Draw cumulative line
+            let pathD = '';
+            for (let i = 0; i < cumData.length; i++) {{
+                const x = margin.left + i * (barWidth + 1) + barWidth / 2;
+                const y = margin.top + innerHeight - (cumData[i] / maxCum) * innerHeight;
+                pathD += (i === 0 ? 'M' : 'L') + x + ',' + y;
+            }}
+            const path = document.createElementNS(svgNS, 'path');
+            path.setAttribute('d', pathD);
+            path.setAttribute('stroke', '#9467bd');
+            path.setAttribute('stroke-width', '2');
+            path.setAttribute('fill', 'none');
+            svg.appendChild(path);
+
+            // Draw axes
+            const xAxis = document.createElementNS(svgNS, 'line');
+            xAxis.setAttribute('x1', margin.left);
+            xAxis.setAttribute('y1', margin.top + innerHeight);
+            xAxis.setAttribute('x2', width - margin.right);
+            xAxis.setAttribute('y2', margin.top + innerHeight);
+            xAxis.setAttribute('stroke', 'currentColor');
+            xAxis.setAttribute('opacity', '0.3');
+            svg.appendChild(xAxis);
+
+            const yAxis = document.createElementNS(svgNS, 'line');
+            yAxis.setAttribute('x1', margin.left);
+            yAxis.setAttribute('y1', margin.top);
+            yAxis.setAttribute('x2', margin.left);
+            yAxis.setAttribute('y2', margin.top + innerHeight);
+            yAxis.setAttribute('stroke', 'currentColor');
+            yAxis.setAttribute('opacity', '0.3');
+            svg.appendChild(yAxis);
+
+            // Y-axis labels
+            const yLabelMax = document.createElementNS(svgNS, 'text');
+            yLabelMax.setAttribute('x', margin.left - 5);
+            yLabelMax.setAttribute('y', margin.top + 4);
+            yLabelMax.setAttribute('text-anchor', 'end');
+            yLabelMax.setAttribute('font-size', '10');
+            yLabelMax.setAttribute('fill', 'currentColor');
+            yLabelMax.textContent = maxY;
+            svg.appendChild(yLabelMax);
+
+            const yLabelMin = document.createElementNS(svgNS, 'text');
+            yLabelMin.setAttribute('x', margin.left - 5);
+            yLabelMin.setAttribute('y', margin.top + innerHeight);
+            yLabelMin.setAttribute('text-anchor', 'end');
+            yLabelMin.setAttribute('font-size', '10');
+            yLabelMin.setAttribute('fill', 'currentColor');
+            yLabelMin.textContent = '0';
+            svg.appendChild(yLabelMin);
+
+            // X-axis labels (first and last)
+            if (xData.length > 0) {{
+                const xLabelFirst = document.createElementNS(svgNS, 'text');
+                xLabelFirst.setAttribute('x', margin.left);
+                xLabelFirst.setAttribute('y', height - 5);
+                xLabelFirst.setAttribute('text-anchor', 'start');
+                xLabelFirst.setAttribute('font-size', '10');
+                xLabelFirst.setAttribute('fill', 'currentColor');
+                xLabelFirst.textContent = xData[0];
+                svg.appendChild(xLabelFirst);
+
+                const xLabelLast = document.createElementNS(svgNS, 'text');
+                xLabelLast.setAttribute('x', width - margin.right);
+                xLabelLast.setAttribute('y', height - 5);
+                xLabelLast.setAttribute('text-anchor', 'end');
+                xLabelLast.setAttribute('font-size', '10');
+                xLabelLast.setAttribute('fill', 'currentColor');
+                xLabelLast.textContent = xData[xData.length - 1];
+                svg.appendChild(xLabelLast);
+            }}
+
+            // Stats table
+            const totalEntries = cumData[cumData.length - 1] || 0;
+            const avgPerDay = yData.length > 0 ? (totalEntries / yData.length).toFixed(1) : 0;
+
+            const stats = document.createElement('div');
+            stats.style.cssText = 'margin-top: 0.5em; font-size: 0.9em;';
+            stats.innerHTML = '<span style="margin-right: 2em;"><b>Average:</b> ' + avgPerDay + ' entries/day</span><span><b>Total:</b> ' + totalEntries + ' entries</span>';
+            container.appendChild(stats);
+
+            // Find where to insert
+            const graphsContainer = document.querySelector('.graphs-container');
+            if (graphsContainer) {{
+                graphsContainer.appendChild(container);
+            }} else {{
+                document.body.appendChild(container);
+            }}
+        }} catch (e) {{
+            console.error('PrioritySieve stats graph error:', e);
         }}
-
-        // Use D3 to create the graph (D3 is available in Anki's stats page)
-        const bounds = {{ width: 600, height: 200, marginLeft: 50, marginRight: 50, marginTop: 20, marginBottom: 40 }};
-
-        const svg = d3.select(svgContainer)
-            .append('svg')
-            .attr('viewBox', `0 0 ${{bounds.width}} ${{bounds.height}}`)
-            .attr('preserveAspectRatio', 'xMidYMid meet')
-            .style('width', '100%')
-            .style('height', 'auto');
-
-        const maxY = Math.max(...yData, 1);
-        const maxCum = Math.max(...cumData, 1);
-
-        // Scales
-        const x = d3.scaleBand()
-            .domain(xData.map(String))
-            .range([bounds.marginLeft, bounds.width - bounds.marginRight])
-            .padding(0.1);
-
-        const y = d3.scaleLinear()
-            .domain([0, maxY])
-            .nice()
-            .range([bounds.height - bounds.marginBottom, bounds.marginTop]);
-
-        const yCum = d3.scaleLinear()
-            .domain([0, maxCum])
-            .nice()
-            .range([bounds.height - bounds.marginBottom, bounds.marginTop]);
-
-        // X axis
-        svg.append('g')
-            .attr('transform', `translate(0,${{bounds.height - bounds.marginBottom}})`)
-            .attr('class', 'x-ticks')
-            .attr('opacity', 0.5)
-            .call(d3.axisBottom(x).tickValues(x.domain().filter((d, i) => i % Math.ceil(xData.length / 7) === 0)));
-
-        // Y axis (left)
-        svg.append('g')
-            .attr('transform', `translate(${{bounds.marginLeft}},0)`)
-            .attr('class', 'y-ticks')
-            .attr('opacity', 0.5)
-            .call(d3.axisLeft(y).ticks(5));
-
-        // Y axis (right) for cumulative
-        svg.append('g')
-            .attr('transform', `translate(${{bounds.width - bounds.marginRight}},0)`)
-            .attr('class', 'y2-ticks')
-            .attr('opacity', 0.5)
-            .call(d3.axisRight(yCum).ticks(5));
-
-        // Bars
-        svg.append('g')
-            .attr('class', 'bars')
-            .selectAll('rect')
-            .data(yData)
-            .join('rect')
-            .attr('x', (d, i) => x(String(xData[i])))
-            .attr('y', d => y(d))
-            .attr('width', x.bandwidth())
-            .attr('height', d => y(0) - y(d))
-            .attr('fill', '#9467bd')
-            .attr('rx', 1);
-
-        // Cumulative area
-        const area = d3.area()
-            .curve(d3.curveBasis)
-            .x((d, i) => x(String(xData[i])) + x.bandwidth() / 2)
-            .y0(bounds.height - bounds.marginBottom)
-            .y1(d => yCum(d));
-
-        svg.append('path')
-            .datum(cumData)
-            .attr('class', 'cumulative-overlay')
-            .attr('fill', 'rgba(148, 103, 189, 0.3)')
-            .attr('d', area);
-
-        // Hover columns for tooltip
-        const tooltip = d3.select('body').append('div')
-            .attr('class', 'prioritysieve-tooltip')
-            .style('position', 'absolute')
-            .style('background', 'var(--canvas-elevated, #333)')
-            .style('color', 'var(--fg, #fff)')
-            .style('padding', '8px 12px')
-            .style('border-radius', '4px')
-            .style('font-size', '12px')
-            .style('pointer-events', 'none')
-            .style('opacity', 0)
-            .style('z-index', 1000);
-
-        svg.append('g')
-            .attr('class', 'hover-columns')
-            .selectAll('rect')
-            .data(yData)
-            .join('rect')
-            .attr('x', (d, i) => x(String(xData[i])))
-            .attr('y', bounds.marginTop)
-            .attr('width', x.bandwidth())
-            .attr('height', bounds.height - bounds.marginTop - bounds.marginBottom)
-            .attr('fill', 'transparent')
-            .on('mouseover', function(event, d) {{
-                const i = yData.indexOf(d);
-                const dayLabel = xData[i] === 0 ? 'Today' : xData[i] === -1 ? 'Yesterday' : `${{Math.abs(xData[i])}} days ago`;
-                tooltip
-                    .style('opacity', 1)
-                    .html(`<strong>${{dayLabel}}</strong><br>Added: ${{d}}<br>Cumulative: ${{cumData[i]}}`);
-                d3.select(this).attr('fill', 'rgba(148, 103, 189, 0.2)');
-            }})
-            .on('mousemove', function(event) {{
-                tooltip
-                    .style('left', (event.pageX + 10) + 'px')
-                    .style('top', (event.pageY - 10) + 'px');
-            }})
-            .on('mouseout', function() {{
-                tooltip.style('opacity', 0);
-                d3.select(this).attr('fill', 'transparent');
-            }});
     }})();
     """
 
