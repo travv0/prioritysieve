@@ -77,6 +77,7 @@ from .settings.settings_dialog import SettingsDialog
 from .tag_selection_dialog import TagSelectionDialog
 from .toolbar_stats import EntryToolbarStats
 from .priority_files import load_priority_map, KNOWN_ENTRIES_DIR
+from . import stats_graph
 
 _TOOL_MENU: str = "ps_tool_menu"
 _BROWSE_MENU: str = "ps_browse_menu"
@@ -2004,3 +2005,4 @@ def test_function() -> None:
 
 
 main()
+stats_graph.init_stats_graph()
