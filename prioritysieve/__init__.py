@@ -57,6 +57,7 @@ from . import (
     text_preprocessing,
     toolbar_stats,
 )
+from .stats_entry_added_chart import init_first_entry_added_chart
 from .entry_db import EntryDB
 from .kanji_utils import (
     contains_hiragana,
@@ -225,6 +226,7 @@ def main() -> None:
     gui_hooks.profile_did_open.append(init_db)
     gui_hooks.profile_did_open.append(create_am_directories_and_files)
     gui_hooks.profile_did_open.append(register_addon_dialogs)
+    gui_hooks.profile_did_open.append(init_first_entry_added_chart)
     gui_hooks.profile_did_open.append(redraw_toolbar)
     gui_hooks.profile_did_open.append(init_tool_menu_and_actions)
     gui_hooks.profile_did_open.append(init_browser_menus_and_actions)
