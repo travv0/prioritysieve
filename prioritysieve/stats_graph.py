@@ -446,7 +446,9 @@ def _inject_new_stats_graph(webview) -> None:
 
         const canvas = document.createElement('canvas');
         canvas.id = 'prioritysieve-chart-canvas';
-        canvas.style.cssText = 'width: 100%; height: 200px;';
+        canvas.width = 800;
+        canvas.height = 400;
+        canvas.style.cssText = 'width: 100%; height: 200px; display: block;';
         container.appendChild(canvas);
 
         const statsDiv = document.createElement('div');
@@ -471,16 +473,15 @@ def _inject_new_stats_graph(webview) -> None:
 
         // Draw simple bar chart on canvas
         const ctx = canvas.getContext('2d');
-        const rect = canvas.getBoundingClientRect();
-        canvas.width = rect.width * 2;
-        canvas.height = 200 * 2;
-        ctx.scale(2, 2);
-
-        const width = rect.width;
-        const height = 200;
-        const padding = 40;
-        const barWidth = (width - padding * 2) / xData.length - 2;
+        const width = 800;
+        const height = 400;
+        const padding = 50;
+        const barWidth = Math.max(1, (width - padding * 2) / xData.length - 2);
         const maxY = Math.max(...yData, 10);
+
+        // Clear and set background
+        ctx.fillStyle = 'var(--canvas-elevated, #fff)';
+        ctx.fillRect(0, 0, width, height);
 
         // Draw bars
         ctx.fillStyle = '#9467bd';
@@ -493,7 +494,7 @@ def _inject_new_stats_graph(webview) -> None:
 
         // Draw cumulative line
         ctx.strokeStyle = '#9467bd';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         ctx.beginPath();
         const maxCum = Math.max(...cumData, 10);
         for (let i = 0; i < cumData.length; i++) {{
@@ -505,7 +506,7 @@ def _inject_new_stats_graph(webview) -> None:
         ctx.stroke();
 
         // Draw axes
-        ctx.strokeStyle = 'var(--fg, #333)';
+        ctx.strokeStyle = '#666';
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(padding, padding);
@@ -514,16 +515,22 @@ def _inject_new_stats_graph(webview) -> None:
         ctx.stroke();
 
         // Labels
-        ctx.fillStyle = 'var(--fg, #333)';
-        ctx.font = '11px sans-serif';
+        ctx.fillStyle = '#666';
+        ctx.font = '14px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('Days ago', width / 2, height - 5);
+        ctx.fillText('Days ago', width / 2, height - 10);
 
-        ctx.save();
-        ctx.translate(12, height / 2);
-        ctx.rotate(-Math.PI / 2);
-        ctx.fillText('Count', 0, 0);
-        ctx.restore();
+        // Y-axis labels
+        ctx.textAlign = 'right';
+        ctx.fillText('0', padding - 5, height - padding + 4);
+        ctx.fillText(String(maxY), padding - 5, padding + 4);
+
+        // X-axis labels (first and last)
+        ctx.textAlign = 'center';
+        if (xData.length > 0) {{
+            ctx.fillText(String(xData[0]), padding + barWidth / 2, height - padding + 18);
+            ctx.fillText(String(xData[xData.length - 1]), padding + (xData.length - 1) * (barWidth + 2) + barWidth / 2, height - padding + 18);
+        }}
     }})();
     """
 
