@@ -393,45 +393,56 @@ def first_entry_cards_graph(*args, **kwargs) -> str:
 
 def _inject_new_stats_graph(webview) -> None:
     """Inject the graph into the new stats page."""
-    print("PrioritySieve: _inject_new_stats_graph called")
-
     try:
         from aqt.webview import AnkiWebViewKind
     except ImportError:
-        print("PrioritySieve: AnkiWebViewKind not available")
         return
-
-    print(f"PrioritySieve: webview.kind = {webview.kind}, DECK_STATS = {AnkiWebViewKind.DECK_STATS}")
 
     if webview.kind != AnkiWebViewKind.DECK_STATS:
-        print("PrioritySieve: Not deck stats, skipping")
         return
-
-    print("PrioritySieve: This is deck stats page, proceeding")
 
     assert mw is not None
     if mw.col is None:
-        print("PrioritySieve: mw.col is None, skipping")
         return
 
-    data = get_first_entry_card_stats(
-        day_cutoff_seconds=mw.col.sched.dayCutoff,
-        bucket_size_days=1,
-        num_buckets=31,
-        additional_filter="",
-    )
+    day_cutoff = mw.col.sched.dayCutoff
 
-    if not data:
+    # Generate data for all 4 time ranges:
+    # 0: 1 month (31 days, bucket=1)
+    # 1: 3 months (93 days, bucket=1)
+    # 2: 1 year (365 days, bucket=1)
+    # 3: All time (no limit, bucket=1)
+    ranges = [
+        (31, 1),    # 1 month
+        (93, 1),    # 3 months
+        (365, 1),   # 1 year
+        (None, 1),  # all time
+    ]
+
+    all_data = []
+    for num_buckets, bucket_size in ranges:
+        data = get_first_entry_card_stats(
+            day_cutoff_seconds=day_cutoff,
+            bucket_size_days=bucket_size,
+            num_buckets=num_buckets,
+            additional_filter="",
+        )
+        x_values = [x for x, y in data]
+        y_values = [y for x, y in data]
+        cumulative = []
+        total = 0
+        for y in y_values:
+            total += y
+            cumulative.append(total)
+        all_data.append({
+            "x": x_values,
+            "y": y_values,
+            "cum": cumulative,
+        })
+
+    # Skip if no data for any range
+    if not any(d["x"] for d in all_data):
         return
-
-    x_values = [x for x, y in data]
-    y_values = [y for x, y in data]
-
-    cumulative = []
-    total = 0
-    for y in y_values:
-        total += y
-        cumulative.append(total)
 
     import json
 
@@ -442,11 +453,9 @@ def _inject_new_stats_graph(webview) -> None:
                 return true;
             }}
 
-            const xData = {json.dumps(x_values)};
-            const yData = {json.dumps(y_values)};
-            const cumData = {json.dumps(cumulative)};
+            const allData = {json.dumps(all_data)};
 
-            if (!xData.length) {{
+            if (!allData.some(d => d.x.length > 0)) {{
                 return true;
             }}
 
@@ -455,11 +464,16 @@ def _inject_new_stats_graph(webview) -> None:
                 return false;
             }}
 
-            const totalEntries = cumData[cumData.length - 1] || 0;
-            const avgPerDay = yData.length > 0 ? (totalEntries / yData.length).toFixed(0) : 0;
+            let currentRange = 0;
+            const svgNS = 'http://www.w3.org/2000/svg';
+            const width = 600;
+            const height = 250;
+            const margin = {{ left: 70, right: 70, top: 20, bottom: 25 }};
+            const innerWidth = width - margin.left - margin.right;
+            const innerHeight = height - margin.top - margin.bottom;
 
-            // Helper to calculate nice tick intervals
             function niceNum(range, round) {{
+                if (range <= 0) return 1;
                 const exponent = Math.floor(Math.log10(range));
                 const fraction = range / Math.pow(10, exponent);
                 let niceFraction;
@@ -490,13 +504,12 @@ def _inject_new_stats_graph(webview) -> None:
                 return {{ ticks, min: niceMin, max: niceMax }};
             }}
 
-            // Create container matching Anki's structure exactly
+            // Create container
             const container = document.createElement('div');
             container.id = 'prioritysieve-new-entries-graph';
             container.className = 'container d-flex flex-column svelte-dkvlwr light';
             container.style.cssText = '--gutter-block: 2px; --container-margin: 0;';
 
-            // Title wrapper with position-relative
             const titleWrapper = document.createElement('div');
             titleWrapper.className = 'position-relative';
             const titleEl = document.createElement('h1');
@@ -505,273 +518,270 @@ def _inject_new_stats_graph(webview) -> None:
             titleWrapper.appendChild(titleEl);
             container.appendChild(titleWrapper);
 
-            // Graph wrapper matching Anki's structure
             const graphWrapper = document.createElement('div');
             graphWrapper.className = 'graph d-flex flex-grow-1 flex-column justify-content-center svelte-3fyu6y';
 
-            // Subtitle
             const subtitle = document.createElement('div');
             subtitle.className = 'subtitle svelte-3fyu6y';
             subtitle.textContent = 'エントリーごとの最初のカード追加数';
             graphWrapper.appendChild(subtitle);
 
-            // Time range selector (display only, not functional yet)
+            // Range selector
             const rangeSelector = document.createElement('div');
             rangeSelector.className = 'svelte-1a4bkik';
-            rangeSelector.innerHTML = '<label><input type="radio" value="0" checked> 1か月</label> <label><input type="radio" value="1"> 3か月</label> <label><input type="radio" value="2"> 1年</label> <label><input type="radio" value="3"> 全期間</label>';
+            const labels = ['1か月', '3か月', '1年', '全期間'];
+            labels.forEach((label, idx) => {{
+                const lbl = document.createElement('label');
+                const radio = document.createElement('input');
+                radio.type = 'radio';
+                radio.name = 'prioritysieve-range';
+                radio.value = idx;
+                if (idx === 0) radio.checked = true;
+                radio.addEventListener('change', () => {{
+                    currentRange = idx;
+                    renderGraph();
+                }});
+                lbl.appendChild(radio);
+                lbl.appendChild(document.createTextNode(' ' + label));
+                rangeSelector.appendChild(lbl);
+                rangeSelector.appendChild(document.createTextNode(' '));
+            }});
             graphWrapper.appendChild(rangeSelector);
 
-            // SVG setup matching Anki exactly
-            const svgNS = 'http://www.w3.org/2000/svg';
-            const width = 600;
-            const height = 250;
-            const margin = {{ left: 70, right: 70, top: 20, bottom: 25 }};
-            const innerWidth = width - margin.left - margin.right;
-            const innerHeight = height - margin.top - margin.bottom;
+            // SVG container
+            const svgContainer = document.createElement('div');
+            svgContainer.id = 'prioritysieve-svg-container';
+            graphWrapper.appendChild(svgContainer);
 
-            const svg = document.createElementNS(svgNS, 'svg');
-            svg.setAttribute('viewBox', `0 0 ${{width}} ${{height}}`);
-
-            const maxY = Math.max(...yData, 1);
-            const maxCum = Math.max(...cumData, 1);
-
-            // Calculate nice ticks
-            const yTickInfo = getNiceTicks(0, maxY, 6);
-            const cumTickInfo = getNiceTicks(0, maxCum, 5);
-
-            // Use niceMax for scaling
-            const yMax = yTickInfo.max || maxY;
-            const cumMax = cumTickInfo.max || maxCum;
-
-            // Bar dimensions matching Anki (bars start at x=70, width=13.375)
-            const barWidth = 13.375;
-            const barGap = 1;
-            const totalBarWidth = barWidth + barGap;
-
-            // Color scale matching Anki's Added graph (light blue to dark blue)
-            const colorScale = (i) => {{
-                const t = i / Math.max(1, xData.length - 1);
-                const r = Math.round(177 - t * (177 - 47));
-                const g = Math.round(210 - t * (210 - 126));
-                const b = Math.round(232 - t * (232 - 188));
-                return `rgb(${{r}}, ${{g}}, ${{b}})`;
-            }};
-
-            // Bars group
-            const barsGroup = document.createElementNS(svgNS, 'g');
-            barsGroup.setAttribute('class', 'bars');
-
-            for (let i = 0; i < yData.length; i++) {{
-                const barHeight = (yData[i] / yMax) * innerHeight;
-                const x = margin.left + i * totalBarWidth;
-                const y = margin.top + innerHeight - barHeight;
-
-                const rect = document.createElementNS(svgNS, 'rect');
-                rect.setAttribute('rx', '1');
-                rect.setAttribute('x', x);
-                rect.setAttribute('y', y);
-                rect.setAttribute('height', Math.max(0, barHeight));
-                rect.setAttribute('width', barWidth);
-                rect.setAttribute('fill', colorScale(i));
-                barsGroup.appendChild(rect);
-            }}
-            svg.appendChild(barsGroup);
-
-            // Hover columns group
-            const hoverGroup = document.createElementNS(svgNS, 'g');
-            hoverGroup.setAttribute('class', 'hover-columns svelte-psugqn');
-
-            for (let i = 0; i < yData.length; i++) {{
-                const x = margin.left + i * totalBarWidth;
-                const hoverRect = document.createElementNS(svgNS, 'rect');
-                hoverRect.setAttribute('x', x);
-                hoverRect.setAttribute('y', margin.top);
-                hoverRect.setAttribute('width', barWidth);
-                hoverRect.setAttribute('height', innerHeight);
-                hoverRect.setAttribute('class', 'graph-element-clickable');
-
-                const dayVal = xData[i];
-                const count = yData[i];
-                const cumVal = cumData[i];
-
-                hoverRect.addEventListener('mouseenter', function(e) {{
-                    let tooltip = document.querySelector('.prioritysieve-tooltip');
-                    if (!tooltip) {{
-                        tooltip = document.createElement('div');
-                        tooltip.className = 'prioritysieve-tooltip graph-tooltip';
-                        document.body.appendChild(tooltip);
-                    }}
-                    tooltip.innerHTML = `<div>${{dayVal}}日</div><div>追加: ${{count}}件</div><div>累計: ${{cumVal}}件</div>`;
-                    tooltip.style.opacity = '1';
-                    tooltip.style.pointerEvents = 'none';
-                }});
-
-                hoverRect.addEventListener('mousemove', function(e) {{
-                    const tooltip = document.querySelector('.prioritysieve-tooltip');
-                    if (tooltip) {{
-                        tooltip.style.left = (e.pageX + 10) + 'px';
-                        tooltip.style.top = (e.pageY - 10) + 'px';
-                    }}
-                }});
-
-                hoverRect.addEventListener('mouseleave', function() {{
-                    const tooltip = document.querySelector('.prioritysieve-tooltip');
-                    if (tooltip) tooltip.style.opacity = '0';
-                }});
-
-                hoverGroup.appendChild(hoverRect);
-            }}
-            svg.appendChild(hoverGroup);
-
-            // Cumulative overlay path
-            const cumPath = document.createElementNS(svgNS, 'path');
-            cumPath.setAttribute('class', 'cumulative-overlay svelte-5v0l18');
-
-            let pathD = `M${{margin.left}},${{margin.top + innerHeight}}`;
-            for (let i = 0; i < cumData.length; i++) {{
-                const x = margin.left + i * totalBarWidth + barWidth / 2;
-                const y = margin.top + innerHeight - (cumData[i] / cumMax) * innerHeight;
-                pathD += `L${{x}},${{y}}`;
-            }}
-            pathD += `L${{margin.left + (cumData.length - 1) * totalBarWidth + barWidth / 2}},${{margin.top + innerHeight}}Z`;
-            cumPath.setAttribute('d', pathD);
-            svg.appendChild(cumPath);
-
-            // X-axis ticks
-            const xTicksGroup = document.createElementNS(svgNS, 'g');
-            xTicksGroup.setAttribute('class', 'x-ticks svelte-1mgreab');
-            xTicksGroup.setAttribute('transform', `translate(0, ${{margin.top + innerHeight}})`);
-            xTicksGroup.setAttribute('fill', 'none');
-            xTicksGroup.setAttribute('font-size', '10');
-            xTicksGroup.setAttribute('font-family', 'sans-serif');
-            xTicksGroup.setAttribute('text-anchor', 'middle');
-
-            // Domain line
-            const xDomain = document.createElementNS(svgNS, 'path');
-            xDomain.setAttribute('class', 'domain');
-            xDomain.setAttribute('stroke', 'currentColor');
-            xDomain.setAttribute('d', `M${{margin.left}},0H${{width - margin.right}}`);
-            xTicksGroup.appendChild(xDomain);
-
-            // X tick interval (every 5 for 31 days)
-            const xTickInterval = xData.length <= 31 ? 5 : (xData.length <= 93 ? 10 : 30);
-            for (let i = 0; i < xData.length; i++) {{
-                if (xData[i] % xTickInterval === 0) {{
-                    const x = margin.left + i * totalBarWidth + barWidth / 2;
-                    const tickG = document.createElementNS(svgNS, 'g');
-                    tickG.setAttribute('class', 'tick');
-                    tickG.setAttribute('opacity', '1');
-                    tickG.setAttribute('transform', `translate(${{x}},0)`);
-
-                    const line = document.createElementNS(svgNS, 'line');
-                    line.setAttribute('stroke', 'currentColor');
-                    line.setAttribute('y2', '6');
-                    tickG.appendChild(line);
-
-                    const text = document.createElementNS(svgNS, 'text');
-                    text.setAttribute('fill', 'currentColor');
-                    text.setAttribute('y', '9');
-                    text.setAttribute('dy', '0.71em');
-                    text.textContent = xData[i];
-                    tickG.appendChild(text);
-
-                    xTicksGroup.appendChild(tickG);
-                }}
-            }}
-            svg.appendChild(xTicksGroup);
-
-            // Y-axis ticks (left)
-            const yTicksGroup = document.createElementNS(svgNS, 'g');
-            yTicksGroup.setAttribute('class', 'y-ticks svelte-1mgreab');
-            yTicksGroup.setAttribute('transform', `translate(${{margin.left}}, 0)`);
-            yTicksGroup.setAttribute('fill', 'none');
-            yTicksGroup.setAttribute('font-size', '10');
-            yTicksGroup.setAttribute('font-family', 'sans-serif');
-            yTicksGroup.setAttribute('text-anchor', 'end');
-
-            const yDomain = document.createElementNS(svgNS, 'path');
-            yDomain.setAttribute('class', 'domain');
-            yDomain.setAttribute('stroke', 'currentColor');
-            yDomain.setAttribute('d', `M0,${{margin.top + innerHeight}}V${{margin.top}}`);
-            yTicksGroup.appendChild(yDomain);
-
-            yTickInfo.ticks.forEach(val => {{
-                const y = margin.top + innerHeight - (val / yMax) * innerHeight;
-                const tickG = document.createElementNS(svgNS, 'g');
-                tickG.setAttribute('class', 'tick');
-                tickG.setAttribute('opacity', '1');
-                tickG.setAttribute('transform', `translate(0,${{y}})`);
-
-                const line = document.createElementNS(svgNS, 'line');
-                line.setAttribute('stroke', 'currentColor');
-                line.setAttribute('x2', '-6');
-                tickG.appendChild(line);
-
-                const text = document.createElementNS(svgNS, 'text');
-                text.setAttribute('fill', 'currentColor');
-                text.setAttribute('x', '-9');
-                text.setAttribute('dy', '0.32em');
-                text.textContent = val.toLocaleString();
-                tickG.appendChild(text);
-
-                yTicksGroup.appendChild(tickG);
-            }});
-            svg.appendChild(yTicksGroup);
-
-            // Y2-axis ticks (right, cumulative)
-            const y2TicksGroup = document.createElementNS(svgNS, 'g');
-            y2TicksGroup.setAttribute('class', 'y2-ticks svelte-1mgreab');
-            y2TicksGroup.setAttribute('transform', `translate(${{width - margin.right}}, 0)`);
-            y2TicksGroup.setAttribute('fill', 'none');
-            y2TicksGroup.setAttribute('font-size', '10');
-            y2TicksGroup.setAttribute('font-family', 'sans-serif');
-            y2TicksGroup.setAttribute('text-anchor', 'start');
-
-            const y2Domain = document.createElementNS(svgNS, 'path');
-            y2Domain.setAttribute('class', 'domain');
-            y2Domain.setAttribute('stroke', 'currentColor');
-            y2Domain.setAttribute('d', `M0,${{margin.top + innerHeight}}V${{margin.top}}`);
-            y2TicksGroup.appendChild(y2Domain);
-
-            cumTickInfo.ticks.forEach(val => {{
-                const y = margin.top + innerHeight - (val / cumMax) * innerHeight;
-                const tickG = document.createElementNS(svgNS, 'g');
-                tickG.setAttribute('class', 'tick');
-                tickG.setAttribute('opacity', '1');
-                tickG.setAttribute('transform', `translate(0,${{y}})`);
-
-                const line = document.createElementNS(svgNS, 'line');
-                line.setAttribute('stroke', 'currentColor');
-                line.setAttribute('x2', '6');
-                tickG.appendChild(line);
-
-                const text = document.createElementNS(svgNS, 'text');
-                text.setAttribute('fill', 'currentColor');
-                text.setAttribute('x', '9');
-                text.setAttribute('dy', '0.32em');
-                text.textContent = val.toLocaleString();
-                tickG.appendChild(text);
-
-                y2TicksGroup.appendChild(tickG);
-            }});
-            svg.appendChild(y2TicksGroup);
-
-            graphWrapper.appendChild(svg);
-
-            // Stats table matching Anki's structure
+            // Stats table
             const tableWrapper = document.createElement('div');
             tableWrapper.className = 'svelte-1blhjzb';
-            tableWrapper.innerHTML = `
-                <table dir="ltr"><tbody>
-                    <tr><td class="align-end svelte-1blhjzb">合計:</td><td class="align-start svelte-1blhjzb">${{totalEntries.toLocaleString()}}件</td></tr>
-                    <tr><td class="align-end svelte-1blhjzb">平均:</td><td class="align-start svelte-1blhjzb">${{avgPerDay}}件 / 日</td></tr>
-                </tbody></table>
-            `;
+            tableWrapper.id = 'prioritysieve-stats-table';
             graphWrapper.appendChild(tableWrapper);
 
             container.appendChild(graphWrapper);
 
-            // Minimal additional styles (most come from Anki's existing CSS)
+            function renderGraph() {{
+                const data = allData[currentRange];
+                const xData = data.x;
+                const yData = data.y;
+                const cumData = data.cum;
+
+                if (!xData.length) {{
+                    svgContainer.innerHTML = '<div style="text-align:center;padding:40px;opacity:0.5;">データなし</div>';
+                    tableWrapper.innerHTML = '';
+                    return;
+                }}
+
+                const totalEntries = cumData[cumData.length - 1] || 0;
+                const avgPerDay = yData.length > 0 ? (totalEntries / yData.length).toFixed(0) : 0;
+
+                const maxY = Math.max(...yData, 1);
+                const maxCum = Math.max(...cumData, 1);
+                const yTickInfo = getNiceTicks(0, maxY, 6);
+                const cumTickInfo = getNiceTicks(0, maxCum, 5);
+                const yMax = yTickInfo.max || maxY;
+                const cumMax = cumTickInfo.max || maxCum;
+
+                // Dynamic bar width based on data length
+                const barWidth = Math.min(13.375, (innerWidth - xData.length) / xData.length);
+                const barGap = 1;
+                const totalBarWidth = barWidth + barGap;
+
+                const colorScale = (i) => {{
+                    const t = i / Math.max(1, xData.length - 1);
+                    const r = Math.round(177 - t * (177 - 47));
+                    const g = Math.round(210 - t * (210 - 126));
+                    const b = Math.round(232 - t * (232 - 188));
+                    return `rgb(${{r}}, ${{g}}, ${{b}})`;
+                }};
+
+                const svg = document.createElementNS(svgNS, 'svg');
+                svg.setAttribute('viewBox', `0 0 ${{width}} ${{height}}`);
+
+                // Bars
+                const barsGroup = document.createElementNS(svgNS, 'g');
+                barsGroup.setAttribute('class', 'bars');
+                for (let i = 0; i < yData.length; i++) {{
+                    const barHeight = (yData[i] / yMax) * innerHeight;
+                    const x = margin.left + i * totalBarWidth;
+                    const y = margin.top + innerHeight - barHeight;
+                    const rect = document.createElementNS(svgNS, 'rect');
+                    rect.setAttribute('rx', '1');
+                    rect.setAttribute('x', x);
+                    rect.setAttribute('y', y);
+                    rect.setAttribute('height', Math.max(0, barHeight));
+                    rect.setAttribute('width', barWidth);
+                    rect.setAttribute('fill', colorScale(i));
+                    barsGroup.appendChild(rect);
+                }}
+                svg.appendChild(barsGroup);
+
+                // Hover columns
+                const hoverGroup = document.createElementNS(svgNS, 'g');
+                hoverGroup.setAttribute('class', 'hover-columns svelte-psugqn');
+                for (let i = 0; i < yData.length; i++) {{
+                    const x = margin.left + i * totalBarWidth;
+                    const hoverRect = document.createElementNS(svgNS, 'rect');
+                    hoverRect.setAttribute('x', x);
+                    hoverRect.setAttribute('y', margin.top);
+                    hoverRect.setAttribute('width', barWidth);
+                    hoverRect.setAttribute('height', innerHeight);
+                    hoverRect.setAttribute('class', 'graph-element-clickable');
+                    const dayVal = xData[i];
+                    const count = yData[i];
+                    const cumVal = cumData[i];
+                    hoverRect.addEventListener('mouseenter', function(e) {{
+                        let tooltip = document.querySelector('.prioritysieve-tooltip');
+                        if (!tooltip) {{
+                            tooltip = document.createElement('div');
+                            tooltip.className = 'prioritysieve-tooltip graph-tooltip';
+                            document.body.appendChild(tooltip);
+                        }}
+                        tooltip.innerHTML = `<div>${{dayVal}}日</div><div>追加: ${{count}}件</div><div>累計: ${{cumVal.toLocaleString()}}件</div>`;
+                        tooltip.style.opacity = '1';
+                    }});
+                    hoverRect.addEventListener('mousemove', function(e) {{
+                        const tooltip = document.querySelector('.prioritysieve-tooltip');
+                        if (tooltip) {{
+                            tooltip.style.left = (e.pageX + 10) + 'px';
+                            tooltip.style.top = (e.pageY - 10) + 'px';
+                        }}
+                    }});
+                    hoverRect.addEventListener('mouseleave', function() {{
+                        const tooltip = document.querySelector('.prioritysieve-tooltip');
+                        if (tooltip) tooltip.style.opacity = '0';
+                    }});
+                    hoverGroup.appendChild(hoverRect);
+                }}
+                svg.appendChild(hoverGroup);
+
+                // Cumulative path
+                if (cumData.length > 0) {{
+                    const cumPath = document.createElementNS(svgNS, 'path');
+                    cumPath.setAttribute('class', 'cumulative-overlay svelte-5v0l18');
+                    let pathD = `M${{margin.left}},${{margin.top + innerHeight}}`;
+                    for (let i = 0; i < cumData.length; i++) {{
+                        const x = margin.left + i * totalBarWidth + barWidth / 2;
+                        const y = margin.top + innerHeight - (cumData[i] / cumMax) * innerHeight;
+                        pathD += `L${{x}},${{y}}`;
+                    }}
+                    pathD += `L${{margin.left + (cumData.length - 1) * totalBarWidth + barWidth / 2}},${{margin.top + innerHeight}}Z`;
+                    cumPath.setAttribute('d', pathD);
+                    svg.appendChild(cumPath);
+                }}
+
+                // X-axis
+                const xTicksGroup = document.createElementNS(svgNS, 'g');
+                xTicksGroup.setAttribute('class', 'x-ticks svelte-1mgreab');
+                xTicksGroup.setAttribute('transform', `translate(0, ${{margin.top + innerHeight}})`);
+                xTicksGroup.setAttribute('fill', 'none');
+                xTicksGroup.setAttribute('font-size', '10');
+                xTicksGroup.setAttribute('font-family', 'sans-serif');
+                xTicksGroup.setAttribute('text-anchor', 'middle');
+                const xDomain = document.createElementNS(svgNS, 'path');
+                xDomain.setAttribute('class', 'domain');
+                xDomain.setAttribute('stroke', 'currentColor');
+                xDomain.setAttribute('d', `M${{margin.left}},0H${{width - margin.right}}`);
+                xTicksGroup.appendChild(xDomain);
+                const xTickInterval = xData.length <= 31 ? 5 : (xData.length <= 93 ? 10 : (xData.length <= 365 ? 30 : 100));
+                for (let i = 0; i < xData.length; i++) {{
+                    if (xData[i] % xTickInterval === 0) {{
+                        const x = margin.left + i * totalBarWidth + barWidth / 2;
+                        const tickG = document.createElementNS(svgNS, 'g');
+                        tickG.setAttribute('class', 'tick');
+                        tickG.setAttribute('transform', `translate(${{x}},0)`);
+                        const line = document.createElementNS(svgNS, 'line');
+                        line.setAttribute('stroke', 'currentColor');
+                        line.setAttribute('y2', '6');
+                        tickG.appendChild(line);
+                        const text = document.createElementNS(svgNS, 'text');
+                        text.setAttribute('fill', 'currentColor');
+                        text.setAttribute('y', '9');
+                        text.setAttribute('dy', '0.71em');
+                        text.textContent = xData[i];
+                        tickG.appendChild(text);
+                        xTicksGroup.appendChild(tickG);
+                    }}
+                }}
+                svg.appendChild(xTicksGroup);
+
+                // Y-axis (left)
+                const yTicksGroup = document.createElementNS(svgNS, 'g');
+                yTicksGroup.setAttribute('class', 'y-ticks svelte-1mgreab');
+                yTicksGroup.setAttribute('transform', `translate(${{margin.left}}, 0)`);
+                yTicksGroup.setAttribute('fill', 'none');
+                yTicksGroup.setAttribute('font-size', '10');
+                yTicksGroup.setAttribute('font-family', 'sans-serif');
+                yTicksGroup.setAttribute('text-anchor', 'end');
+                const yDomain = document.createElementNS(svgNS, 'path');
+                yDomain.setAttribute('class', 'domain');
+                yDomain.setAttribute('stroke', 'currentColor');
+                yDomain.setAttribute('d', `M0,${{margin.top + innerHeight}}V${{margin.top}}`);
+                yTicksGroup.appendChild(yDomain);
+                yTickInfo.ticks.forEach(val => {{
+                    const y = margin.top + innerHeight - (val / yMax) * innerHeight;
+                    const tickG = document.createElementNS(svgNS, 'g');
+                    tickG.setAttribute('class', 'tick');
+                    tickG.setAttribute('transform', `translate(0,${{y}})`);
+                    const line = document.createElementNS(svgNS, 'line');
+                    line.setAttribute('stroke', 'currentColor');
+                    line.setAttribute('x2', '-6');
+                    tickG.appendChild(line);
+                    const text = document.createElementNS(svgNS, 'text');
+                    text.setAttribute('fill', 'currentColor');
+                    text.setAttribute('x', '-9');
+                    text.setAttribute('dy', '0.32em');
+                    text.textContent = val.toLocaleString();
+                    tickG.appendChild(text);
+                    yTicksGroup.appendChild(tickG);
+                }});
+                svg.appendChild(yTicksGroup);
+
+                // Y2-axis (right)
+                const y2TicksGroup = document.createElementNS(svgNS, 'g');
+                y2TicksGroup.setAttribute('class', 'y2-ticks svelte-1mgreab');
+                y2TicksGroup.setAttribute('transform', `translate(${{width - margin.right}}, 0)`);
+                y2TicksGroup.setAttribute('fill', 'none');
+                y2TicksGroup.setAttribute('font-size', '10');
+                y2TicksGroup.setAttribute('font-family', 'sans-serif');
+                y2TicksGroup.setAttribute('text-anchor', 'start');
+                const y2Domain = document.createElementNS(svgNS, 'path');
+                y2Domain.setAttribute('class', 'domain');
+                y2Domain.setAttribute('stroke', 'currentColor');
+                y2Domain.setAttribute('d', `M0,${{margin.top + innerHeight}}V${{margin.top}}`);
+                y2TicksGroup.appendChild(y2Domain);
+                cumTickInfo.ticks.forEach(val => {{
+                    const y = margin.top + innerHeight - (val / cumMax) * innerHeight;
+                    const tickG = document.createElementNS(svgNS, 'g');
+                    tickG.setAttribute('class', 'tick');
+                    tickG.setAttribute('transform', `translate(0,${{y}})`);
+                    const line = document.createElementNS(svgNS, 'line');
+                    line.setAttribute('stroke', 'currentColor');
+                    line.setAttribute('x2', '6');
+                    tickG.appendChild(line);
+                    const text = document.createElementNS(svgNS, 'text');
+                    text.setAttribute('fill', 'currentColor');
+                    text.setAttribute('x', '9');
+                    text.setAttribute('dy', '0.32em');
+                    text.textContent = val.toLocaleString();
+                    tickG.appendChild(text);
+                    y2TicksGroup.appendChild(tickG);
+                }});
+                svg.appendChild(y2TicksGroup);
+
+                svgContainer.innerHTML = '';
+                svgContainer.appendChild(svg);
+
+                tableWrapper.innerHTML = `
+                    <table dir="ltr"><tbody>
+                        <tr><td class="align-end svelte-1blhjzb">合計:</td><td class="align-start svelte-1blhjzb">${{totalEntries.toLocaleString()}}件</td></tr>
+                        <tr><td class="align-end svelte-1blhjzb">平均:</td><td class="align-start svelte-1blhjzb">${{avgPerDay}}件 / 日</td></tr>
+                    </tbody></table>
+                `;
+            }}
+
+            // Styles
             if (!document.getElementById('prioritysieve-graph-styles')) {{
                 const style = document.createElement('style');
                 style.id = 'prioritysieve-graph-styles';
@@ -801,10 +811,10 @@ def _inject_new_stats_graph(webview) -> None:
             }}
 
             gridContainer.appendChild(container);
+            renderGraph();
             return true;
         }}
 
-        // Retry mechanism
         if (!injectGraph()) {{
             let retries = 0;
             const maxRetries = 10;
