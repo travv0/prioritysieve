@@ -440,81 +440,87 @@ def _inject_new_stats_graph(webview) -> None:
             const totalEntries = cumData[cumData.length - 1] || 0;
             const avgPerDay = yData.length > 0 ? (totalEntries / yData.length).toFixed(1) : 0;
 
-            // Match Anki's TitledContainer structure
-            const isDark = document.body.classList.contains('night-mode') || document.documentElement.classList.contains('night-mode');
+            const isDark = document.body.classList.contains('night-mode') ||
+                           document.documentElement.classList.contains('night-mode') ||
+                           document.querySelector('[class*="night-mode"]') !== null;
 
+            // Find the grid container that holds the graphs
+            const gridContainer = document.querySelector('div[style*="grid-template-columns"]') ||
+                                  document.querySelector('.graphs-container');
+
+            if (!gridContainer) {{
+                console.log('PrioritySieve: Could not find graph grid container');
+                return;
+            }}
+
+            // Create container matching Anki's TitledContainer exactly
             const container = document.createElement('div');
             container.id = 'prioritysieve-new-entries-graph';
-            container.className = 'container ' + (isDark ? 'dark' : 'light');
-            container.style.cssText = `
-                width: 100%;
-                background: var(--canvas-elevated, #fff);
-                border: 1px solid var(--border-subtle, #ddd);
-                border-radius: var(--border-radius-medium, 10px);
-                padding: 1rem 1.75rem 0.75rem 1.25rem;
-                box-sizing: border-box;
-                margin-bottom: 1em;
-                box-shadow: ${{isDark ? '0 4px 8px rgba(0,0,0,0.3)' : '0 2px 4px rgba(0,0,0,0.1)'}};
-            `;
+            container.className = 'container';
 
-            // Title with border
+            // Title (h1 with bottom border like Anki)
             const titleEl = document.createElement('h1');
-            titleEl.textContent = 'New Entries Added';
-            titleEl.style.cssText = 'border-bottom: 1px solid var(--border, #ccc); padding-bottom: 0.25em; margin: 0 0 0.5em 0; font-size: 1.17em;';
+            titleEl.textContent = '追加（エントリー）';
             container.appendChild(titleEl);
 
             // Subtitle
             const subtitle = document.createElement('div');
+            subtitle.className = 'subtitle';
             subtitle.textContent = 'First card added per entry (excluding disabled decks)';
-            subtitle.style.cssText = 'text-align: center; margin-bottom: 1em; opacity: 0.7; font-size: 0.9em;';
             container.appendChild(subtitle);
 
-            // Graph container
-            const graphDiv = document.createElement('div');
-            graphDiv.className = 'graph';
-            graphDiv.style.cssText = 'display: flex; flex-direction: column; justify-content: center;';
-            container.appendChild(graphDiv);
+            // Graph wrapper
+            const graphWrapper = document.createElement('div');
+            graphWrapper.className = 'graph';
+            container.appendChild(graphWrapper);
 
-            // Create SVG matching Anki's dimensions
+            // SVG dimensions matching Anki
             const svgNS = 'http://www.w3.org/2000/svg';
             const width = 600;
-            const height = 250;
-            const margin = {{ left: 50, right: 50, top: 20, bottom: 50 }};
+            const height = 200;
+            const margin = {{ left: 40, right: 40, top: 10, bottom: 30 }};
             const innerWidth = width - margin.left - margin.right;
             const innerHeight = height - margin.top - margin.bottom;
 
             const svg = document.createElementNS(svgNS, 'svg');
             svg.setAttribute('viewBox', `0 0 ${{width}} ${{height}}`);
-            svg.style.cssText = 'width: 100%; height: auto; display: block;';
-            graphDiv.appendChild(svg);
+            graphWrapper.appendChild(svg);
 
             const maxY = Math.max(...yData, 1);
             const maxCum = Math.max(...cumData, 1);
-            const barWidth = Math.max(1, (innerWidth / xData.length) * 0.8);
-            const barGap = (innerWidth / xData.length) * 0.2;
+            const barWidth = Math.max(1, innerWidth / xData.length - 1);
 
-            // Draw cumulative area (behind bars)
+            // Cumulative area (subtle, like Anki's)
             let areaPath = `M ${{margin.left}} ${{margin.top + innerHeight}}`;
             for (let i = 0; i < cumData.length; i++) {{
-                const x = margin.left + i * (barWidth + barGap) + barWidth / 2;
+                const x = margin.left + i * (barWidth + 1) + barWidth / 2;
                 const y = margin.top + innerHeight - (cumData[i] / maxCum) * innerHeight;
                 areaPath += ` L ${{x}} ${{y}}`;
             }}
-            areaPath += ` L ${{margin.left + (cumData.length - 1) * (barWidth + barGap) + barWidth / 2}} ${{margin.top + innerHeight}} Z`;
+            areaPath += ` L ${{margin.left + (cumData.length - 1) * (barWidth + 1) + barWidth / 2}} ${{margin.top + innerHeight}} Z`;
 
             const areaEl = document.createElementNS(svgNS, 'path');
             areaEl.setAttribute('d', areaPath);
-            areaEl.setAttribute('fill', 'rgba(101, 153, 255, 0.3)');
+            areaEl.setAttribute('class', 'cumulative-overlay');
             svg.appendChild(areaEl);
 
-            // Draw bars
+            // Bars
             const barsGroup = document.createElementNS(svgNS, 'g');
             barsGroup.setAttribute('class', 'bars');
             svg.appendChild(barsGroup);
 
+            // Color scale (blue gradient like Anki's Added graph)
+            const colorScale = (i) => {{
+                const t = i / Math.max(1, xData.length - 1);
+                const r = Math.round(119 + t * (70 - 119));
+                const g = Math.round(158 + t * (130 - 158));
+                const b = Math.round(203 + t * (180 - 203));
+                return `rgb(${{r}}, ${{g}}, ${{b}})`;
+            }};
+
             for (let i = 0; i < yData.length; i++) {{
                 const barHeight = Math.max(0, (yData[i] / maxY) * innerHeight);
-                const x = margin.left + i * (barWidth + barGap);
+                const x = margin.left + i * (barWidth + 1);
                 const y = margin.top + innerHeight - barHeight;
 
                 const rect = document.createElementNS(svgNS, 'rect');
@@ -522,146 +528,88 @@ def _inject_new_stats_graph(webview) -> None:
                 rect.setAttribute('y', y);
                 rect.setAttribute('width', barWidth);
                 rect.setAttribute('height', barHeight);
-                rect.setAttribute('fill', '#6599ff');
+                rect.setAttribute('fill', colorScale(i));
                 rect.setAttribute('rx', '1');
                 barsGroup.appendChild(rect);
             }}
 
-            // X-axis
-            const xAxisGroup = document.createElementNS(svgNS, 'g');
-            xAxisGroup.setAttribute('class', 'x-ticks');
-            xAxisGroup.setAttribute('transform', `translate(0, ${{margin.top + innerHeight}})`);
-            svg.appendChild(xAxisGroup);
+            // X-axis ticks
+            const xTicksGroup = document.createElementNS(svgNS, 'g');
+            xTicksGroup.setAttribute('class', 'x-ticks');
+            svg.appendChild(xTicksGroup);
 
-            // X-axis line
-            const xAxisLine = document.createElementNS(svgNS, 'line');
-            xAxisLine.setAttribute('x1', margin.left);
-            xAxisLine.setAttribute('x2', width - margin.right);
-            xAxisLine.setAttribute('y1', 0);
-            xAxisLine.setAttribute('y2', 0);
-            xAxisLine.setAttribute('stroke', 'currentColor');
-            xAxisLine.setAttribute('opacity', '0.1');
-            xAxisGroup.appendChild(xAxisLine);
+            const xTickCount = 6;
+            const xTickStep = Math.max(1, Math.floor(xData.length / xTickCount));
+            for (let i = 0; i < xData.length; i += xTickStep) {{
+                const x = margin.left + i * (barWidth + 1) + barWidth / 2;
+                const y = margin.top + innerHeight;
 
-            // X-axis ticks (every ~7 bars)
-            const tickStep = Math.max(1, Math.ceil(xData.length / 7));
-            for (let i = 0; i < xData.length; i += tickStep) {{
-                const x = margin.left + i * (barWidth + barGap) + barWidth / 2;
+                const line = document.createElementNS(svgNS, 'line');
+                line.setAttribute('x1', x);
+                line.setAttribute('x2', x);
+                line.setAttribute('y1', y);
+                line.setAttribute('y2', y + 5);
+                xTicksGroup.appendChild(line);
 
-                const tick = document.createElementNS(svgNS, 'line');
-                tick.setAttribute('x1', x);
-                tick.setAttribute('x2', x);
-                tick.setAttribute('y1', 0);
-                tick.setAttribute('y2', 6);
-                tick.setAttribute('stroke', 'currentColor');
-                tick.setAttribute('opacity', '0.1');
-                xAxisGroup.appendChild(tick);
-
-                const label = document.createElementNS(svgNS, 'text');
-                label.setAttribute('x', x);
-                label.setAttribute('y', 20);
-                label.setAttribute('text-anchor', 'middle');
-                label.setAttribute('font-size', '10');
-                label.setAttribute('fill', 'currentColor');
-                label.setAttribute('opacity', '0.5');
-                label.textContent = xData[i];
-                xAxisGroup.appendChild(label);
+                const text = document.createElementNS(svgNS, 'text');
+                text.setAttribute('x', x);
+                text.setAttribute('y', y + 18);
+                text.textContent = xData[i];
+                xTicksGroup.appendChild(text);
             }}
 
-            // Y-axis (left)
-            const yAxisGroup = document.createElementNS(svgNS, 'g');
-            yAxisGroup.setAttribute('class', 'y-ticks');
-            yAxisGroup.setAttribute('transform', `translate(${{margin.left}}, 0)`);
-            svg.appendChild(yAxisGroup);
+            // Y-axis ticks (left)
+            const yTicksGroup = document.createElementNS(svgNS, 'g');
+            yTicksGroup.setAttribute('class', 'y-ticks');
+            svg.appendChild(yTicksGroup);
 
-            const yAxisLine = document.createElementNS(svgNS, 'line');
-            yAxisLine.setAttribute('x1', 0);
-            yAxisLine.setAttribute('x2', 0);
-            yAxisLine.setAttribute('y1', margin.top);
-            yAxisLine.setAttribute('y2', margin.top + innerHeight);
-            yAxisLine.setAttribute('stroke', 'currentColor');
-            yAxisLine.setAttribute('opacity', '0.1');
-            yAxisGroup.appendChild(yAxisLine);
-
-            // Y-axis labels
             const yTicks = [0, Math.round(maxY / 2), maxY];
             yTicks.forEach(val => {{
                 const y = margin.top + innerHeight - (val / maxY) * innerHeight;
 
-                const tick = document.createElementNS(svgNS, 'line');
-                tick.setAttribute('x1', -6);
-                tick.setAttribute('x2', 0);
-                tick.setAttribute('y1', y);
-                tick.setAttribute('y2', y);
-                tick.setAttribute('stroke', 'currentColor');
-                tick.setAttribute('opacity', '0.1');
-                yAxisGroup.appendChild(tick);
+                const line = document.createElementNS(svgNS, 'line');
+                line.setAttribute('x1', margin.left - 5);
+                line.setAttribute('x2', margin.left);
+                line.setAttribute('y1', y);
+                line.setAttribute('y2', y);
+                yTicksGroup.appendChild(line);
 
-                const label = document.createElementNS(svgNS, 'text');
-                label.setAttribute('x', -10);
-                label.setAttribute('y', y + 3);
-                label.setAttribute('text-anchor', 'end');
-                label.setAttribute('font-size', '10');
-                label.setAttribute('fill', 'currentColor');
-                label.setAttribute('opacity', '0.5');
-                label.textContent = val;
-                yAxisGroup.appendChild(label);
+                const text = document.createElementNS(svgNS, 'text');
+                text.setAttribute('x', margin.left - 8);
+                text.setAttribute('y', y + 4);
+                text.setAttribute('text-anchor', 'end');
+                text.textContent = val;
+                yTicksGroup.appendChild(text);
             }});
 
-            // Y-axis (right) for cumulative
-            const y2AxisGroup = document.createElementNS(svgNS, 'g');
-            y2AxisGroup.setAttribute('class', 'y2-ticks');
-            y2AxisGroup.setAttribute('transform', `translate(${{width - margin.right}}, 0)`);
-            svg.appendChild(y2AxisGroup);
+            // Y-axis ticks (right) for cumulative
+            const y2TicksGroup = document.createElementNS(svgNS, 'g');
+            y2TicksGroup.setAttribute('class', 'y-ticks');
+            svg.appendChild(y2TicksGroup);
 
             const y2Ticks = [0, Math.round(maxCum / 2), maxCum];
             y2Ticks.forEach(val => {{
                 const y = margin.top + innerHeight - (val / maxCum) * innerHeight;
 
-                const label = document.createElementNS(svgNS, 'text');
-                label.setAttribute('x', 10);
-                label.setAttribute('y', y + 3);
-                label.setAttribute('text-anchor', 'start');
-                label.setAttribute('font-size', '10');
-                label.setAttribute('fill', 'currentColor');
-                label.setAttribute('opacity', '0.5');
-                label.textContent = val;
-                y2AxisGroup.appendChild(label);
+                const text = document.createElementNS(svgNS, 'text');
+                text.setAttribute('x', width - margin.right + 8);
+                text.setAttribute('y', y + 4);
+                text.setAttribute('text-anchor', 'start');
+                text.textContent = val;
+                y2TicksGroup.appendChild(text);
             }});
 
-            // Hover columns for tooltip
+            // Hover columns
             const hoverGroup = document.createElementNS(svgNS, 'g');
             hoverGroup.setAttribute('class', 'hover-columns');
             svg.appendChild(hoverGroup);
 
-            // Create tooltip element
-            let tooltipEl = document.getElementById('prioritysieve-tooltip');
-            if (!tooltipEl) {{
-                tooltipEl = document.createElement('div');
-                tooltipEl.id = 'prioritysieve-tooltip';
-                tooltipEl.style.cssText = `
-                    position: fixed;
-                    background: var(--canvas-elevated, #333);
-                    color: var(--fg, #fff);
-                    padding: 8px 12px;
-                    border-radius: 4px;
-                    font-size: 12px;
-                    pointer-events: none;
-                    opacity: 0;
-                    z-index: 10000;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-                    border: 1px solid var(--border-subtle, #555);
-                    transition: opacity 0.15s;
-                `;
-                document.body.appendChild(tooltipEl);
-            }}
-
             for (let i = 0; i < yData.length; i++) {{
-                const x = margin.left + i * (barWidth + barGap);
+                const x = margin.left + i * (barWidth + 1);
                 const hoverRect = document.createElementNS(svgNS, 'rect');
                 hoverRect.setAttribute('x', x);
                 hoverRect.setAttribute('y', margin.top);
-                hoverRect.setAttribute('width', barWidth + barGap);
+                hoverRect.setAttribute('width', barWidth + 1);
                 hoverRect.setAttribute('height', innerHeight);
                 hoverRect.setAttribute('fill', 'transparent');
                 hoverRect.style.cursor = 'pointer';
@@ -669,43 +617,139 @@ def _inject_new_stats_graph(webview) -> None:
                 const dayVal = xData[i];
                 const count = yData[i];
                 const cumVal = cumData[i];
-                const dayLabel = dayVal === 0 ? 'Today' : dayVal === -1 ? 'Yesterday' : Math.abs(dayVal) + ' days ago';
 
                 hoverRect.addEventListener('mouseenter', function(e) {{
-                    tooltipEl.innerHTML = '<strong>' + dayLabel + '</strong><br>Added: ' + count + '<br>Cumulative: ' + cumVal;
-                    tooltipEl.style.opacity = '1';
-                    this.setAttribute('fill', 'rgba(101, 153, 255, 0.2)');
+                    const tooltip = document.querySelector('.graph-tooltip') || createTooltip();
+                    tooltip.innerHTML = `<div>${{dayVal}}日前</div><div>追加: ${{count}}件</div><div>累計: ${{cumVal}}件</div>`;
+                    tooltip.style.display = 'block';
                 }});
 
                 hoverRect.addEventListener('mousemove', function(e) {{
-                    tooltipEl.style.left = (e.clientX + 15) + 'px';
-                    tooltipEl.style.top = (e.clientY - 10) + 'px';
+                    const tooltip = document.querySelector('.graph-tooltip');
+                    if (tooltip) {{
+                        tooltip.style.left = (e.clientX + 10) + 'px';
+                        tooltip.style.top = (e.clientY - 10) + 'px';
+                    }}
                 }});
 
                 hoverRect.addEventListener('mouseleave', function() {{
-                    tooltipEl.style.opacity = '0';
-                    this.setAttribute('fill', 'transparent');
+                    const tooltip = document.querySelector('.graph-tooltip');
+                    if (tooltip) tooltip.style.display = 'none';
                 }});
 
                 hoverGroup.appendChild(hoverRect);
             }}
 
-            // Stats table matching Anki's style
-            const statsTable = document.createElement('div');
-            statsTable.style.cssText = 'text-align: center; margin-top: 1em;';
-            statsTable.innerHTML = `
-                <div style="margin-bottom: 0.25em;">合計: ${{totalEntries}}件</div>
-                <div>平均: ${{avgPerDay}}件 / 日</div>
-            `;
-            graphDiv.appendChild(statsTable);
-
-            // Find where to insert (after the 追加 graph)
-            const graphsContainer = document.querySelector('.graphs-container');
-            if (graphsContainer) {{
-                graphsContainer.appendChild(container);
-            }} else {{
-                document.body.appendChild(container);
+            function createTooltip() {{
+                const t = document.createElement('div');
+                t.className = 'graph-tooltip';
+                document.body.appendChild(t);
+                return t;
             }}
+
+            // Stats table (matching Anki's TableData)
+            const tableWrapper = document.createElement('div');
+            tableWrapper.className = 'table-wrapper';
+
+            const table = document.createElement('table');
+            table.innerHTML = `
+                <tr><td class="align-end">合計:</td><td class="align-start">${{totalEntries}}件</td></tr>
+                <tr><td class="align-end">平均:</td><td class="align-start">${{avgPerDay}}件 / 日</td></tr>
+            `;
+            tableWrapper.appendChild(table);
+            container.appendChild(tableWrapper);
+
+            // Inject styles
+            if (!document.getElementById('prioritysieve-graph-styles')) {{
+                const style = document.createElement('style');
+                style.id = 'prioritysieve-graph-styles';
+                style.textContent = `
+                    #prioritysieve-new-entries-graph {{
+                        background: var(--canvas-elevated, #fff);
+                        border: 1px solid var(--border-subtle, #e0e0e0);
+                        border-radius: var(--border-radius-medium, 12px);
+                        padding: 1rem 1.75rem 0.75rem 1.25rem;
+                        box-sizing: border-box;
+                    }}
+                    #prioritysieve-new-entries-graph h1 {{
+                        border-bottom: 1px solid var(--border, #ccc);
+                        padding-bottom: 0.25em;
+                        margin: 0 0 0.5em 0;
+                        font-size: 1.17em;
+                        font-weight: normal;
+                    }}
+                    #prioritysieve-new-entries-graph .subtitle {{
+                        text-align: center;
+                        margin-bottom: 1em;
+                        opacity: 0.7;
+                        font-size: 0.9em;
+                    }}
+                    #prioritysieve-new-entries-graph .graph {{
+                        display: flex;
+                        justify-content: center;
+                    }}
+                    #prioritysieve-new-entries-graph svg {{
+                        width: 100%;
+                        height: auto;
+                        display: block;
+                    }}
+                    #prioritysieve-new-entries-graph .cumulative-overlay {{
+                        fill: ${{isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.03)'}};
+                        stroke: ${{isDark ? 'rgba(0,0,0,0.18)' : 'rgba(0,0,0,0.08)'}};
+                        pointer-events: none;
+                    }}
+                    #prioritysieve-new-entries-graph .x-ticks line,
+                    #prioritysieve-new-entries-graph .y-ticks line {{
+                        stroke: currentColor;
+                        opacity: 0.1;
+                    }}
+                    #prioritysieve-new-entries-graph .x-ticks text,
+                    #prioritysieve-new-entries-graph .y-ticks text {{
+                        fill: currentColor;
+                        opacity: 0.5;
+                        font-size: 11px;
+                        text-anchor: middle;
+                    }}
+                    #prioritysieve-new-entries-graph .y-ticks text {{
+                        font-size: 10px;
+                    }}
+                    #prioritysieve-new-entries-graph .table-wrapper {{
+                        display: flex;
+                        justify-content: center;
+                        margin-top: 0.5em;
+                    }}
+                    #prioritysieve-new-entries-graph table {{
+                        border-collapse: collapse;
+                    }}
+                    #prioritysieve-new-entries-graph td {{
+                        padding: 3px;
+                    }}
+                    #prioritysieve-new-entries-graph .align-end {{
+                        text-align: end;
+                    }}
+                    #prioritysieve-new-entries-graph .align-start {{
+                        text-align: start;
+                    }}
+                    .graph-tooltip {{
+                        position: fixed;
+                        background: var(--canvas-elevated, #333);
+                        color: var(--fg, #fff);
+                        padding: 6px 10px;
+                        border-radius: 4px;
+                        font-size: 12px;
+                        pointer-events: none;
+                        z-index: 10000;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                        border: 1px solid var(--border-subtle, #555);
+                        display: none;
+                    }}
+                `;
+                document.head.appendChild(style);
+            }}
+
+            // Insert into the grid
+            gridContainer.appendChild(container);
+
         }} catch (e) {{
             console.error('PrioritySieve stats graph error:', e);
         }}
