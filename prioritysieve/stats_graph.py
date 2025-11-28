@@ -391,11 +391,153 @@ def first_entry_cards_graph(*args, **kwargs) -> str:
     return result
 
 
+def _inject_new_stats_graph(webview) -> None:
+    """Inject the graph into the new stats page."""
+    try:
+        from aqt.webview import AnkiWebViewKind
+    except ImportError:
+        return
+
+    if webview.kind != AnkiWebViewKind.DECK_STATS:
+        return
+
+    assert mw is not None
+    if mw.col is None:
+        return
+
+    data = get_first_entry_card_stats(
+        day_cutoff_seconds=mw.col.sched.dayCutoff,
+        bucket_size_days=1,
+        num_buckets=31,
+        additional_filter="",
+    )
+
+    if not data:
+        return
+
+    x_values = [x for x, y in data]
+    y_values = [y for x, y in data]
+
+    cumulative = []
+    total = 0
+    for y in y_values:
+        total += y
+        cumulative.append(total)
+
+    import json
+
+    js_code = f"""
+    (function() {{
+        if (document.getElementById('prioritysieve-new-entries-graph')) return;
+
+        const container = document.createElement('div');
+        container.id = 'prioritysieve-new-entries-graph';
+        container.style.cssText = 'margin: 20px; padding: 20px; background: var(--canvas); border-radius: 8px;';
+
+        const title = document.createElement('h2');
+        title.textContent = 'New Entries Added';
+        title.style.cssText = 'margin: 0 0 5px 0; font-size: 1.2em;';
+        container.appendChild(title);
+
+        const subtitle = document.createElement('p');
+        subtitle.textContent = 'First card added per entry (excluding disabled decks)';
+        subtitle.style.cssText = 'margin: 0 0 15px 0; font-size: 0.9em; opacity: 0.7;';
+        container.appendChild(subtitle);
+
+        const canvas = document.createElement('canvas');
+        canvas.id = 'prioritysieve-chart-canvas';
+        canvas.style.cssText = 'width: 100%; height: 200px;';
+        container.appendChild(canvas);
+
+        const statsDiv = document.createElement('div');
+        statsDiv.style.cssText = 'margin-top: 10px; font-size: 0.9em;';
+
+        const xData = {json.dumps(x_values)};
+        const yData = {json.dumps(y_values)};
+        const cumData = {json.dumps(cumulative)};
+
+        const totalEntries = cumData[cumData.length - 1] || 0;
+        const avgPerDay = yData.length > 0 ? (totalEntries / yData.length).toFixed(1) : 0;
+
+        statsDiv.innerHTML = '<b>Average:</b> ' + avgPerDay + ' entries/day &nbsp;&nbsp; <b>Total:</b> ' + totalEntries + ' entries (last 31 days)';
+        container.appendChild(statsDiv);
+
+        const graphsContainer = document.querySelector('.graphs-container');
+        if (graphsContainer) {{
+            graphsContainer.appendChild(container);
+        }} else {{
+            document.body.appendChild(container);
+        }}
+
+        // Draw simple bar chart on canvas
+        const ctx = canvas.getContext('2d');
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * 2;
+        canvas.height = 200 * 2;
+        ctx.scale(2, 2);
+
+        const width = rect.width;
+        const height = 200;
+        const padding = 40;
+        const barWidth = (width - padding * 2) / xData.length - 2;
+        const maxY = Math.max(...yData, 10);
+
+        // Draw bars
+        ctx.fillStyle = '#9467bd';
+        for (let i = 0; i < yData.length; i++) {{
+            const barHeight = (yData[i] / maxY) * (height - padding * 2);
+            const x = padding + i * (barWidth + 2);
+            const y = height - padding - barHeight;
+            ctx.fillRect(x, y, barWidth, barHeight);
+        }}
+
+        // Draw cumulative line
+        ctx.strokeStyle = '#9467bd';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        const maxCum = Math.max(...cumData, 10);
+        for (let i = 0; i < cumData.length; i++) {{
+            const x = padding + i * (barWidth + 2) + barWidth / 2;
+            const y = height - padding - (cumData[i] / maxCum) * (height - padding * 2);
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }}
+        ctx.stroke();
+
+        // Draw axes
+        ctx.strokeStyle = 'var(--fg, #333)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(padding, padding);
+        ctx.lineTo(padding, height - padding);
+        ctx.lineTo(width - padding, height - padding);
+        ctx.stroke();
+
+        // Labels
+        ctx.fillStyle = 'var(--fg, #333)';
+        ctx.font = '11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Days ago', width / 2, height - 5);
+
+        ctx.save();
+        ctx.translate(12, height / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillText('Count', 0, 0);
+        ctx.restore();
+    }})();
+    """
+
+    webview.eval(js_code)
+
+
 def init_stats_graph() -> None:
-    """Initialize the statistics graph hook."""
+    """Initialize the statistics graph hooks."""
     from anki.stats import CollectionStats
     from anki.hooks import wrap
+    from aqt import gui_hooks
 
     CollectionStats.dueGraph = wrap(
         CollectionStats.dueGraph, first_entry_cards_graph, "around"
     )
+
+    gui_hooks.webview_did_inject_style_into_page.append(_inject_new_stats_graph)
