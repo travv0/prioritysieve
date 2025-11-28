@@ -155,6 +155,7 @@ _JS_SNIPPET = r"""
     try {
       const resp = await fetch("_anki/ps-first-entry-graph", {
         method: "POST",
+        headers: { "Content-Type": "application/binary" },
         body: JSON.stringify({ search: currentSearch(), days: currentDays() }),
       });
       const data = await resp.json();
@@ -216,4 +217,3 @@ def init_first_entry_added_chart() -> None:
     mediasrv.post_handlers["ps-first-entry-graph"] = _handle_http_first_entry_graph
     gui_hooks.webview_did_inject_style_into_page.append(_inject_chart)
     _REGISTERED = True
-
