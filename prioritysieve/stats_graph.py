@@ -437,61 +437,43 @@ def _inject_new_stats_graph(webview) -> None:
 
     js_code = f"""
     (function() {{
-        try {{
-            console.log('PrioritySieve: Starting graph injection');
+        function injectGraph() {{
+            try {{
+                console.log('PrioritySieve: Starting graph injection');
 
-            if (document.getElementById('prioritysieve-new-entries-graph')) {{
-                console.log('PrioritySieve: Graph already exists, skipping');
-                return;
-            }}
-
-            const xData = {json.dumps(x_values)};
-            const yData = {json.dumps(y_values)};
-            const cumData = {json.dumps(cumulative)};
-
-            console.log('PrioritySieve: Data loaded, xData length:', xData.length);
-
-            if (!xData.length) {{
-                console.log('PrioritySieve: No data, skipping');
-                return;
-            }}
-
-            const totalEntries = cumData[cumData.length - 1] || 0;
-            const avgPerDay = yData.length > 0 ? (totalEntries / yData.length).toFixed(1) : 0;
-
-            const isDark = document.body.classList.contains('night-mode') ||
-                           document.documentElement.classList.contains('night-mode') ||
-                           document.querySelector('[class*="night-mode"]') !== null;
-
-            // Find the grid container that holds the graphs
-            // Log what we find for debugging
-            console.log('PrioritySieve: Looking for grid container...');
-            console.log('PrioritySieve: All divs with style:', document.querySelectorAll('div[style]').length);
-
-            let gridContainer = document.querySelector('div[style*="grid-template-columns"]');
-            console.log('PrioritySieve: grid-template-columns selector:', gridContainer);
-
-            if (!gridContainer) {{
-                gridContainer = document.querySelector('.graphs-container');
-                console.log('PrioritySieve: .graphs-container selector:', gridContainer);
-            }}
-
-            if (!gridContainer) {{
-                // Try to find any container that looks like it holds graphs
-                const containers = document.querySelectorAll('div.container');
-                console.log('PrioritySieve: Found', containers.length, 'div.container elements');
-                if (containers.length > 0) {{
-                    gridContainer = containers[0].parentElement;
-                    console.log('PrioritySieve: Using parent of first container:', gridContainer);
+                if (document.getElementById('prioritysieve-new-entries-graph')) {{
+                    console.log('PrioritySieve: Graph already exists, skipping');
+                    return true;
                 }}
-            }}
 
-            if (!gridContainer) {{
-                console.log('PrioritySieve: Could not find graph grid container, using body');
-                gridContainer = document.body;
-            }}
+                const xData = {json.dumps(x_values)};
+                const yData = {json.dumps(y_values)};
+                const cumData = {json.dumps(cumulative)};
 
-            console.log('PrioritySieve: Found grid container:', gridContainer.tagName, gridContainer.className);
+                console.log('PrioritySieve: Data loaded, xData length:', xData.length);
+
+                if (!xData.length) {{
+                    console.log('PrioritySieve: No data, skipping');
+                    return true;
+                }}
+
+                const totalEntries = cumData[cumData.length - 1] || 0;
+                const avgPerDay = yData.length > 0 ? (totalEntries / yData.length).toFixed(1) : 0;
+
+                const isDark = document.body.classList.contains('night-mode') ||
+                               document.documentElement.classList.contains('night-mode') ||
+                               document.querySelector('[class*="night-mode"]') !== null;
+
+                // Find the graphs container
+                let gridContainer = document.querySelector('.graphs-container');
+                console.log('PrioritySieve: .graphs-container selector:', gridContainer);
+
+                if (!gridContainer) {{
+                    console.log('PrioritySieve: Container not found yet, will retry');
+                    return false;
+                }}
+
+                console.log('PrioritySieve: Found grid container:', gridContainer.tagName, gridContainer.className);
 
             // Create container matching Anki's TitledContainer exactly
             const container = document.createElement('div');
@@ -790,8 +772,29 @@ def _inject_new_stats_graph(webview) -> None:
             // Insert into the grid
             gridContainer.appendChild(container);
 
-        }} catch (e) {{
-            console.error('PrioritySieve stats graph error:', e);
+            console.log('PrioritySieve: Graph successfully injected');
+            return true;
+
+            }} catch (e) {{
+                console.error('PrioritySieve stats graph error:', e);
+                return true;  // Don't retry on error
+            }}
+        }}
+
+        // Try immediately, then retry with delays if needed
+        if (!injectGraph()) {{
+            let retries = 0;
+            const maxRetries = 10;
+            const retryInterval = setInterval(function() {{
+                retries++;
+                console.log('PrioritySieve: Retry', retries, 'of', maxRetries);
+                if (injectGraph() || retries >= maxRetries) {{
+                    clearInterval(retryInterval);
+                    if (retries >= maxRetries) {{
+                        console.log('PrioritySieve: Max retries reached, giving up');
+                    }}
+                }}
+            }}, 200);
         }}
     }})();
     """
