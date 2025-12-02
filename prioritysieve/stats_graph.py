@@ -2,8 +2,9 @@
 Statistics graph for PrioritySieve.
 
 Adds a graph to Anki's old statistics page showing newly learned entries -
-cards that were the first non-new card for an entry that didn't already
-have a non-new, non-suspended card.
+cards that were the first active card for an entry that didn't already
+have a non-new card. An active card is one that is not suspended, has
+an exception tag, or was auto-suspended due to variant spellings.
 """
 
 from __future__ import annotations
@@ -33,9 +34,12 @@ def get_first_entry_card_stats(
 
     A card counts as introducing an entry if:
     1. It's in an enabled deck (not in disabled_decks)
-    2. It's the oldest card for its entry (by card_id/creation time)
-    3. No older non-new, non-suspended card exists for that entry
+    2. It's the oldest active card for its entry (by card_id/creation time)
+    3. No older non-new card exists for that entry
        (across any configured note type, regardless of deck)
+
+    An active card is one that is not suspended, has an exception tag,
+    or was auto-suspended due to variant spellings.
 
     Returns a list of (bucket_offset, count) tuples.
     """
@@ -46,6 +50,7 @@ def get_first_entry_card_stats(
     config = PrioritySieveConfig()
     disabled_deck_names = set(config.disabled_decks)
     exception_tags = set(config.get_preprocess_ignore_suspended_unless_tag_list())
+    auto_suspend_tag = config.tag_suspended_automatically
 
     try:
         with EntryDB() as entry_db:
@@ -63,7 +68,7 @@ def get_first_entry_card_stats(
     if not all_card_ids:
         return []
 
-    card_info = _load_card_info(all_card_ids, exception_tags)
+    card_info = _load_card_info(all_card_ids, exception_tags, auto_suspend_tag)
 
     deck_name_cache: dict[int, str] = {}
 
@@ -119,6 +124,7 @@ class _CardInfo:
         odid: int,
         tags: str,
         exception_tags: set[str],
+        auto_suspend_tag: str,
     ) -> None:
         self.card_type = card_type
         self.queue = queue
@@ -128,7 +134,8 @@ class _CardInfo:
 
         is_suspended = queue == QUEUE_TYPE_SUSPENDED
         has_exception = _has_any_tag(tags, exception_tags) if exception_tags else False
-        self.is_active = not is_suspended or has_exception
+        has_auto_suspend = auto_suspend_tag and _has_any_tag(tags, {auto_suspend_tag})
+        self.is_active = not is_suspended or has_exception or has_auto_suspend
 
 
 def _has_any_tag(tags_text: str, exception_tags: set[str]) -> bool:
@@ -142,6 +149,7 @@ def _has_any_tag(tags_text: str, exception_tags: set[str]) -> bool:
 def _load_card_info(
     card_ids: set[int],
     exception_tags: set[str],
+    auto_suspend_tag: str,
 ) -> dict[int, _CardInfo]:
     assert mw is not None
     assert mw.col is not None
@@ -172,6 +180,7 @@ def _load_card_info(
                 odid=int(odid),
                 tags=tags if isinstance(tags, str) else "",
                 exception_tags=exception_tags,
+                auto_suspend_tag=auto_suspend_tag,
             )
 
     return result
@@ -205,10 +214,13 @@ def _find_first_entry_card(
     """
     Find the card that introduced this entry, if any.
 
-    Returns the card_id of the oldest card in an enabled deck, but only if
+    Returns the card_id of the oldest active card in an enabled deck, but only if
     no older non-new card exists for this entry in ANY deck (including
     disabled decks). A non-new card in any deck means the entry was already
     "known" before this card was added.
+
+    A card is active if it's not suspended, has an exception tag,
+    or was auto-suspended due to variant spellings.
     """
     cards_with_info: list[tuple[int, _CardInfo]] = []
     for cid in card_ids:
@@ -221,19 +233,19 @@ def _find_first_entry_card(
 
     cards_with_info.sort(key=lambda x: x[0])
 
-    # Find the oldest non-new card across ALL decks (including disabled)
-    oldest_non_new_id: int | None = None
+    # Find the oldest active non-new card across ALL decks (including disabled)
+    oldest_active_non_new_id: int | None = None
     for cid, info in cards_with_info:
-        if info.card_type != CARD_TYPE_NEW:
-            oldest_non_new_id = cid
+        if info.card_type != CARD_TYPE_NEW and info.is_active:
+            oldest_active_non_new_id = cid
             break
 
-    # Find the oldest card in an enabled deck
+    # Find the oldest active card in an enabled deck
     oldest_enabled_id: int | None = None
     oldest_enabled_info: _CardInfo | None = None
     for cid, info in cards_with_info:
         deck_name = _get_deck_name(info.deck_id, info.odid, deck_name_cache)
-        if deck_name not in disabled_deck_names:
+        if deck_name not in disabled_deck_names and info.is_active:
             oldest_enabled_id = cid
             oldest_enabled_info = info
             break
@@ -241,8 +253,8 @@ def _find_first_entry_card(
     if oldest_enabled_id is None:
         return None
 
-    # If there's an older non-new card (in any deck), the entry was already known
-    if oldest_non_new_id is not None and oldest_non_new_id < oldest_enabled_id:
+    # If there's an older active non-new card (in any deck), the entry was already known
+    if oldest_active_non_new_id is not None and oldest_active_non_new_id < oldest_enabled_id:
         return None
 
     return oldest_enabled_id

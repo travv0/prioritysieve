@@ -132,7 +132,7 @@ def test_get_first_entry_card_stats_counts_new_cards(mock_anki_env) -> None:
 
 
 def test_get_first_entry_card_stats_counts_suspended_cards(mock_anki_env) -> None:
-    """Verify that suspended cards ARE counted if they're the first for their entry."""
+    """Verify that manually suspended cards are NOT counted."""
     db_path = mock_anki_env["db_path"]
     mock_col_db = mock_anki_env["mock_col_db"]
 
@@ -146,8 +146,72 @@ def test_get_first_entry_card_stats_counts_suspended_cards(mock_anki_env) -> Non
     with EntryDB(db_path=db_path) as db:
         db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
 
-    # Card is queue=-1 (suspended) but should still count as it's the first card for this entry
+    # card is queue=-1 (suspended) without auto-suspend tag, should NOT count
     mock_col_db.all.return_value = [(card1_id, 2, -1, 1, 0, "")]
+
+    data = get_first_entry_card_stats(
+        day_cutoff_seconds=1700000000,
+        bucket_size_days=1,
+        num_buckets=31,
+        additional_filter="",
+    )
+
+    total_first_cards = sum(count for _, count in data)
+    assert total_first_cards == 0
+
+
+def test_get_first_entry_card_stats_counts_suspended_with_exception_tag(mock_anki_env) -> None:
+    """Verify that suspended cards with exception tags ARE counted."""
+    db_path = mock_anki_env["db_path"]
+    mock_col_db = mock_anki_env["mock_col_db"]
+    mock_config = mock_anki_env["mock_config"]
+
+    mock_config.get_preprocess_ignore_suspended_unless_tag_list.return_value = ["keep-suspended"]
+
+    day_cutoff_ms = 1700000000 * 1000
+    card1_id = day_cutoff_ms - (86400 * 1000 * 2)
+
+    entries = [{"text": "word1", "reading": "reading1", "reviewed": 1}]
+    cards = [{"card_id": card1_id, "note_id": 10, "note_type_id": 100, "card_type": 2, "tags": "keep-suspended", "card_queue": -1}]
+    card_entry_links = [{"card_id": card1_id, "entry_text": "word1", "entry_reading": "reading1"}]
+
+    with EntryDB(db_path=db_path) as db:
+        db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
+
+    # card is suspended but has exception tag, so it should count as active
+    mock_col_db.all.return_value = [(card1_id, 2, -1, 1, 0, "keep-suspended")]
+
+    data = get_first_entry_card_stats(
+        day_cutoff_seconds=1700000000,
+        bucket_size_days=1,
+        num_buckets=31,
+        additional_filter="",
+    )
+
+    total_first_cards = sum(count for _, count in data)
+    assert total_first_cards == 1
+
+
+def test_get_first_entry_card_stats_counts_auto_suspended_cards(mock_anki_env) -> None:
+    """Verify that auto-suspended cards ARE counted."""
+    db_path = mock_anki_env["db_path"]
+    mock_col_db = mock_anki_env["mock_col_db"]
+    mock_config = mock_anki_env["mock_config"]
+
+    mock_config.tag_suspended_automatically = "ps-auto-suspend"
+
+    day_cutoff_ms = 1700000000 * 1000
+    card1_id = day_cutoff_ms - (86400 * 1000 * 2)
+
+    entries = [{"text": "word1", "reading": "reading1", "reviewed": 1}]
+    cards = [{"card_id": card1_id, "note_id": 10, "note_type_id": 100, "card_type": 2, "tags": "ps-auto-suspend", "card_queue": -1}]
+    card_entry_links = [{"card_id": card1_id, "entry_text": "word1", "entry_reading": "reading1"}]
+
+    with EntryDB(db_path=db_path) as db:
+        db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
+
+    # card is suspended but has auto-suspend tag, so it should count as active
+    mock_col_db.all.return_value = [(card1_id, 2, -1, 1, 0, "ps-auto-suspend")]
 
     data = get_first_entry_card_stats(
         day_cutoff_seconds=1700000000,
