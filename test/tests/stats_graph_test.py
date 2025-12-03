@@ -84,11 +84,11 @@ def test_get_first_entry_card_stats_counts_oldest_card_per_entry(mock_anki_env) 
         db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
 
     # Mock the Anki DB query to return card info
-    # Returns: card_id, card_type, queue, did, odid, tags
+    # Returns: card_id, card_type, queue, did, odid, tags, due
     mock_col_db.all.return_value = [
-        (card1_id, 2, 0, 1, 0, ""),  # non-new, active
-        (card2_id, 2, 0, 1, 0, ""),  # non-new, active
-        (card3_id, 2, 0, 1, 0, ""),  # non-new, active
+        (card1_id, 2, 0, 1, 0, "", 0),  # non-new, active
+        (card2_id, 2, 0, 1, 0, "", 0),  # non-new, active
+        (card3_id, 2, 0, 1, 0, "", 0),  # non-new, active
     ]
 
     data = get_first_entry_card_stats(
@@ -118,7 +118,7 @@ def test_get_first_entry_card_stats_counts_new_cards(mock_anki_env) -> None:
         db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
 
     # Card is type=0 (new) but should still count
-    mock_col_db.all.return_value = [(card1_id, 0, 0, 1, 0, "")]
+    mock_col_db.all.return_value = [(card1_id, 0, 0, 1, 0, "", 1)]
 
     data = get_first_entry_card_stats(
         day_cutoff_seconds=1700000000,
@@ -147,7 +147,7 @@ def test_get_first_entry_card_stats_counts_suspended_cards(mock_anki_env) -> Non
         db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
 
     # card is queue=-1 (suspended) without auto-suspend tag, should NOT count
-    mock_col_db.all.return_value = [(card1_id, 2, -1, 1, 0, "")]
+    mock_col_db.all.return_value = [(card1_id, 2, -1, 1, 0, "", 0)]
 
     data = get_first_entry_card_stats(
         day_cutoff_seconds=1700000000,
@@ -179,7 +179,7 @@ def test_get_first_entry_card_stats_counts_suspended_with_exception_tag(mock_ank
         db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
 
     # card is suspended but has exception tag, so it should count as active
-    mock_col_db.all.return_value = [(card1_id, 2, -1, 1, 0, "keep-suspended")]
+    mock_col_db.all.return_value = [(card1_id, 2, -1, 1, 0, "keep-suspended", 0)]
 
     data = get_first_entry_card_stats(
         day_cutoff_seconds=1700000000,
@@ -211,7 +211,7 @@ def test_get_first_entry_card_stats_counts_auto_suspended_cards(mock_anki_env) -
         db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
 
     # card is suspended but has auto-suspend tag, so it should count as active
-    mock_col_db.all.return_value = [(card1_id, 2, -1, 1, 0, "ps-auto-suspend")]
+    mock_col_db.all.return_value = [(card1_id, 2, -1, 1, 0, "ps-auto-suspend", 0)]
 
     data = get_first_entry_card_stats(
         day_cutoff_seconds=1700000000,
@@ -244,7 +244,7 @@ def test_get_first_entry_card_stats_skips_disabled_decks(mock_anki_env) -> None:
     with EntryDB(db_path=db_path) as db:
         db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
 
-    mock_col_db.all.return_value = [(card1_id, 2, 0, 1, 0, "")]
+    mock_col_db.all.return_value = [(card1_id, 2, 0, 1, 0, "", 0)]
 
     data = get_first_entry_card_stats(
         day_cutoff_seconds=1700000000,
@@ -303,8 +303,8 @@ def test_get_first_entry_card_stats_skips_if_older_non_new_in_disabled_deck(mock
 
     # Old card in disabled deck (did=2), new card in enabled deck (did=1)
     mock_col_db.all.return_value = [
-        (old_card_id, 2, 0, 2, 0, ""),  # non-new, in deck 2
-        (new_card_id, 0, 0, 1, 0, ""),  # new, in deck 1
+        (old_card_id, 2, 0, 2, 0, "", 0),  # non-new, in deck 2
+        (new_card_id, 0, 0, 1, 0, "", 1),  # new, in deck 1
     ]
 
     def mock_get_deck(deck_id):
@@ -325,3 +325,346 @@ def test_get_first_entry_card_stats_skips_if_older_non_new_in_disabled_deck(mock
 
     # Should not count because there's an older non-new card in a disabled deck
     assert data == []
+
+
+def test_get_first_entry_card_stats_skips_subset_with_superset_non_new(mock_anki_env) -> None:
+    """Verify that subset entries are not counted if a superset has an older non-new card."""
+    db_path = mock_anki_env["db_path"]
+    mock_col_db = mock_anki_env["mock_col_db"]
+
+    day_cutoff_ms = 1700000000 * 1000
+    # older superset card (思い出す) - non-new
+    superset_card_id = day_cutoff_ms - (86400 * 1000 * 10)
+    # newer subset card (思いだす) - new, auto-suspended
+    subset_card_id = day_cutoff_ms - (86400 * 1000 * 2)
+
+    entries = [
+        {"text": "思い出す", "reading": "おもいだす", "reviewed": 1},
+        {"text": "思いだす", "reading": "おもいだす", "reviewed": 0},
+    ]
+    cards = [
+        {"card_id": superset_card_id, "note_id": 10, "note_type_id": 100, "card_type": 2, "tags": "", "card_queue": 0},
+        {"card_id": subset_card_id, "note_id": 11, "note_type_id": 100, "card_type": 0, "tags": "ps-auto-suspend", "card_queue": -1},
+    ]
+    card_entry_links = [
+        {"card_id": superset_card_id, "entry_text": "思い出す", "entry_reading": "おもいだす"},
+        {"card_id": subset_card_id, "entry_text": "思いだす", "entry_reading": "おもいだす"},
+    ]
+
+    with EntryDB(db_path=db_path) as db:
+        db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
+
+    mock_col_db.all.return_value = [
+        (superset_card_id, 2, 0, 1, 0, "", 0),  # non-new, active
+        (subset_card_id, 0, -1, 1, 0, "ps-auto-suspend", 1),  # new, auto-suspended
+    ]
+
+    data = get_first_entry_card_stats(
+        day_cutoff_seconds=1700000000,
+        bucket_size_days=1,
+        num_buckets=31,
+        additional_filter="",
+    )
+
+    # only the superset should be counted, not the subset
+    total_first_cards = sum(count for _, count in data)
+    assert total_first_cards == 1
+
+
+def test_get_first_entry_card_stats_skips_subset_with_superset_new_due_before(
+    mock_anki_env,
+) -> None:
+    """Verify that subset entries are skipped if superset new card is due before."""
+    db_path = mock_anki_env["db_path"]
+    mock_col_db = mock_anki_env["mock_col_db"]
+    mock_config = mock_anki_env["mock_config"]
+
+    mock_config.tag_suspended_automatically = "ps-auto-suspend"
+
+    day_cutoff_ms = 1700000000 * 1000
+    # older superset card (思い出す) - new, due=1 (earlier)
+    superset_card_id = day_cutoff_ms - (86400 * 1000 * 10)
+    # newer subset card (思いだす) - new, due=5 (later)
+    subset_card_id = day_cutoff_ms - (86400 * 1000 * 2)
+
+    entries = [
+        {"text": "思い出す", "reading": "おもいだす", "reviewed": 0},
+        {"text": "思いだす", "reading": "おもいだす", "reviewed": 0},
+    ]
+    cards = [
+        {"card_id": superset_card_id, "note_id": 10, "note_type_id": 100, "card_type": 0, "tags": "", "card_queue": 0},
+        {"card_id": subset_card_id, "note_id": 11, "note_type_id": 100, "card_type": 0, "tags": "", "card_queue": 0},
+    ]
+    card_entry_links = [
+        {"card_id": superset_card_id, "entry_text": "思い出す", "entry_reading": "おもいだす"},
+        {"card_id": subset_card_id, "entry_text": "思いだす", "entry_reading": "おもいだす"},
+    ]
+
+    with EntryDB(db_path=db_path) as db:
+        db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
+
+    mock_col_db.all.return_value = [
+        (superset_card_id, 0, 0, 1, 0, "", 1),  # new, due=1
+        (subset_card_id, 0, 0, 1, 0, "", 5),  # new, due=5
+    ]
+
+    data = get_first_entry_card_stats(
+        day_cutoff_seconds=1700000000,
+        bucket_size_days=1,
+        num_buckets=31,
+        additional_filter="",
+    )
+
+    # only the superset should be counted (it's due first, so subset would be auto-suspended)
+    total_first_cards = sum(count for _, count in data)
+    assert total_first_cards == 1
+
+
+def test_get_first_entry_card_stats_counts_both_when_subset_due_before_superset(
+    mock_anki_env,
+) -> None:
+    """Verify that both entries are counted if subset new card is due before superset."""
+    db_path = mock_anki_env["db_path"]
+    mock_col_db = mock_anki_env["mock_col_db"]
+    mock_config = mock_anki_env["mock_config"]
+
+    mock_config.tag_suspended_automatically = "ps-auto-suspend"
+
+    day_cutoff_ms = 1700000000 * 1000
+    # older superset card (思い出す) - new, due=5 (later)
+    superset_card_id = day_cutoff_ms - (86400 * 1000 * 10)
+    # newer subset card (思いだす) - new, due=1 (earlier)
+    subset_card_id = day_cutoff_ms - (86400 * 1000 * 2)
+
+    entries = [
+        {"text": "思い出す", "reading": "おもいだす", "reviewed": 0},
+        {"text": "思いだす", "reading": "おもいだす", "reviewed": 0},
+    ]
+    cards = [
+        {"card_id": superset_card_id, "note_id": 10, "note_type_id": 100, "card_type": 0, "tags": "", "card_queue": 0},
+        {"card_id": subset_card_id, "note_id": 11, "note_type_id": 100, "card_type": 0, "tags": "", "card_queue": 0},
+    ]
+    card_entry_links = [
+        {"card_id": superset_card_id, "entry_text": "思い出す", "entry_reading": "おもいだす"},
+        {"card_id": subset_card_id, "entry_text": "思いだす", "entry_reading": "おもいだす"},
+    ]
+
+    with EntryDB(db_path=db_path) as db:
+        db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
+
+    mock_col_db.all.return_value = [
+        (superset_card_id, 0, 0, 1, 0, "", 5),  # new, due=5
+        (subset_card_id, 0, 0, 1, 0, "", 1),  # new, due=1
+    ]
+
+    data = get_first_entry_card_stats(
+        day_cutoff_seconds=1700000000,
+        bucket_size_days=1,
+        num_buckets=31,
+        additional_filter="",
+    )
+
+    # both should be counted (subset is due first, so superset would be auto-suspended)
+    total_first_cards = sum(count for _, count in data)
+    assert total_first_cards == 2
+
+
+def test_get_first_entry_card_stats_skips_kana_variant_with_older_non_new(
+    mock_anki_env,
+) -> None:
+    """Verify that katakana entries are skipped if hiragana variant has older non-new card."""
+    db_path = mock_anki_env["db_path"]
+    mock_col_db = mock_anki_env["mock_col_db"]
+    mock_config = mock_anki_env["mock_config"]
+
+    mock_config.merge_kana_variant_spellings = True
+
+    day_cutoff_ms = 1700000000 * 1000
+    # older hiragana card (ぱらぱら) - non-new
+    hiragana_card_id = day_cutoff_ms - (86400 * 1000 * 10)
+    # newer katakana card (パラパラ) - new
+    katakana_card_id = day_cutoff_ms - (86400 * 1000 * 2)
+
+    entries = [
+        {"text": "ぱらぱら", "reading": "ぱらぱら", "reviewed": 1},
+        {"text": "パラパラ", "reading": "ぱらぱら", "reviewed": 0},
+    ]
+    cards = [
+        {"card_id": hiragana_card_id, "note_id": 10, "note_type_id": 100, "card_type": 2, "tags": "", "card_queue": 0},
+        {"card_id": katakana_card_id, "note_id": 11, "note_type_id": 100, "card_type": 0, "tags": "", "card_queue": 0},
+    ]
+    card_entry_links = [
+        {"card_id": hiragana_card_id, "entry_text": "ぱらぱら", "entry_reading": "ぱらぱら"},
+        {"card_id": katakana_card_id, "entry_text": "パラパラ", "entry_reading": "ぱらぱら"},
+    ]
+
+    with EntryDB(db_path=db_path) as db:
+        db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
+
+    mock_col_db.all.return_value = [
+        (hiragana_card_id, 2, 0, 1, 0, "", 0),  # non-new
+        (katakana_card_id, 0, 0, 1, 0, "", 1),  # new
+    ]
+
+    data = get_first_entry_card_stats(
+        day_cutoff_seconds=1700000000,
+        bucket_size_days=1,
+        num_buckets=31,
+        additional_filter="",
+    )
+
+    # only the hiragana entry should be counted (katakana is a kana variant)
+    total_first_cards = sum(count for _, count in data)
+    assert total_first_cards == 1
+
+
+def test_get_first_entry_card_stats_kana_variant_requires_setting(
+    mock_anki_env,
+) -> None:
+    """Verify that kana variants are NOT filtered when setting is off."""
+    db_path = mock_anki_env["db_path"]
+    mock_col_db = mock_anki_env["mock_col_db"]
+    mock_config = mock_anki_env["mock_config"]
+
+    mock_config.merge_kana_variant_spellings = False
+
+    day_cutoff_ms = 1700000000 * 1000
+    # older hiragana card (ぱらぱら) - non-new
+    hiragana_card_id = day_cutoff_ms - (86400 * 1000 * 10)
+    # newer katakana card (パラパラ) - new
+    katakana_card_id = day_cutoff_ms - (86400 * 1000 * 2)
+
+    entries = [
+        {"text": "ぱらぱら", "reading": "ぱらぱら", "reviewed": 1},
+        {"text": "パラパラ", "reading": "ぱらぱら", "reviewed": 0},
+    ]
+    cards = [
+        {"card_id": hiragana_card_id, "note_id": 10, "note_type_id": 100, "card_type": 2, "tags": "", "card_queue": 0},
+        {"card_id": katakana_card_id, "note_id": 11, "note_type_id": 100, "card_type": 0, "tags": "", "card_queue": 0},
+    ]
+    card_entry_links = [
+        {"card_id": hiragana_card_id, "entry_text": "ぱらぱら", "entry_reading": "ぱらぱら"},
+        {"card_id": katakana_card_id, "entry_text": "パラパラ", "entry_reading": "ぱらぱら"},
+    ]
+
+    with EntryDB(db_path=db_path) as db:
+        db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
+
+    mock_col_db.all.return_value = [
+        (hiragana_card_id, 2, 0, 1, 0, "", 0),  # non-new
+        (katakana_card_id, 0, 0, 1, 0, "", 1),  # new
+    ]
+
+    data = get_first_entry_card_stats(
+        day_cutoff_seconds=1700000000,
+        bucket_size_days=1,
+        num_buckets=31,
+        additional_filter="",
+    )
+
+    # both should be counted when setting is off
+    total_first_cards = sum(count for _, count in data)
+    assert total_first_cards == 2
+
+
+def test_get_first_entry_card_stats_skips_pure_kana_with_kanji_variant_non_new(
+    mock_anki_env,
+) -> None:
+    """Verify that pure kana entries are skipped if kanji variant has older non-new card."""
+    db_path = mock_anki_env["db_path"]
+    mock_col_db = mock_anki_env["mock_col_db"]
+
+    day_cutoff_ms = 1700000000 * 1000
+    # older kanji variant (見窄らしい) - non-new
+    kanji_card_id = day_cutoff_ms - (86400 * 1000 * 10)
+    # newer pure kana (みすぼらしい) - new
+    kana_card_id = day_cutoff_ms - (86400 * 1000 * 2)
+
+    entries = [
+        {"text": "見窄らしい", "reading": "みすぼらしい", "reviewed": 1},
+        {"text": "みすぼらしい", "reading": "みすぼらしい", "reviewed": 0},
+    ]
+    cards = [
+        {"card_id": kanji_card_id, "note_id": 10, "note_type_id": 100, "card_type": 2, "tags": "", "card_queue": 0},
+        {"card_id": kana_card_id, "note_id": 11, "note_type_id": 100, "card_type": 0, "tags": "", "card_queue": 0},
+    ]
+    card_entry_links = [
+        {"card_id": kanji_card_id, "entry_text": "見窄らしい", "entry_reading": "みすぼらしい"},
+        {"card_id": kana_card_id, "entry_text": "みすぼらしい", "entry_reading": "みすぼらしい"},
+    ]
+
+    with EntryDB(db_path=db_path) as db:
+        db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
+
+    mock_col_db.all.return_value = [
+        (kanji_card_id, 2, 0, 1, 0, "", 0),  # non-new
+        (kana_card_id, 0, 0, 1, 0, "", 1),  # new
+    ]
+
+    data = get_first_entry_card_stats(
+        day_cutoff_seconds=1700000000,
+        bucket_size_days=1,
+        num_buckets=31,
+        additional_filter="",
+    )
+
+    # only the kanji entry should be counted (pure kana is dominated by kanji variant)
+    total_first_cards = sum(count for _, count in data)
+    assert total_first_cards == 1
+
+
+def test_get_first_entry_card_stats_kana_variant_dominated_by_non_first_non_new(
+    mock_anki_env,
+) -> None:
+    """Verify katakana is skipped when hiragana's first card is new but has older non-new card."""
+    db_path = mock_anki_env["db_path"]
+    mock_col_db = mock_anki_env["mock_col_db"]
+    mock_config = mock_anki_env["mock_config"]
+
+    mock_config.merge_kana_variant_spellings = True
+    mock_config.tag_suspended_automatically = "ps-auto-suspend"
+
+    day_cutoff_ms = 1700000000 * 1000
+    # ぱらぱら has multiple cards:
+    # - oldest card is new (auto-suspended) - this is the "first" card
+    # - second card is non-new (reviewed)
+    hiragana_card1_id = day_cutoff_ms - (86400 * 1000 * 20)  # oldest, new, auto-suspended
+    hiragana_card2_id = day_cutoff_ms - (86400 * 1000 * 15)  # second, non-new
+    # パラパラ has one card (newer than both hiragana cards)
+    katakana_card_id = day_cutoff_ms - (86400 * 1000 * 2)  # newest
+
+    entries = [
+        {"text": "ぱらぱら", "reading": "ぱらぱら", "reviewed": 1},
+        {"text": "パラパラ", "reading": "ぱらぱら", "reviewed": 0},
+    ]
+    cards = [
+        {"card_id": hiragana_card1_id, "note_id": 10, "note_type_id": 100, "card_type": 0, "tags": "ps-auto-suspend", "card_queue": -1},
+        {"card_id": hiragana_card2_id, "note_id": 10, "note_type_id": 100, "card_type": 2, "tags": "", "card_queue": 2},
+        {"card_id": katakana_card_id, "note_id": 11, "note_type_id": 100, "card_type": 0, "tags": "", "card_queue": 0},
+    ]
+    card_entry_links = [
+        {"card_id": hiragana_card1_id, "entry_text": "ぱらぱら", "entry_reading": "ぱらぱら"},
+        {"card_id": hiragana_card2_id, "entry_text": "ぱらぱら", "entry_reading": "ぱらぱら"},
+        {"card_id": katakana_card_id, "entry_text": "パラパラ", "entry_reading": "ぱらぱら"},
+    ]
+
+    with EntryDB(db_path=db_path) as db:
+        db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
+
+    mock_col_db.all.return_value = [
+        (hiragana_card1_id, 0, -1, 1, 0, "ps-auto-suspend", 1),  # new, auto-suspended
+        (hiragana_card2_id, 2, 2, 1, 0, "", 0),  # non-new, reviewed
+        (katakana_card_id, 0, 0, 1, 0, "", 1),  # new
+    ]
+
+    data = get_first_entry_card_stats(
+        day_cutoff_seconds=1700000000,
+        bucket_size_days=1,
+        num_buckets=31,
+        additional_filter="",
+    )
+
+    # only ぱらぱら should count - パラパラ is dominated because ぱらぱら has an older non-new card
+    # (even though ぱらぱら's "first" card is new/auto-suspended)
+    total_first_cards = sum(count for _, count in data)
+    assert total_first_cards == 1

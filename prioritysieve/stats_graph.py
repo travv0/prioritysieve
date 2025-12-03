@@ -1,10 +1,10 @@
 """
 Statistics graph for PrioritySieve.
 
-Adds a graph to Anki's old statistics page showing newly learned entries -
-cards that were the first active card for an entry that didn't already
-have a non-new card. An active card is one that is not suspended, has
-an exception tag, or was auto-suspended due to variant spellings.
+Adds a graph to Anki's old statistics page showing newly added entries.
+An entry is counted when the first card for it is added, unless a superset
+variant entry already has an older card that would cause this entry to be
+auto-suspended (either a non-new superset, or a new superset due before).
 """
 
 from __future__ import annotations
@@ -18,9 +18,49 @@ from anki.consts import CARD_TYPE_NEW, QUEUE_TYPE_SUSPENDED
 from aqt import mw
 
 from .entry_db import EntryDB
+from .kanji_utils import (
+    contains_hiragana,
+    contains_katakana,
+    extract_kanji_sequence,
+    is_kanji_subsequence,
+)
 from .prioritysieve_config import PrioritySieveConfig
+from .reading_utils import canonicalize_long_vowels, normalize_reading
 
 _COLOR_FIRST_ENTRY = "#9467bd"  # purple
+
+# type alias for pure kana variant info: (normalized_text, scripts)
+_KanaInfo = tuple[str, frozenset[str]]
+
+
+def _get_kana_info(text: str) -> _KanaInfo | None:
+    """Get kana variant info for pure kana text."""
+    stripped = (text or "").strip()
+    if not stripped:
+        return None
+    normalized = normalize_reading(stripped)
+    if not normalized:
+        return None
+    scripts: set[str] = set()
+    if contains_hiragana(stripped):
+        scripts.add("hiragana")
+    if contains_katakana(stripped):
+        scripts.add("katakana")
+    if not scripts:
+        return None
+    return (normalized, frozenset(scripts))
+
+
+def _is_kana_variant(info1: _KanaInfo | None, info2: _KanaInfo | None) -> bool:
+    """Check if two entries are kana variants (same normalized text, different scripts)."""
+    if info1 is None or info2 is None:
+        return False
+    normalized1, scripts1 = info1
+    normalized2, scripts2 = info2
+    if normalized1 != normalized2:
+        return False
+    combined = scripts1 | scripts2
+    return "hiragana" in combined and "katakana" in combined
 
 
 def get_first_entry_card_stats(
@@ -34,12 +74,13 @@ def get_first_entry_card_stats(
 
     A card counts as introducing an entry if:
     1. It's in an enabled deck (not in disabled_decks)
-    2. It's the oldest active card for its entry (by card_id/creation time)
-    3. No older non-new card exists for that entry
-       (across any configured note type, regardless of deck)
+    2. It's the oldest countable card for its entry (by card_id/creation time)
+    3. No older countable non-new card exists for that entry
+    4. No superset variant would cause this entry to be auto-suspended:
+       - No superset has an older non-new card, AND
+       - No superset has an older new card with an earlier due date
 
-    An active card is one that is not suspended, has an exception tag,
-    or was auto-suspended due to variant spellings.
+    A card is countable if it's not manually suspended.
 
     Returns a list of (bucket_offset, count) tuples.
     """
@@ -51,6 +92,7 @@ def get_first_entry_card_stats(
     disabled_deck_names = set(config.disabled_decks)
     exception_tags = set(config.get_preprocess_ignore_suspended_unless_tag_list())
     auto_suspend_tag = config.tag_suspended_automatically
+    merge_kana_variants = getattr(config, "merge_kana_variant_spellings", False)
 
     try:
         with EntryDB() as entry_db:
@@ -72,9 +114,25 @@ def get_first_entry_card_stats(
 
     deck_name_cache: dict[int, str] = {}
 
-    first_entry_card_ids: set[int] = set()
+    # first pass: find oldest card for each entry and collect variant info
+    first_cards_by_entry: dict[tuple[str, str], int] = {}
+    # entries with non-new cards (first card is non-new): reading -> [(kanji_seq, kana_info, card_id)]
+    # kana_info is (normalized_text, scripts) or None
+    entries_with_non_new: dict[str, list[tuple[str, _KanaInfo | None, int]]] = (
+        defaultdict(list)
+    )
+    # entries with new cards (first card is new): reading -> [(kanji_seq, kana_info, card_id, due)]
+    entries_with_new: dict[str, list[tuple[str, _KanaInfo | None, int, int]]] = (
+        defaultdict(list)
+    )
+    # entries that have ANY non-new card (for variant detection even if first card is new)
+    # reading -> [(kanji_seq, kana_info, oldest_non_new_card_id)]
+    entries_with_any_non_new: dict[str, list[tuple[str, _KanaInfo | None, int]]] = (
+        defaultdict(list)
+    )
 
     for entry_key, card_ids in card_ids_by_entry.items():
+        text, reading = entry_key
         first_card_id = _find_first_entry_card(
             card_ids=card_ids,
             card_info=card_info,
@@ -82,6 +140,126 @@ def get_first_entry_card_stats(
             deck_name_cache=deck_name_cache,
         )
         if first_card_id is not None:
+            first_cards_by_entry[entry_key] = first_card_id
+
+            # track entries by canonicalized reading for variant detection
+            info = card_info.get(first_card_id)
+            if info is not None:
+                canon_reading = canonicalize_long_vowels(reading)
+                kanji_seq = extract_kanji_sequence(text)
+                kana_info = _get_kana_info(text) if merge_kana_variants else None
+                if info.card_type != CARD_TYPE_NEW:
+                    entries_with_non_new[canon_reading].append(
+                        (kanji_seq, kana_info, first_card_id)
+                    )
+                else:
+                    entries_with_new[canon_reading].append(
+                        (kanji_seq, kana_info, first_card_id, info.due)
+                    )
+
+        # also track oldest non-new card for this entry (regardless of first card type)
+        # this is needed for variant detection when the first card is new but entry has older non-new cards
+        canon_reading = canonicalize_long_vowels(reading)
+        kanji_seq = extract_kanji_sequence(text)
+        kana_info = _get_kana_info(text) if merge_kana_variants else None
+        oldest_non_new_id = _find_oldest_non_new_card(card_ids, card_info)
+        if oldest_non_new_id is not None:
+            entries_with_any_non_new[canon_reading].append(
+                (kanji_seq, kana_info, oldest_non_new_id)
+            )
+
+    # second pass: filter out entries dominated by variant cards
+    # an entry is dominated if:
+    # 1. a kanji superset has an older non-new card (already reviewed), OR
+    # 2. a kanji superset has an older new card with an earlier due date, OR
+    # 3. a kana variant (hiragana/katakana) has an older non-new card, OR
+    # 4. a kana variant has an older new card with an earlier due date
+    first_entry_card_ids: set[int] = set()
+
+    for entry_key, first_card_id in first_cards_by_entry.items():
+        text, reading = entry_key
+        canon_reading = canonicalize_long_vowels(reading)
+        kanji_seq = extract_kanji_sequence(text)
+        kana_info = _get_kana_info(text) if merge_kana_variants else None
+        info = card_info.get(first_card_id)
+        is_new = info is not None and info.card_type == CARD_TYPE_NEW
+        card_due = info.due if info is not None else 0
+
+        dominated = False
+
+        # check non-new cards (already reviewed -> would dominate)
+        for other_seq, other_kana, other_card_id in entries_with_non_new.get(
+            canon_reading, []
+        ):
+            if other_card_id >= first_card_id:
+                continue  # not older
+            if other_seq == kanji_seq and other_kana == kana_info:
+                continue  # same entry, not a variant
+            # check kanji superset relation
+            if kanji_seq and other_seq and is_kanji_subsequence(kanji_seq, other_seq):
+                dominated = True
+                break
+            # pure kana entry dominated by any entry with kanji
+            if not kanji_seq and other_seq:
+                dominated = True
+                break
+            # check kana variant relation (for pure kana entries)
+            if not kanji_seq and not other_seq and _is_kana_variant(kana_info, other_kana):
+                dominated = True
+                break
+
+        # also check entries that have ANY non-new card (even if first card is new)
+        # this catches cases like ぱらぱら where first card is new but there's an older non-new card
+        if not dominated:
+            for other_seq, other_kana, other_card_id in entries_with_any_non_new.get(
+                canon_reading, []
+            ):
+                if other_card_id >= first_card_id:
+                    continue  # not older
+                if other_seq == kanji_seq and other_kana == kana_info:
+                    continue  # same entry, not a variant
+                # check kanji superset relation
+                if kanji_seq and other_seq and is_kanji_subsequence(kanji_seq, other_seq):
+                    dominated = True
+                    break
+                # pure kana entry dominated by any entry with kanji
+                if not kanji_seq and other_seq:
+                    dominated = True
+                    break
+                # check kana variant relation (for pure kana entries)
+                if not kanji_seq and not other_seq and _is_kana_variant(kana_info, other_kana):
+                    dominated = True
+                    break
+
+        # check new cards (due before this card -> would be reviewed first)
+        if not dominated and is_new:
+            for other_seq, other_kana, other_card_id, other_due in entries_with_new.get(
+                canon_reading, []
+            ):
+                if other_card_id >= first_card_id:
+                    continue  # not older
+                if other_seq == kanji_seq and other_kana == kana_info:
+                    continue  # same entry, not a variant
+                if other_due >= card_due:
+                    continue  # other is due after or same time
+                # check kanji superset relation
+                if kanji_seq and other_seq and is_kanji_subsequence(kanji_seq, other_seq):
+                    dominated = True
+                    break
+                # pure kana entry dominated by any entry with kanji
+                if not kanji_seq and other_seq:
+                    dominated = True
+                    break
+                # check kana variant relation (for pure kana entries)
+                if (
+                    not kanji_seq
+                    and not other_seq
+                    and _is_kana_variant(kana_info, other_kana)
+                ):
+                    dominated = True
+                    break
+
+        if not dominated:
             first_entry_card_ids.add(first_card_id)
 
     if not first_entry_card_ids:
@@ -114,7 +292,7 @@ def get_first_entry_card_stats(
 
 
 class _CardInfo:
-    __slots__ = ("card_type", "queue", "deck_id", "odid", "tags", "is_active")
+    __slots__ = ("card_type", "queue", "deck_id", "odid", "tags", "due", "is_countable")
 
     def __init__(
         self,
@@ -123,6 +301,7 @@ class _CardInfo:
         deck_id: int,
         odid: int,
         tags: str,
+        due: int,
         exception_tags: set[str],
         auto_suspend_tag: str,
     ) -> None:
@@ -131,11 +310,14 @@ class _CardInfo:
         self.deck_id = deck_id
         self.odid = odid
         self.tags = tags
+        self.due = due
 
         is_suspended = queue == QUEUE_TYPE_SUSPENDED
         has_exception = _has_any_tag(tags, exception_tags) if exception_tags else False
         has_auto_suspend = auto_suspend_tag and _has_any_tag(tags, {auto_suspend_tag})
-        self.is_active = not is_suspended or has_exception or has_auto_suspend
+        # a card is countable if it's not manually suspended
+        # (auto-suspended cards are countable because we filter by superset variants separately)
+        self.is_countable = not is_suspended or has_exception or has_auto_suspend
 
 
 def _has_any_tag(tags_text: str, exception_tags: set[str]) -> bool:
@@ -165,20 +347,21 @@ def _load_card_info(
         rows = mw.col.db.all(
             f"""
             SELECT cards.id, cards.type, cards.queue, cards.did,
-                   COALESCE(cards.odid, 0), notes.tags
+                   COALESCE(cards.odid, 0), notes.tags, cards.due
             FROM cards
             JOIN notes ON notes.id = cards.nid
             WHERE cards.id IN ({placeholders})
             """,
             *chunk,
         )
-        for card_id, card_type, queue, did, odid, tags in rows:
+        for card_id, card_type, queue, did, odid, tags, due in rows:
             result[int(card_id)] = _CardInfo(
                 card_type=int(card_type),
                 queue=int(queue),
                 deck_id=int(did),
                 odid=int(odid),
                 tags=tags if isinstance(tags, str) else "",
+                due=int(due) if due is not None else 0,
                 exception_tags=exception_tags,
                 auto_suspend_tag=auto_suspend_tag,
             )
@@ -205,6 +388,29 @@ def _get_deck_name(
     return deck_name
 
 
+def _find_oldest_non_new_card(
+    card_ids: list[int],
+    card_info: dict[int, _CardInfo],
+) -> int | None:
+    """Find the oldest countable non-new card for an entry, if any."""
+    cards_with_info: list[tuple[int, _CardInfo]] = []
+    for cid in card_ids:
+        info = card_info.get(cid)
+        if info is not None:
+            cards_with_info.append((cid, info))
+
+    if not cards_with_info:
+        return None
+
+    cards_with_info.sort(key=lambda x: x[0])
+
+    for cid, info in cards_with_info:
+        if info.card_type != CARD_TYPE_NEW and info.is_countable:
+            return cid
+
+    return None
+
+
 def _find_first_entry_card(
     card_ids: list[int],
     card_info: dict[int, _CardInfo],
@@ -214,13 +420,12 @@ def _find_first_entry_card(
     """
     Find the card that introduced this entry, if any.
 
-    Returns the card_id of the oldest active card in an enabled deck, but only if
-    no older non-new card exists for this entry in ANY deck (including
-    disabled decks). A non-new card in any deck means the entry was already
-    "known" before this card was added.
+    Returns the card_id of the oldest countable card in an enabled deck, but only
+    if no older countable non-new card exists for this entry in ANY deck
+    (including disabled decks).
 
-    A card is active if it's not suspended, has an exception tag,
-    or was auto-suspended due to variant spellings.
+    A card is countable if it's not manually suspended (i.e., not suspended,
+    has an exception tag, or was auto-suspended).
     """
     cards_with_info: list[tuple[int, _CardInfo]] = []
     for cid in card_ids:
@@ -233,28 +438,26 @@ def _find_first_entry_card(
 
     cards_with_info.sort(key=lambda x: x[0])
 
-    # Find the oldest active non-new card across ALL decks (including disabled)
-    oldest_active_non_new_id: int | None = None
+    # Find the oldest countable non-new card across ALL decks (including disabled)
+    oldest_countable_non_new_id: int | None = None
     for cid, info in cards_with_info:
-        if info.card_type != CARD_TYPE_NEW and info.is_active:
-            oldest_active_non_new_id = cid
+        if info.card_type != CARD_TYPE_NEW and info.is_countable:
+            oldest_countable_non_new_id = cid
             break
 
-    # Find the oldest active card in an enabled deck
+    # Find the oldest countable card in an enabled deck
     oldest_enabled_id: int | None = None
-    oldest_enabled_info: _CardInfo | None = None
     for cid, info in cards_with_info:
         deck_name = _get_deck_name(info.deck_id, info.odid, deck_name_cache)
-        if deck_name not in disabled_deck_names and info.is_active:
+        if deck_name not in disabled_deck_names and info.is_countable:
             oldest_enabled_id = cid
-            oldest_enabled_info = info
             break
 
     if oldest_enabled_id is None:
         return None
 
-    # If there's an older active non-new card (in any deck), the entry was already known
-    if oldest_active_non_new_id is not None and oldest_active_non_new_id < oldest_enabled_id:
+    # If there's an older countable non-new card (in any deck), the entry was already known
+    if oldest_countable_non_new_id is not None and oldest_countable_non_new_id < oldest_enabled_id:
         return None
 
     return oldest_enabled_id
