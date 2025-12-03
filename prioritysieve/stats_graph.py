@@ -1108,11 +1108,11 @@ def _inject_new_stats_graph(webview) -> None:
                         opacity: 0;
                         transition: opacity 0.15s;
                     }}
-                    .graph-element-clickable {{
+                    #prioritysieve-new-entries-graph .graph-element-clickable {{
                         fill: transparent;
                         cursor: pointer;
                     }}
-                    .graph-element-clickable:hover {{
+                    #prioritysieve-new-entries-graph .graph-element-clickable:hover {{
                         fill: rgba(128,128,128,0.1);
                     }}
                 `;
