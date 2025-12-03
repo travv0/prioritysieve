@@ -331,6 +331,9 @@ def test_get_first_entry_card_stats_skips_subset_with_superset_non_new(mock_anki
     """Verify that subset entries are not counted if a superset has an older non-new card."""
     db_path = mock_anki_env["db_path"]
     mock_col_db = mock_anki_env["mock_col_db"]
+    mock_config = mock_anki_env["mock_config"]
+
+    mock_config.auto_suspend_variant_spellings = True
 
     day_cutoff_ms = 1700000000 * 1000
     # older superset card (思い出す) - non-new
@@ -380,6 +383,7 @@ def test_get_first_entry_card_stats_skips_subset_with_superset_new_due_before(
     mock_config = mock_anki_env["mock_config"]
 
     mock_config.tag_suspended_automatically = "ps-auto-suspend"
+    mock_config.auto_suspend_variant_spellings = True
 
     day_cutoff_ms = 1700000000 * 1000
     # older superset card (思い出す) - new, due=1 (earlier)
@@ -429,6 +433,7 @@ def test_get_first_entry_card_stats_counts_both_when_subset_due_before_superset(
     mock_config = mock_anki_env["mock_config"]
 
     mock_config.tag_suspended_automatically = "ps-auto-suspend"
+    mock_config.auto_suspend_variant_spellings = True
 
     day_cutoff_ms = 1700000000 * 1000
     # older superset card (思い出す) - new, due=5 (later)
@@ -573,6 +578,9 @@ def test_get_first_entry_card_stats_skips_pure_kana_with_kanji_variant_non_new(
     """Verify that pure kana entries are skipped if kanji variant has older non-new card."""
     db_path = mock_anki_env["db_path"]
     mock_col_db = mock_anki_env["mock_col_db"]
+    mock_config = mock_anki_env["mock_config"]
+
+    mock_config.auto_suspend_variant_spellings = True
 
     day_cutoff_ms = 1700000000 * 1000
     # older kanji variant (見窄らしい) - non-new
@@ -668,3 +676,52 @@ def test_get_first_entry_card_stats_kana_variant_dominated_by_non_first_non_new(
     # (even though ぱらぱら's "first" card is new/auto-suspended)
     total_first_cards = sum(count for _, count in data)
     assert total_first_cards == 1
+
+
+def test_get_first_entry_card_stats_variant_filter_requires_setting(
+    mock_anki_env,
+) -> None:
+    """Verify that kanji subset filtering requires auto_suspend_variant_spellings enabled."""
+    db_path = mock_anki_env["db_path"]
+    mock_col_db = mock_anki_env["mock_col_db"]
+    mock_config = mock_anki_env["mock_config"]
+
+    mock_config.auto_suspend_variant_spellings = False
+
+    day_cutoff_ms = 1700000000 * 1000
+    # older superset card (思い出す) - non-new
+    superset_card_id = day_cutoff_ms - (86400 * 1000 * 10)
+    # newer subset card (思いだす) - new
+    subset_card_id = day_cutoff_ms - (86400 * 1000 * 2)
+
+    entries = [
+        {"text": "思い出す", "reading": "おもいだす", "reviewed": 1},
+        {"text": "思いだす", "reading": "おもいだす", "reviewed": 0},
+    ]
+    cards = [
+        {"card_id": superset_card_id, "note_id": 10, "note_type_id": 100, "card_type": 2, "tags": "", "card_queue": 0},
+        {"card_id": subset_card_id, "note_id": 11, "note_type_id": 100, "card_type": 0, "tags": "", "card_queue": 0},
+    ]
+    card_entry_links = [
+        {"card_id": superset_card_id, "entry_text": "思い出す", "entry_reading": "おもいだす"},
+        {"card_id": subset_card_id, "entry_text": "思いだす", "entry_reading": "おもいだす"},
+    ]
+
+    with EntryDB(db_path=db_path) as db:
+        db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
+
+    mock_col_db.all.return_value = [
+        (superset_card_id, 2, 0, 1, 0, "", 0),  # non-new
+        (subset_card_id, 0, 0, 1, 0, "", 1),  # new
+    ]
+
+    data = get_first_entry_card_stats(
+        day_cutoff_seconds=1700000000,
+        bucket_size_days=1,
+        num_buckets=31,
+        additional_filter="",
+    )
+
+    # both should be counted when auto_suspend_variant_spellings is off
+    total_first_cards = sum(count for _, count in data)
+    assert total_first_cards == 2

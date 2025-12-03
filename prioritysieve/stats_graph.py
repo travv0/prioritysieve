@@ -92,6 +92,7 @@ def get_first_entry_card_stats(
     disabled_deck_names = set(config.disabled_decks)
     exception_tags = set(config.get_preprocess_ignore_suspended_unless_tag_list())
     auto_suspend_tag = config.tag_suspended_automatically
+    auto_suspend_variants = getattr(config, "auto_suspend_variant_spellings", False)
     merge_kana_variants = getattr(config, "merge_kana_variant_spellings", False)
 
     try:
@@ -195,12 +196,12 @@ def get_first_entry_card_stats(
                 continue  # not older
             if other_seq == kanji_seq and other_kana == kana_info:
                 continue  # same entry, not a variant
-            # check kanji superset relation
-            if kanji_seq and other_seq and is_kanji_subsequence(kanji_seq, other_seq):
+            # check kanji superset relation (only if auto_suspend_variants enabled)
+            if auto_suspend_variants and kanji_seq and other_seq and is_kanji_subsequence(kanji_seq, other_seq):
                 dominated = True
                 break
-            # pure kana entry dominated by any entry with kanji
-            if not kanji_seq and other_seq:
+            # pure kana entry dominated by any entry with kanji (only if auto_suspend_variants enabled)
+            if auto_suspend_variants and not kanji_seq and other_seq:
                 dominated = True
                 break
             # check kana variant relation (for pure kana entries)
@@ -218,12 +219,12 @@ def get_first_entry_card_stats(
                     continue  # not older
                 if other_seq == kanji_seq and other_kana == kana_info:
                     continue  # same entry, not a variant
-                # check kanji superset relation
-                if kanji_seq and other_seq and is_kanji_subsequence(kanji_seq, other_seq):
+                # check kanji superset relation (only if auto_suspend_variants enabled)
+                if auto_suspend_variants and kanji_seq and other_seq and is_kanji_subsequence(kanji_seq, other_seq):
                     dominated = True
                     break
-                # pure kana entry dominated by any entry with kanji
-                if not kanji_seq and other_seq:
+                # pure kana entry dominated by any entry with kanji (only if auto_suspend_variants enabled)
+                if auto_suspend_variants and not kanji_seq and other_seq:
                     dominated = True
                     break
                 # check kana variant relation (for pure kana entries)
@@ -242,12 +243,12 @@ def get_first_entry_card_stats(
                     continue  # same entry, not a variant
                 if other_due >= card_due:
                     continue  # other is due after or same time
-                # check kanji superset relation
-                if kanji_seq and other_seq and is_kanji_subsequence(kanji_seq, other_seq):
+                # check kanji superset relation (only if auto_suspend_variants enabled)
+                if auto_suspend_variants and kanji_seq and other_seq and is_kanji_subsequence(kanji_seq, other_seq):
                     dominated = True
                     break
-                # pure kana entry dominated by any entry with kanji
-                if not kanji_seq and other_seq:
+                # pure kana entry dominated by any entry with kanji (only if auto_suspend_variants enabled)
+                if auto_suspend_variants and not kanji_seq and other_seq:
                     dominated = True
                     break
                 # check kana variant relation (for pure kana entries)
