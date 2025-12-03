@@ -13,9 +13,9 @@ def test_entry_db_replace_and_fetch(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr("prioritysieve.entry_db.mw", mw_stub, raising=False)
 
     entries = [
-        {"text": "alpha", "reading": "reading1", "reviewed": 1},
-        {"text": "alpha", "reading": "reading2", "reviewed": 0},
-        {"text": "beta", "reading": "", "reviewed": 0},
+        {"text": "alpha", "reading": "reading1", "reviewed": 1, "listed": 1},
+        {"text": "alpha", "reading": "reading2", "reviewed": 0, "listed": 1},
+        {"text": "beta", "reading": "", "reviewed": 0, "listed": 1},
     ]
     cards = [
         {

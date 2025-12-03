@@ -66,8 +66,8 @@ def test_get_first_entry_card_stats_counts_oldest_card_per_entry(mock_anki_env) 
     card3_id = day_cutoff_ms - (86400 * 1000 * 5)
 
     entries = [
-        {"text": "word1", "reading": "reading1", "reviewed": 1},
-        {"text": "word2", "reading": "reading2", "reviewed": 1},
+        {"text": "word1", "reading": "reading1", "reviewed": 1, "listed": 1},
+        {"text": "word2", "reading": "reading2", "reviewed": 1, "listed": 1},
     ]
     cards = [
         {"card_id": card1_id, "note_id": 10, "note_type_id": 100, "card_type": 2, "tags": "", "card_queue": 0},
@@ -110,7 +110,7 @@ def test_get_first_entry_card_stats_counts_new_cards(mock_anki_env) -> None:
     day_cutoff_ms = 1700000000 * 1000
     card1_id = day_cutoff_ms - (86400 * 1000 * 2)
 
-    entries = [{"text": "word1", "reading": "reading1", "reviewed": 0}]
+    entries = [{"text": "word1", "reading": "reading1", "reviewed": 0, "listed": 1}]
     cards = [{"card_id": card1_id, "note_id": 10, "note_type_id": 100, "card_type": 0, "tags": "", "card_queue": 0}]
     card_entry_links = [{"card_id": card1_id, "entry_text": "word1", "entry_reading": "reading1"}]
 
@@ -139,7 +139,7 @@ def test_get_first_entry_card_stats_counts_suspended_cards(mock_anki_env) -> Non
     day_cutoff_ms = 1700000000 * 1000
     card1_id = day_cutoff_ms - (86400 * 1000 * 2)
 
-    entries = [{"text": "word1", "reading": "reading1", "reviewed": 1}]
+    entries = [{"text": "word1", "reading": "reading1", "reviewed": 1, "listed": 1}]
     cards = [{"card_id": card1_id, "note_id": 10, "note_type_id": 100, "card_type": 2, "tags": "", "card_queue": -1}]
     card_entry_links = [{"card_id": card1_id, "entry_text": "word1", "entry_reading": "reading1"}]
 
@@ -171,7 +171,7 @@ def test_get_first_entry_card_stats_counts_suspended_with_exception_tag(mock_ank
     day_cutoff_ms = 1700000000 * 1000
     card1_id = day_cutoff_ms - (86400 * 1000 * 2)
 
-    entries = [{"text": "word1", "reading": "reading1", "reviewed": 1}]
+    entries = [{"text": "word1", "reading": "reading1", "reviewed": 1, "listed": 1}]
     cards = [{"card_id": card1_id, "note_id": 10, "note_type_id": 100, "card_type": 2, "tags": "keep-suspended", "card_queue": -1}]
     card_entry_links = [{"card_id": card1_id, "entry_text": "word1", "entry_reading": "reading1"}]
 
@@ -203,7 +203,7 @@ def test_get_first_entry_card_stats_counts_auto_suspended_cards(mock_anki_env) -
     day_cutoff_ms = 1700000000 * 1000
     card1_id = day_cutoff_ms - (86400 * 1000 * 2)
 
-    entries = [{"text": "word1", "reading": "reading1", "reviewed": 1}]
+    entries = [{"text": "word1", "reading": "reading1", "reviewed": 1, "listed": 1}]
     cards = [{"card_id": card1_id, "note_id": 10, "note_type_id": 100, "card_type": 2, "tags": "ps-auto-suspend", "card_queue": -1}]
     card_entry_links = [{"card_id": card1_id, "entry_text": "word1", "entry_reading": "reading1"}]
 
@@ -237,7 +237,7 @@ def test_get_first_entry_card_stats_skips_disabled_decks(mock_anki_env) -> None:
     day_cutoff_ms = 1700000000 * 1000
     card1_id = day_cutoff_ms - (86400 * 1000 * 2)
 
-    entries = [{"text": "word1", "reading": "reading1", "reviewed": 1}]
+    entries = [{"text": "word1", "reading": "reading1", "reviewed": 1, "listed": 1}]
     cards = [{"card_id": card1_id, "note_id": 10, "note_type_id": 100, "card_type": 2, "tags": "", "card_queue": 0}]
     card_entry_links = [{"card_id": card1_id, "entry_text": "word1", "entry_reading": "reading1"}]
 
@@ -288,7 +288,7 @@ def test_get_first_entry_card_stats_skips_if_older_non_new_in_disabled_deck(mock
     # Newer card in enabled deck
     new_card_id = day_cutoff_ms - (86400 * 1000 * 2)
 
-    entries = [{"text": "word1", "reading": "reading1", "reviewed": 1}]
+    entries = [{"text": "word1", "reading": "reading1", "reviewed": 1, "listed": 1}]
     cards = [
         {"card_id": old_card_id, "note_id": 10, "note_type_id": 100, "card_type": 2, "tags": "", "card_queue": 0},
         {"card_id": new_card_id, "note_id": 11, "note_type_id": 100, "card_type": 0, "tags": "", "card_queue": 0},
@@ -342,8 +342,8 @@ def test_get_first_entry_card_stats_skips_subset_with_superset_non_new(mock_anki
     subset_card_id = day_cutoff_ms - (86400 * 1000 * 2)
 
     entries = [
-        {"text": "思い出す", "reading": "おもいだす", "reviewed": 1},
-        {"text": "思いだす", "reading": "おもいだす", "reviewed": 0},
+        {"text": "思い出す", "reading": "おもいだす", "reviewed": 1, "listed": 1},
+        {"text": "思いだす", "reading": "おもいだす", "reviewed": 0, "listed": 1},
     ]
     cards = [
         {"card_id": superset_card_id, "note_id": 10, "note_type_id": 100, "card_type": 2, "tags": "", "card_queue": 0},
@@ -392,8 +392,8 @@ def test_get_first_entry_card_stats_skips_subset_with_superset_new_due_before(
     subset_card_id = day_cutoff_ms - (86400 * 1000 * 2)
 
     entries = [
-        {"text": "思い出す", "reading": "おもいだす", "reviewed": 0},
-        {"text": "思いだす", "reading": "おもいだす", "reviewed": 0},
+        {"text": "思い出す", "reading": "おもいだす", "reviewed": 0, "listed": 1},
+        {"text": "思いだす", "reading": "おもいだす", "reviewed": 0, "listed": 1},
     ]
     cards = [
         {"card_id": superset_card_id, "note_id": 10, "note_type_id": 100, "card_type": 0, "tags": "", "card_queue": 0},
@@ -442,8 +442,8 @@ def test_get_first_entry_card_stats_counts_both_when_subset_due_before_superset(
     subset_card_id = day_cutoff_ms - (86400 * 1000 * 2)
 
     entries = [
-        {"text": "思い出す", "reading": "おもいだす", "reviewed": 0},
-        {"text": "思いだす", "reading": "おもいだす", "reviewed": 0},
+        {"text": "思い出す", "reading": "おもいだす", "reviewed": 0, "listed": 1},
+        {"text": "思いだす", "reading": "おもいだす", "reviewed": 0, "listed": 1},
     ]
     cards = [
         {"card_id": superset_card_id, "note_id": 10, "note_type_id": 100, "card_type": 0, "tags": "", "card_queue": 0},
@@ -491,8 +491,8 @@ def test_get_first_entry_card_stats_skips_kana_variant_with_older_non_new(
     katakana_card_id = day_cutoff_ms - (86400 * 1000 * 2)
 
     entries = [
-        {"text": "ぱらぱら", "reading": "ぱらぱら", "reviewed": 1},
-        {"text": "パラパラ", "reading": "ぱらぱら", "reviewed": 0},
+        {"text": "ぱらぱら", "reading": "ぱらぱら", "reviewed": 1, "listed": 1},
+        {"text": "パラパラ", "reading": "ぱらぱら", "reviewed": 0, "listed": 1},
     ]
     cards = [
         {"card_id": hiragana_card_id, "note_id": 10, "note_type_id": 100, "card_type": 2, "tags": "", "card_queue": 0},
@@ -540,8 +540,8 @@ def test_get_first_entry_card_stats_kana_variant_requires_setting(
     katakana_card_id = day_cutoff_ms - (86400 * 1000 * 2)
 
     entries = [
-        {"text": "ぱらぱら", "reading": "ぱらぱら", "reviewed": 1},
-        {"text": "パラパラ", "reading": "ぱらぱら", "reviewed": 0},
+        {"text": "ぱらぱら", "reading": "ぱらぱら", "reviewed": 1, "listed": 1},
+        {"text": "パラパラ", "reading": "ぱらぱら", "reviewed": 0, "listed": 1},
     ]
     cards = [
         {"card_id": hiragana_card_id, "note_id": 10, "note_type_id": 100, "card_type": 2, "tags": "", "card_queue": 0},
@@ -589,8 +589,8 @@ def test_get_first_entry_card_stats_skips_pure_kana_with_kanji_variant_non_new(
     kana_card_id = day_cutoff_ms - (86400 * 1000 * 2)
 
     entries = [
-        {"text": "見窄らしい", "reading": "みすぼらしい", "reviewed": 1},
-        {"text": "みすぼらしい", "reading": "みすぼらしい", "reviewed": 0},
+        {"text": "見窄らしい", "reading": "みすぼらしい", "reviewed": 1, "listed": 1},
+        {"text": "みすぼらしい", "reading": "みすぼらしい", "reviewed": 0, "listed": 1},
     ]
     cards = [
         {"card_id": kanji_card_id, "note_id": 10, "note_type_id": 100, "card_type": 2, "tags": "", "card_queue": 0},
@@ -642,8 +642,8 @@ def test_get_first_entry_card_stats_kana_variant_dominated_by_non_first_non_new(
     katakana_card_id = day_cutoff_ms - (86400 * 1000 * 2)  # newest
 
     entries = [
-        {"text": "ぱらぱら", "reading": "ぱらぱら", "reviewed": 1},
-        {"text": "パラパラ", "reading": "ぱらぱら", "reviewed": 0},
+        {"text": "ぱらぱら", "reading": "ぱらぱら", "reviewed": 1, "listed": 1},
+        {"text": "パラパラ", "reading": "ぱらぱら", "reviewed": 0, "listed": 1},
     ]
     cards = [
         {"card_id": hiragana_card1_id, "note_id": 10, "note_type_id": 100, "card_type": 0, "tags": "ps-auto-suspend", "card_queue": -1},
@@ -695,8 +695,8 @@ def test_get_first_entry_card_stats_variant_filter_requires_setting(
     subset_card_id = day_cutoff_ms - (86400 * 1000 * 2)
 
     entries = [
-        {"text": "思い出す", "reading": "おもいだす", "reviewed": 1},
-        {"text": "思いだす", "reading": "おもいだす", "reviewed": 0},
+        {"text": "思い出す", "reading": "おもいだす", "reviewed": 1, "listed": 1},
+        {"text": "思いだす", "reading": "おもいだす", "reviewed": 0, "listed": 1},
     ]
     cards = [
         {"card_id": superset_card_id, "note_id": 10, "note_type_id": 100, "card_type": 2, "tags": "", "card_queue": 0},
@@ -748,8 +748,8 @@ def test_get_first_entry_card_stats_uses_min_due_for_auto_suspended_first_card(
     subset_card_id = day_cutoff_ms - (86400 * 1000 * 2)
 
     entries = [
-        {"text": "思い出す", "reading": "おもいだす", "reviewed": 0},
-        {"text": "思いだす", "reading": "おもいだす", "reviewed": 0},
+        {"text": "思い出す", "reading": "おもいだす", "reviewed": 0, "listed": 1},
+        {"text": "思いだす", "reading": "おもいだす", "reviewed": 0, "listed": 1},
     ]
     cards = [
         {"card_id": superset_card1_id, "note_id": 10, "note_type_id": 100, "card_type": 0, "tags": "ps-auto-suspend", "card_queue": -1},
@@ -808,8 +808,8 @@ def test_get_first_entry_card_stats_uses_min_due_for_both_entries(
     subset_card2_id = day_cutoff_ms - (86400 * 1000 * 5)  # unsuspended, due=1
 
     entries = [
-        {"text": "思い出す", "reading": "おもいだす", "reviewed": 0},
-        {"text": "思いだす", "reading": "おもいだす", "reviewed": 0},
+        {"text": "思い出す", "reading": "おもいだす", "reviewed": 0, "listed": 1},
+        {"text": "思いだす", "reading": "おもいだす", "reviewed": 0, "listed": 1},
     ]
     cards = [
         {"card_id": superset_card1_id, "note_id": 10, "note_type_id": 100, "card_type": 0, "tags": "ps-auto-suspend", "card_queue": -1},
@@ -843,5 +843,95 @@ def test_get_first_entry_card_stats_uses_min_due_for_both_entries(
 
     # both should count - subset's min due (1) < superset's min due (5), so subset is NOT dominated
     # even though superset is older by card_id
+    total_first_cards = sum(count for _, count in data)
+    assert total_first_cards == 2
+
+
+def test_get_first_entry_card_stats_skips_unlisted_entries(mock_anki_env) -> None:
+    """Verify unlisted entries are not counted when auto_suspend_unlisted_entries is enabled."""
+    db_path = mock_anki_env["db_path"]
+    mock_col_db = mock_anki_env["mock_col_db"]
+    mock_config = mock_anki_env["mock_config"]
+
+    mock_config.auto_suspend_unlisted_entries = True
+
+    day_cutoff_ms = 1700000000 * 1000
+    listed_card_id = day_cutoff_ms - (86400 * 1000 * 5)
+    unlisted_card_id = day_cutoff_ms - (86400 * 1000 * 2)
+
+    entries = [
+        {"text": "listed_word", "reading": "reading1", "reviewed": 1, "listed": 1},
+        {"text": "unlisted_word", "reading": "reading2", "reviewed": 1, "listed": 0},
+    ]
+    cards = [
+        {"card_id": listed_card_id, "note_id": 10, "note_type_id": 100, "card_type": 2, "tags": "", "card_queue": 0},
+        {"card_id": unlisted_card_id, "note_id": 11, "note_type_id": 100, "card_type": 2, "tags": "", "card_queue": 0},
+    ]
+    card_entry_links = [
+        {"card_id": listed_card_id, "entry_text": "listed_word", "entry_reading": "reading1"},
+        {"card_id": unlisted_card_id, "entry_text": "unlisted_word", "entry_reading": "reading2"},
+    ]
+
+    with EntryDB(db_path=db_path) as db:
+        db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
+
+    mock_col_db.all.return_value = [
+        (listed_card_id, 2, 0, 1, 0, "", 0),
+        (unlisted_card_id, 2, 0, 1, 0, "", 0),
+    ]
+
+    data = get_first_entry_card_stats(
+        day_cutoff_seconds=1700000000,
+        bucket_size_days=1,
+        num_buckets=31,
+        additional_filter="",
+    )
+
+    # only the listed entry should be counted
+    total_first_cards = sum(count for _, count in data)
+    assert total_first_cards == 1
+
+
+def test_get_first_entry_card_stats_counts_unlisted_when_setting_disabled(mock_anki_env) -> None:
+    """Verify unlisted entries are counted when auto_suspend_unlisted_entries is disabled."""
+    db_path = mock_anki_env["db_path"]
+    mock_col_db = mock_anki_env["mock_col_db"]
+    mock_config = mock_anki_env["mock_config"]
+
+    mock_config.auto_suspend_unlisted_entries = False
+
+    day_cutoff_ms = 1700000000 * 1000
+    listed_card_id = day_cutoff_ms - (86400 * 1000 * 5)
+    unlisted_card_id = day_cutoff_ms - (86400 * 1000 * 2)
+
+    entries = [
+        {"text": "listed_word", "reading": "reading1", "reviewed": 1, "listed": 1},
+        {"text": "unlisted_word", "reading": "reading2", "reviewed": 1, "listed": 0},
+    ]
+    cards = [
+        {"card_id": listed_card_id, "note_id": 10, "note_type_id": 100, "card_type": 2, "tags": "", "card_queue": 0},
+        {"card_id": unlisted_card_id, "note_id": 11, "note_type_id": 100, "card_type": 2, "tags": "", "card_queue": 0},
+    ]
+    card_entry_links = [
+        {"card_id": listed_card_id, "entry_text": "listed_word", "entry_reading": "reading1"},
+        {"card_id": unlisted_card_id, "entry_text": "unlisted_word", "entry_reading": "reading2"},
+    ]
+
+    with EntryDB(db_path=db_path) as db:
+        db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
+
+    mock_col_db.all.return_value = [
+        (listed_card_id, 2, 0, 1, 0, "", 0),
+        (unlisted_card_id, 2, 0, 1, 0, "", 0),
+    ]
+
+    data = get_first_entry_card_stats(
+        day_cutoff_seconds=1700000000,
+        bucket_size_days=1,
+        num_buckets=31,
+        additional_filter="",
+    )
+
+    # both entries should be counted when setting is disabled
     total_first_cards = sum(count for _, count in data)
     assert total_first_cards == 2

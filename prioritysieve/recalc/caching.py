@@ -8,7 +8,7 @@ from aqt import mw
 
 from ..entry import Entry
 from ..entry_db import EntryDB
-from ..priority_files import ensure_directories
+from ..priority_files import ensure_directories, load_priority_map
 from ..reading_utils import normalize_reading, parse_furigana_field
 from ..text_preprocessing import get_processed_text
 from ..prioritysieve_config import PrioritySieveConfig, PrioritySieveConfigFilter
@@ -19,16 +19,28 @@ from .anki_data_utils import create_card_data_dict
 def cache_entries(
     am_config: PrioritySieveConfig,
     filters: Iterable[PrioritySieveConfigFilter],
+    priority_keys: set[tuple[str, str]] | None = None,
 ) -> None:
     """Collect cards for provided filters and rebuild the entry cache."""
 
     assert mw is not None
 
+    filters_list = list(filters)
+
+    # use provided priority keys or load from files
+    if priority_keys is not None:
+        all_priority_keys = priority_keys
+    else:
+        all_priority_files: set[str] = set()
+        for config_filter in filters_list:
+            all_priority_files.update(config_filter.priority_files)
+        all_priority_keys = set(load_priority_map(all_priority_files).keys())
+
     entries: dict[int, Entry] = OrderedDict()
     cards_rows: dict[int, dict[str, object]] = OrderedDict()
     card_entry_rows: dict[int, tuple[str, str]] = OrderedDict()
 
-    for config_filter in filters:
+    for config_filter in filters_list:
         card_data_dict = create_card_data_dict(am_config, config_filter)
         for card_id, card_data in card_data_dict.items():
             entry = _build_entry(am_config, config_filter, card_data)
@@ -46,7 +58,7 @@ def cache_entries(
 
     ensure_directories()
     with EntryDB() as db:
-        entry_rows = _collapse_entries(entries.values())
+        entry_rows = _collapse_entries(entries.values(), all_priority_keys)
         db.replace_data(
             entries=entry_rows,
             cards=cards_rows.values(),
@@ -61,7 +73,10 @@ def cache_entries(
         )
 
 
-def _collapse_entries(entries: Iterable[Entry]) -> list[dict[str, object]]:
+def _collapse_entries(
+    entries: Iterable[Entry],
+    priority_keys: set[tuple[str, str]],
+) -> list[dict[str, object]]:
     by_key: dict[tuple[str, str], dict[str, object]] = {}
     for entry in entries:
         key = entry.key()
@@ -71,6 +86,7 @@ def _collapse_entries(entries: Iterable[Entry]) -> list[dict[str, object]]:
                 "text": entry.text,
                 "reading": entry.reading,
                 "reviewed": int(entry.reviewed),
+                "listed": int(key in priority_keys),
             }
         elif entry.reviewed and not existing["reviewed"]:
             existing["reviewed"] = 1

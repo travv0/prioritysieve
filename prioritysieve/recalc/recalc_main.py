@@ -556,11 +556,18 @@ def _background_recalc(
     modify_filters: list[PrioritySieveConfigFilter],
 ) -> OpChanges:
     ensure_directories()
-    caching.cache_entries(am_config, all_filters)
+
+    # load priority keys once for all cache_entries calls
+    all_priority_files: set[str] = set()
+    for config_filter in all_filters:
+        all_priority_files.update(config_filter.priority_files)
+    priority_keys = set(load_priority_map(all_priority_files).keys())
+
+    caching.cache_entries(am_config, all_filters, priority_keys)
     undo_token = col.add_custom_undo_entry("PrioritySieve Recalc")
     try:
         _apply_priorities(col, am_config, modify_filters)
-        caching.cache_entries(am_config, all_filters)
+        caching.cache_entries(am_config, all_filters, priority_keys)
     except Exception:
         col.merge_undo_entries(undo_token)
         raise

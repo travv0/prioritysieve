@@ -61,6 +61,7 @@ class EntryDB:
                     text TEXT NOT NULL,
                     reading TEXT NOT NULL,
                     reviewed INTEGER NOT NULL,
+                    listed INTEGER NOT NULL DEFAULT 1,
                     PRIMARY KEY (text, reading)
                 )
                 """
@@ -105,7 +106,7 @@ class EntryDB:
             self.drop_schema()
             self.create_schema()
             self.con.executemany(
-                "INSERT OR REPLACE INTO Entries (text, reading, reviewed) VALUES (:text, :reading, :reviewed)",
+                "INSERT OR REPLACE INTO Entries (text, reading, reviewed, listed) VALUES (:text, :reading, :reviewed, :listed)",
                 entries,
             )
             self.con.executemany(
@@ -275,6 +276,21 @@ class EntryDB:
             key = (text, reading)
             result.setdefault(key, set()).add(int(card_id))
         return result
+
+    def get_listed_entries(self) -> set[tuple[str, str]]:
+        cursor = self.con.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT text, reading FROM Entries WHERE listed = 1
+                """
+            )
+        except sqlite3.OperationalError:
+            # legacy db without listed column - assume all entries are listed
+            cursor.execute("SELECT text, reading FROM Entries")
+        return {(text, reading) for text, reading in cursor.fetchall()}
+
+
 @dataclass(slots=True)
 class StoredCard:
     card_id: int

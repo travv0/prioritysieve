@@ -94,15 +94,23 @@ def get_first_entry_card_stats(
     auto_suspend_tag = config.tag_suspended_automatically
     auto_suspend_variants = getattr(config, "auto_suspend_variant_spellings", False)
     merge_kana_variants = getattr(config, "merge_kana_variant_spellings", False)
+    auto_suspend_unlisted = getattr(config, "auto_suspend_unlisted_entries", False)
 
     try:
         with EntryDB() as entry_db:
             card_ids_by_entry = entry_db.get_card_ids_grouped_by_entry()
+            listed_entries = entry_db.get_listed_entries() if auto_suspend_unlisted else None
     except sqlite3.OperationalError:
         return []
 
     if not card_ids_by_entry:
         return []
+
+    # filter out unlisted entries if auto_suspend_unlisted_entries is enabled
+    if listed_entries is not None:
+        card_ids_by_entry = {
+            key: ids for key, ids in card_ids_by_entry.items() if key in listed_entries
+        }
 
     all_card_ids: set[int] = set()
     for card_ids in card_ids_by_entry.values():
