@@ -13,6 +13,7 @@ import inspect
 import math
 import sqlite3
 from collections import defaultdict
+from typing import Any
 
 from anki.consts import CARD_TYPE_NEW, QUEUE_TYPE_SUSPENDED
 from aqt import mw
@@ -961,6 +962,11 @@ def _inject_new_stats_graph(webview) -> None:
                         const tooltip = document.querySelector('.prioritysieve-tooltip');
                         if (tooltip) tooltip.style.opacity = '0';
                     }});
+                    hoverRect.addEventListener('click', function() {{
+                        if (count > 0 && typeof pycmd === 'function') {{
+                            pycmd('prioritysieve:browse_added:' + dayVal);
+                        }}
+                    }});
                     hoverGroup.appendChild(hoverRect);
                 }}
                 svg.appendChild(hoverGroup);
@@ -1140,6 +1146,43 @@ def _inject_new_stats_graph(webview) -> None:
     webview.eval(js_code)
 
 
+def _handle_browse_added_message(
+    handled: tuple[bool, Any], message: str, context: Any
+) -> tuple[bool, Any]:
+    """Handle pycmd messages for browsing cards added on a specific day."""
+    if not message.startswith("prioritysieve:browse_added:"):
+        return handled
+
+    try:
+        days_ago_str = message.split(":", 2)[2]
+        days_ago = int(days_ago_str)
+    except (IndexError, ValueError):
+        return handled
+
+    # convert days_ago (negative = past) to positive days for added: search
+    # dayVal is negative for past days, so -5 means 5 days ago
+    search_days = abs(days_ago)
+
+    # build search query: added:N finds cards added in past N days
+    # to get a specific day, we use added:N -added:N-1
+    if search_days == 0:
+        query = "deck:current added:1"
+    else:
+        query = f"deck:current added:{search_days + 1} -added:{search_days}"
+
+    # open browser with search
+    from aqt import dialogs
+
+    browser = dialogs.open("Browser", mw)
+    if browser is not None:
+        search_edit = browser.form.searchEdit.lineEdit()
+        if search_edit is not None:
+            search_edit.setText(query)
+            browser.onSearchActivated()
+
+    return (True, None)
+
+
 def init_stats_graph() -> None:
     """Initialize the statistics graph hooks."""
     from anki.stats import CollectionStats
@@ -1151,3 +1194,4 @@ def init_stats_graph() -> None:
     )
 
     gui_hooks.webview_did_inject_style_into_page.append(_inject_new_stats_graph)
+    gui_hooks.webview_did_receive_js_message.append(_handle_browse_added_message)
