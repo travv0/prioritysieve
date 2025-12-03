@@ -131,6 +131,11 @@ def get_first_entry_card_stats(
     entries_with_any_non_new: dict[str, list[tuple[str, _KanaInfo | None, int]]] = (
         defaultdict(list)
     )
+    # entries with ANY new card, using minimum due (for variant detection when first card is auto-suspended)
+    # reading -> [(kanji_seq, kana_info, oldest_new_card_id, min_due)]
+    entries_with_any_new: dict[str, list[tuple[str, _KanaInfo | None, int, int]]] = (
+        defaultdict(list)
+    )
 
     for entry_key, card_ids in card_ids_by_entry.items():
         text, reading = entry_key
@@ -169,6 +174,14 @@ def get_first_entry_card_stats(
                 (kanji_seq, kana_info, oldest_non_new_id)
             )
 
+        # also track new cards with minimum due (for when first card is auto-suspended with max due)
+        new_card_info = _find_new_card_info(card_ids, card_info)
+        if new_card_info is not None:
+            oldest_new_id, min_due = new_card_info
+            entries_with_any_new[canon_reading].append(
+                (kanji_seq, kana_info, oldest_new_id, min_due)
+            )
+
     # second pass: filter out entries dominated by variant cards
     # an entry is dominated if:
     # 1. a kanji superset has an older non-new card (already reviewed), OR
@@ -185,6 +198,15 @@ def get_first_entry_card_stats(
         info = card_info.get(first_card_id)
         is_new = info is not None and info.card_type == CARD_TYPE_NEW
         card_due = info.due if info is not None else 0
+
+        # get min due for this entry (in case first card is auto-suspended with max due)
+        min_due_for_entry = card_due
+        for other_seq, other_kana, other_card_id, other_due in entries_with_any_new.get(
+            canon_reading, []
+        ):
+            if other_seq == kanji_seq and other_kana == kana_info:
+                min_due_for_entry = other_due
+                break
 
         dominated = False
 
@@ -241,7 +263,35 @@ def get_first_entry_card_stats(
                     continue  # not older
                 if other_seq == kanji_seq and other_kana == kana_info:
                     continue  # same entry, not a variant
-                if other_due >= card_due:
+                if other_due >= min_due_for_entry:
+                    continue  # other is due after or same time
+                # check kanji superset relation (only if auto_suspend_variants enabled)
+                if auto_suspend_variants and kanji_seq and other_seq and is_kanji_subsequence(kanji_seq, other_seq):
+                    dominated = True
+                    break
+                # pure kana entry dominated by any entry with kanji (only if auto_suspend_variants enabled)
+                if auto_suspend_variants and not kanji_seq and other_seq:
+                    dominated = True
+                    break
+                # check kana variant relation (for pure kana entries)
+                if (
+                    not kanji_seq
+                    and not other_seq
+                    and _is_kana_variant(kana_info, other_kana)
+                ):
+                    dominated = True
+                    break
+
+        # also check entries that have ANY new card with min due (for auto-suspended first cards)
+        if not dominated and is_new:
+            for other_seq, other_kana, other_card_id, other_min_due in entries_with_any_new.get(
+                canon_reading, []
+            ):
+                if other_card_id >= first_card_id:
+                    continue  # not older
+                if other_seq == kanji_seq and other_kana == kana_info:
+                    continue  # same entry, not a variant
+                if other_min_due >= min_due_for_entry:
                     continue  # other is due after or same time
                 # check kanji superset relation (only if auto_suspend_variants enabled)
                 if auto_suspend_variants and kanji_seq and other_seq and is_kanji_subsequence(kanji_seq, other_seq):
@@ -410,6 +460,41 @@ def _find_oldest_non_new_card(
             return cid
 
     return None
+
+
+def _find_new_card_info(
+    card_ids: list[int],
+    card_info: dict[int, _CardInfo],
+) -> tuple[int, int] | None:
+    """Find the oldest new card and minimum due among all new cards for an entry.
+
+    Returns (oldest_new_card_id, min_due) or None if no new cards exist.
+    """
+    cards_with_info: list[tuple[int, _CardInfo]] = []
+    for cid in card_ids:
+        info = card_info.get(cid)
+        if info is not None:
+            cards_with_info.append((cid, info))
+
+    if not cards_with_info:
+        return None
+
+    cards_with_info.sort(key=lambda x: x[0])
+
+    oldest_new_id: int | None = None
+    min_due: int | None = None
+
+    for cid, info in cards_with_info:
+        if info.card_type == CARD_TYPE_NEW and info.is_countable:
+            if oldest_new_id is None:
+                oldest_new_id = cid
+            if min_due is None or info.due < min_due:
+                min_due = info.due
+
+    if oldest_new_id is None or min_due is None:
+        return None
+
+    return (oldest_new_id, min_due)
 
 
 def _find_first_entry_card(

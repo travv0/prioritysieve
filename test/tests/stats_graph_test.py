@@ -725,3 +725,123 @@ def test_get_first_entry_card_stats_variant_filter_requires_setting(
     # both should be counted when auto_suspend_variant_spellings is off
     total_first_cards = sum(count for _, count in data)
     assert total_first_cards == 2
+
+
+def test_get_first_entry_card_stats_uses_min_due_for_auto_suspended_first_card(
+    mock_anki_env,
+) -> None:
+    """Verify that min due is used when comparing variants with auto-suspended first cards."""
+    db_path = mock_anki_env["db_path"]
+    mock_col_db = mock_anki_env["mock_col_db"]
+    mock_config = mock_anki_env["mock_config"]
+
+    mock_config.auto_suspend_variant_spellings = True
+    mock_config.tag_suspended_automatically = "ps-auto-suspend"
+
+    day_cutoff_ms = 1700000000 * 1000
+    # superset entry (思い出す) has two cards:
+    # - oldest card is auto-suspended with max due (2147483647)
+    # - newer card is unsuspended with due=1
+    superset_card1_id = day_cutoff_ms - (86400 * 1000 * 20)  # oldest, auto-suspended
+    superset_card2_id = day_cutoff_ms - (86400 * 1000 * 15)  # newer, unsuspended, due=1
+    # subset entry (思いだす) has one card with due=5
+    subset_card_id = day_cutoff_ms - (86400 * 1000 * 2)
+
+    entries = [
+        {"text": "思い出す", "reading": "おもいだす", "reviewed": 0},
+        {"text": "思いだす", "reading": "おもいだす", "reviewed": 0},
+    ]
+    cards = [
+        {"card_id": superset_card1_id, "note_id": 10, "note_type_id": 100, "card_type": 0, "tags": "ps-auto-suspend", "card_queue": -1},
+        {"card_id": superset_card2_id, "note_id": 10, "note_type_id": 100, "card_type": 0, "tags": "", "card_queue": 0},
+        {"card_id": subset_card_id, "note_id": 11, "note_type_id": 100, "card_type": 0, "tags": "", "card_queue": 0},
+    ]
+    card_entry_links = [
+        {"card_id": superset_card1_id, "entry_text": "思い出す", "entry_reading": "おもいだす"},
+        {"card_id": superset_card2_id, "entry_text": "思い出す", "entry_reading": "おもいだす"},
+        {"card_id": subset_card_id, "entry_text": "思いだす", "entry_reading": "おもいだす"},
+    ]
+
+    with EntryDB(db_path=db_path) as db:
+        db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
+
+    mock_col_db.all.return_value = [
+        (superset_card1_id, 0, -1, 1, 0, "ps-auto-suspend", 2147483647),  # auto-suspended, max due
+        (superset_card2_id, 0, 0, 1, 0, "", 1),  # unsuspended, due=1
+        (subset_card_id, 0, 0, 1, 0, "", 5),  # due=5
+    ]
+
+    data = get_first_entry_card_stats(
+        day_cutoff_seconds=1700000000,
+        bucket_size_days=1,
+        num_buckets=31,
+        additional_filter="",
+    )
+
+    # only superset should count - subset is dominated because superset's min due (1) < subset's due (5)
+    # even though superset's first card has max due (2147483647)
+    total_first_cards = sum(count for _, count in data)
+    assert total_first_cards == 1
+
+
+def test_get_first_entry_card_stats_uses_min_due_for_both_entries(
+    mock_anki_env,
+) -> None:
+    """Verify both entries use min due for comparison when both have auto-suspended first cards."""
+    db_path = mock_anki_env["db_path"]
+    mock_col_db = mock_anki_env["mock_col_db"]
+    mock_config = mock_anki_env["mock_config"]
+
+    mock_config.auto_suspend_variant_spellings = True
+    mock_config.tag_suspended_automatically = "ps-auto-suspend"
+
+    day_cutoff_ms = 1700000000 * 1000
+    # superset entry (思い出す) has two cards:
+    # - oldest card is auto-suspended with max due
+    # - newer card is unsuspended with due=5 (later than subset)
+    superset_card1_id = day_cutoff_ms - (86400 * 1000 * 20)  # oldest, auto-suspended
+    superset_card2_id = day_cutoff_ms - (86400 * 1000 * 15)  # newer, unsuspended, due=5
+    # subset entry (思いだす) has two cards:
+    # - oldest card is auto-suspended with max due
+    # - newer card is unsuspended with due=1 (earlier than superset)
+    subset_card1_id = day_cutoff_ms - (86400 * 1000 * 10)  # auto-suspended
+    subset_card2_id = day_cutoff_ms - (86400 * 1000 * 5)  # unsuspended, due=1
+
+    entries = [
+        {"text": "思い出す", "reading": "おもいだす", "reviewed": 0},
+        {"text": "思いだす", "reading": "おもいだす", "reviewed": 0},
+    ]
+    cards = [
+        {"card_id": superset_card1_id, "note_id": 10, "note_type_id": 100, "card_type": 0, "tags": "ps-auto-suspend", "card_queue": -1},
+        {"card_id": superset_card2_id, "note_id": 10, "note_type_id": 100, "card_type": 0, "tags": "", "card_queue": 0},
+        {"card_id": subset_card1_id, "note_id": 11, "note_type_id": 100, "card_type": 0, "tags": "ps-auto-suspend", "card_queue": -1},
+        {"card_id": subset_card2_id, "note_id": 11, "note_type_id": 100, "card_type": 0, "tags": "", "card_queue": 0},
+    ]
+    card_entry_links = [
+        {"card_id": superset_card1_id, "entry_text": "思い出す", "entry_reading": "おもいだす"},
+        {"card_id": superset_card2_id, "entry_text": "思い出す", "entry_reading": "おもいだす"},
+        {"card_id": subset_card1_id, "entry_text": "思いだす", "entry_reading": "おもいだす"},
+        {"card_id": subset_card2_id, "entry_text": "思いだす", "entry_reading": "おもいだす"},
+    ]
+
+    with EntryDB(db_path=db_path) as db:
+        db.replace_data(entries=entries, cards=cards, card_entry_links=card_entry_links)
+
+    mock_col_db.all.return_value = [
+        (superset_card1_id, 0, -1, 1, 0, "ps-auto-suspend", 2147483647),  # auto-suspended, max due
+        (superset_card2_id, 0, 0, 1, 0, "", 5),  # unsuspended, due=5
+        (subset_card1_id, 0, -1, 1, 0, "ps-auto-suspend", 2147483647),  # auto-suspended, max due
+        (subset_card2_id, 0, 0, 1, 0, "", 1),  # unsuspended, due=1
+    ]
+
+    data = get_first_entry_card_stats(
+        day_cutoff_seconds=1700000000,
+        bucket_size_days=1,
+        num_buckets=31,
+        additional_filter="",
+    )
+
+    # both should count - subset's min due (1) < superset's min due (5), so subset is NOT dominated
+    # even though superset is older by card_id
+    total_first_cards = sum(count for _, count in data)
+    assert total_first_cards == 2
