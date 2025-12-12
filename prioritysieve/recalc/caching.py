@@ -12,7 +12,7 @@ from ..priority_files import ensure_directories, load_priority_map
 from ..reading_utils import normalize_reading, parse_furigana_field
 from ..text_preprocessing import get_processed_text
 from ..prioritysieve_config import PrioritySieveConfig, PrioritySieveConfigFilter
-from ..prioritysieve_globals import READING_PRIORITY_FURIGANA_FIRST
+from ..prioritysieve_globals import NONE_OPTION, READING_PRIORITY_FURIGANA_FIRST
 from .anki_data_utils import create_card_data_dict
 
 
@@ -120,6 +120,15 @@ def _extract_reading(
     config_filter: PrioritySieveConfigFilter,
     card_data,
 ) -> str:
+    # If no reading or furigana field is configured, don't attempt to extract
+    # a reading. This avoids incorrectly using the expression text as a reading
+    # for non-Japanese languages.
+    if (
+        getattr(config_filter, "reading_field", None) == NONE_OPTION
+        and getattr(config_filter, "furigana_field", None) == NONE_OPTION
+    ):
+        return ""
+
     def _normalise_reading_field(value: str) -> str:
         stripped = value.strip()
         if not stripped:
