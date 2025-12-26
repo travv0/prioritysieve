@@ -36,6 +36,8 @@ def _plan(
     tags: list[str] | None = None,
     deck_id: int = 1,
     original_deck_id: int = 0,
+    duplicate_sort_value: str | None = None,
+    duplicate_sort_numeric: bool = False,
 ) -> CardPlan:
     global _card_sequence, _note_sequence
     _card_sequence += 1
@@ -60,6 +62,8 @@ def _plan(
         desired_tags=list(base_tags),
         extra_reading_field_index=None,
         desired_reading=None,
+        duplicate_sort_value=duplicate_sort_value,
+        duplicate_sort_numeric=duplicate_sort_numeric,
     )
 
 
@@ -368,3 +372,222 @@ def test_duplicate_rules_prefer_newest_card_within_same_deck() -> None:
     assert older_plan.desired_queue == QUEUE_TYPE_SUSPENDED
     assert older_plan.desired_due == DEFAULT_REVIEW_DUE
     assert "ps-auto-suspend" in older_plan.desired_tags
+
+
+def test_duplicate_rules_sort_by_field_within_same_deck() -> None:
+    """Cards with lower duplicate_sort_value should be preferred within same deck priority."""
+    am_config = _dummy_config()
+    # Card with higher sort value (should be suspended)
+    high_rank_plan = _plan(
+        entry_key=("順", ""),
+        queue=QUEUE_TYPE_SUSPENDED,
+        card_type=CARD_TYPE_NEW,
+        due=5,
+        auto_suspend=False,
+        is_new_card=True,
+        entry_reviewed=False,
+        tags=["ps-auto-suspend"],
+        deck_priority=0,
+        duplicate_sort_value="B",
+    )
+    # Card with lower sort value (should stay unsuspended)
+    low_rank_plan = _plan(
+        entry_key=("順", ""),
+        queue=QUEUE_TYPE_SUSPENDED,
+        card_type=CARD_TYPE_NEW,
+        due=10,
+        auto_suspend=False,
+        is_new_card=True,
+        entry_reviewed=False,
+        deck_priority=0,
+        duplicate_sort_value="A",
+    )
+
+    duplicates = defaultdict(list)
+    duplicates[("順", "")] = [high_rank_plan, low_rank_plan]
+
+    _apply_duplicate_rules(
+        am_config,
+        duplicates,
+    )
+
+    assert low_rank_plan.desired_queue == QUEUE_TYPE_NEW
+    assert "ps-auto-suspend" not in low_rank_plan.desired_tags
+    assert high_rank_plan.desired_queue == QUEUE_TYPE_SUSPENDED
+    assert "ps-auto-suspend" in high_rank_plan.desired_tags
+
+
+def test_duplicate_rules_deck_priority_beats_sort_field() -> None:
+    """Deck priority should take precedence over duplicate_sort_value."""
+    am_config = _dummy_config()
+    # Higher deck priority but worse sort value - should still win
+    high_priority_plan = _plan(
+        entry_key=("優", ""),
+        queue=QUEUE_TYPE_SUSPENDED,
+        card_type=CARD_TYPE_NEW,
+        due=50,
+        auto_suspend=False,
+        is_new_card=True,
+        entry_reviewed=False,
+        tags=["ps-auto-suspend"],
+        deck_priority=0,
+        duplicate_sort_value="Z",
+    )
+    # Lower deck priority but better sort value - should be suspended
+    low_priority_plan = _plan(
+        entry_key=("優", ""),
+        queue=QUEUE_TYPE_SUSPENDED,
+        card_type=CARD_TYPE_NEW,
+        due=10,
+        auto_suspend=False,
+        is_new_card=True,
+        entry_reviewed=False,
+        deck_priority=5,
+        duplicate_sort_value="A",
+    )
+
+    duplicates = defaultdict(list)
+    duplicates[("優", "")] = [high_priority_plan, low_priority_plan]
+
+    _apply_duplicate_rules(
+        am_config,
+        duplicates,
+    )
+
+    assert high_priority_plan.desired_queue == QUEUE_TYPE_NEW
+    assert "ps-auto-suspend" not in high_priority_plan.desired_tags
+    assert low_priority_plan.desired_queue == QUEUE_TYPE_SUSPENDED
+    assert "ps-auto-suspend" in low_priority_plan.desired_tags
+
+
+def test_duplicate_rules_empty_sort_field_sorts_last() -> None:
+    """Cards with no/empty duplicate_sort_value should sort after cards with values."""
+    am_config = _dummy_config()
+    # Card with no sort value (should be suspended)
+    no_rank_plan = _plan(
+        entry_key=("空", ""),
+        queue=QUEUE_TYPE_SUSPENDED,
+        card_type=CARD_TYPE_NEW,
+        due=5,
+        auto_suspend=False,
+        is_new_card=True,
+        entry_reviewed=False,
+        tags=["ps-auto-suspend"],
+        deck_priority=0,
+        duplicate_sort_value=None,
+    )
+    # Card with sort value (should stay unsuspended)
+    has_rank_plan = _plan(
+        entry_key=("空", ""),
+        queue=QUEUE_TYPE_SUSPENDED,
+        card_type=CARD_TYPE_NEW,
+        due=10,
+        auto_suspend=False,
+        is_new_card=True,
+        entry_reviewed=False,
+        deck_priority=0,
+        duplicate_sort_value="A",
+    )
+
+    duplicates = defaultdict(list)
+    duplicates[("空", "")] = [no_rank_plan, has_rank_plan]
+
+    _apply_duplicate_rules(
+        am_config,
+        duplicates,
+    )
+
+    assert has_rank_plan.desired_queue == QUEUE_TYPE_NEW
+    assert "ps-auto-suspend" not in has_rank_plan.desired_tags
+    assert no_rank_plan.desired_queue == QUEUE_TYPE_SUSPENDED
+    assert "ps-auto-suspend" in no_rank_plan.desired_tags
+
+
+def test_duplicate_rules_numeric_sort_field() -> None:
+    """With numeric sorting, '2' should come before '10'."""
+    am_config = _dummy_config()
+    # Card with value "10" (should be suspended with numeric sort)
+    ten_plan = _plan(
+        entry_key=("数", ""),
+        queue=QUEUE_TYPE_SUSPENDED,
+        card_type=CARD_TYPE_NEW,
+        due=5,
+        auto_suspend=False,
+        is_new_card=True,
+        entry_reviewed=False,
+        tags=["ps-auto-suspend"],
+        deck_priority=0,
+        duplicate_sort_value="10",
+        duplicate_sort_numeric=True,
+    )
+    # Card with value "2" (should stay unsuspended with numeric sort)
+    two_plan = _plan(
+        entry_key=("数", ""),
+        queue=QUEUE_TYPE_SUSPENDED,
+        card_type=CARD_TYPE_NEW,
+        due=10,
+        auto_suspend=False,
+        is_new_card=True,
+        entry_reviewed=False,
+        deck_priority=0,
+        duplicate_sort_value="2",
+        duplicate_sort_numeric=True,
+    )
+
+    duplicates = defaultdict(list)
+    duplicates[("数", "")] = [ten_plan, two_plan]
+
+    _apply_duplicate_rules(
+        am_config,
+        duplicates,
+    )
+
+    assert two_plan.desired_queue == QUEUE_TYPE_NEW
+    assert "ps-auto-suspend" not in two_plan.desired_tags
+    assert ten_plan.desired_queue == QUEUE_TYPE_SUSPENDED
+    assert "ps-auto-suspend" in ten_plan.desired_tags
+
+
+def test_duplicate_rules_text_sort_field() -> None:
+    """With text sorting (default), '10' should come before '2' alphabetically."""
+    am_config = _dummy_config()
+    # Card with value "10" (should stay unsuspended with text sort)
+    ten_plan = _plan(
+        entry_key=("文", ""),
+        queue=QUEUE_TYPE_SUSPENDED,
+        card_type=CARD_TYPE_NEW,
+        due=5,
+        auto_suspend=False,
+        is_new_card=True,
+        entry_reviewed=False,
+        tags=["ps-auto-suspend"],
+        deck_priority=0,
+        duplicate_sort_value="10",
+        duplicate_sort_numeric=False,
+    )
+    # Card with value "2" (should be suspended with text sort)
+    two_plan = _plan(
+        entry_key=("文", ""),
+        queue=QUEUE_TYPE_SUSPENDED,
+        card_type=CARD_TYPE_NEW,
+        due=10,
+        auto_suspend=False,
+        is_new_card=True,
+        entry_reviewed=False,
+        deck_priority=0,
+        duplicate_sort_value="2",
+        duplicate_sort_numeric=False,
+    )
+
+    duplicates = defaultdict(list)
+    duplicates[("文", "")] = [ten_plan, two_plan]
+
+    _apply_duplicate_rules(
+        am_config,
+        duplicates,
+    )
+
+    assert ten_plan.desired_queue == QUEUE_TYPE_NEW
+    assert "ps-auto-suspend" not in ten_plan.desired_tags
+    assert two_plan.desired_queue == QUEUE_TYPE_SUSPENDED
+    assert "ps-auto-suspend" in two_plan.desired_tags

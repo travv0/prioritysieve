@@ -34,6 +34,8 @@ class RawConfigFilterKeys:
     READ = "read"
     MODIFY = "modify"
     EXTRA_READING_FIELD = "extra_reading_field"
+    DUPLICATE_SORT_FIELD = "duplicate_sort_field"
+    DUPLICATE_SORT_NUMERIC = "duplicate_sort_numeric"
 
     # Legacy keys we still accept when loading stored configs
     LegacyPrioritySelection = "morph_priority_selection"
@@ -204,6 +206,12 @@ class PrioritySieveConfigFilter:  # pylint:disable=too-many-instance-attributes
             )
             self.extra_reading_field: bool = self._get_filter_item(
                 key=RawConfigFilterKeys.EXTRA_READING_FIELD, expected_type=bool
+            )
+            self.duplicate_sort_field: str = self._get_filter_item(
+                key=RawConfigFilterKeys.DUPLICATE_SORT_FIELD, expected_type=str
+            )
+            self.duplicate_sort_numeric: bool = self._get_filter_item(
+                key=RawConfigFilterKeys.DUPLICATE_SORT_NUMERIC, expected_type=bool
             )
 
         except AssertionError:

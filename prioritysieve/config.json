@@ -13,7 +13,9 @@
       "priority_files": [],
       "read": true,
       "modify": true,
-      "extra_reading_field": false
+      "extra_reading_field": false,
+      "duplicate_sort_field": "(none)",
+      "duplicate_sort_numeric": false
     }
   ],
   "shortcut_recalc": "Ctrl+Shift+R",

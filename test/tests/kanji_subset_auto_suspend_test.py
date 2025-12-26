@@ -56,6 +56,8 @@ def _plan(
         desired_tags=list(tags),
         extra_reading_field_index=None,
         desired_reading=None,
+        duplicate_sort_value=None,
+        duplicate_sort_numeric=False,
     )
 
 

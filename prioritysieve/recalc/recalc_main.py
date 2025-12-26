@@ -80,6 +80,8 @@ class CardPlan:
     desired_tags: list[str]
     extra_reading_field_index: int | None
     desired_reading: str | None
+    duplicate_sort_value: str | None
+    duplicate_sort_numeric: bool
 
 
 PureKanaInfo = tuple[str, frozenset[str]]
@@ -618,6 +620,17 @@ def _apply_priorities(
     duplicates: defaultdict[tuple[str, str], list[CardPlan]] = defaultdict(list)
 
     for config_filter in modify_filters:
+        # Get duplicate sort field index for this filter's note type
+        duplicate_sort_field_index: int | None = None
+        duplicate_sort_field = config_filter.duplicate_sort_field
+        if duplicate_sort_field and duplicate_sort_field != prioritysieve_globals.NONE_OPTION:
+            note_type_id = mw.col.models.id_for_name(config_filter.note_type)
+            if note_type_id is not None:
+                note_type_dict = mw.col.models.get(note_type_id)
+                if note_type_dict is not None:
+                    field_names = mw.col.models.field_names(note_type_dict)
+                    if duplicate_sort_field in field_names:
+                        duplicate_sort_field_index = field_names.index(duplicate_sort_field)
         priority_map = load_priority_map(config_filter.priority_files)
         card_data_dict = create_card_data_dict(am_config, config_filter)
 
@@ -716,6 +729,11 @@ def _apply_priorities(
                 current_deck_id=card_data.deck_id,
             )
 
+            # Get duplicate sort field value if configured
+            duplicate_sort_value: str | None = None
+            if duplicate_sort_field_index is not None and duplicate_sort_field_index < len(card_data.fields):
+                duplicate_sort_value = card_data.fields[duplicate_sort_field_index].strip()
+
             plan = CardPlan(
                 card_id=card_id,
                 note_id=card_data.note_id,
@@ -735,6 +753,8 @@ def _apply_priorities(
                 desired_tags=list(desired_tags),
                 extra_reading_field_index=card_data.extra_reading_field_index,
                 desired_reading=desired_reading,
+                duplicate_sort_value=duplicate_sort_value,
+                duplicate_sort_numeric=config_filter.duplicate_sort_numeric,
             )
 
             plans[card_id] = plan
@@ -1069,10 +1089,26 @@ def _apply_duplicate_rules(
         else:
             _force_suspend_plan(candidate, am_config)
 
+    def _get_sort_field_key(item: CardPlan) -> tuple[int, float | str]:
+        # Returns (has_value, sort_key) where has_value=1 means empty/missing (sorts last)
+        value = item.duplicate_sort_value
+        if value is None or value == "":
+            return (1, 0.0 if item.duplicate_sort_numeric else "")
+
+        if item.duplicate_sort_numeric:
+            try:
+                return (0, float(value))
+            except ValueError:
+                # If it can't be parsed as a number, treat as infinity (sort last among numeric)
+                return (0, float("inf"))
+        else:
+            return (0, value)
+
     for _, items in duplicates.items():
         items.sort(
             key=lambda item: (
                 item.deck_priority,
+                _get_sort_field_key(item),
                 item.desired_due,
                 item.card_id,
             )
@@ -1095,8 +1131,15 @@ def _apply_duplicate_rules(
                 _activate_candidate(candidate)
                 continue
 
+            # Skip promotion if either card has a duplicate sort value configured,
+            # because the sort order should be determined by the sort field, not card creation time
+            has_sort_field = (
+                candidate.duplicate_sort_value is not None
+                or (unsuspended_candidate is not None and unsuspended_candidate.duplicate_sort_value is not None)
+            )
             should_promote = (
                 not force_suspend
+                and not has_sort_field
                 and unsuspended_candidate is not None
                 and _get_candidate_deck_id(candidate) == _get_candidate_deck_id(unsuspended_candidate)
                 and candidate.deck_priority == unsuspended_candidate.deck_priority

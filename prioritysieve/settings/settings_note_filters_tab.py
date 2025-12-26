@@ -170,9 +170,11 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
         self._note_filter_furigana_field_column: int = 3
         self._note_filter_reading_field_column: int = 4
         self._note_filter_reading_priority_column: int = 5
-        self._note_filter_priority_files_column: int = 6
-        self._note_filter_read_column: int = 7
-        self._note_filter_modify_column: int = 8
+        self._note_filter_duplicate_sort_field_column: int = 6
+        self._note_filter_duplicate_sort_numeric_column: int = 7
+        self._note_filter_priority_files_column: int = 8
+        self._note_filter_read_column: int = 9
+        self._note_filter_modify_column: int = 10
 
         headers = [
             "Note Type",
@@ -181,6 +183,8 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
             "Furigana Field",
             "Reading Field",
             "Reading Priority",
+            "Duplicate Sort",
+            "Numeric",
             "Priority Files",
             "Read",
             "Modify",
@@ -263,6 +267,9 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
         )
         self.ui.note_filters_table.setColumnWidth(
             self._note_filter_reading_priority_column, 150
+        )
+        self.ui.note_filters_table.setColumnWidth(
+            self._note_filter_duplicate_sort_field_column, 150
         )
         self.ui.note_filters_table.setColumnWidth(
             self._note_filter_priority_files_column, 150
@@ -366,6 +373,16 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
                     row, self._note_filter_reading_priority_column
                 )
             )
+            duplicate_sort_field_cbox: QComboBox = table_utils.get_combobox_widget(
+                self.ui.note_filters_table.cellWidget(
+                    row, self._note_filter_duplicate_sort_field_column
+                )
+            )
+            duplicate_sort_numeric_widget: QCheckBox = table_utils.get_checkbox_widget(
+                self.ui.note_filters_table.cellWidget(
+                    row, self._note_filter_duplicate_sort_numeric_column
+                )
+            )
             priority_item: QTableWidgetItem | None = self.ui.note_filters_table.item(
                 row, self._note_filter_priority_files_column
             )
@@ -411,6 +428,10 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
                 RawConfigFilterKeys.READING_PRIORITY: reading_priority_cbox.itemText(
                     reading_priority_cbox.currentIndex()
                 ),
+                RawConfigFilterKeys.DUPLICATE_SORT_FIELD: duplicate_sort_field_cbox.itemText(
+                    duplicate_sort_field_cbox.currentIndex()
+                ),
+                RawConfigFilterKeys.DUPLICATE_SORT_NUMERIC: duplicate_sort_numeric_widget.isChecked(),
                 RawConfigFilterKeys.PRIORITY_FILES: priority_file_selections,
                 RawConfigFilterKeys.READ: read_widget.isChecked(),
                 RawConfigFilterKeys.MODIFY: modify_widget.isChecked(),
@@ -496,6 +517,11 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
             selected_value=config_filter.reading_priority
         )
 
+        duplicate_sort_field_cbox = self._setup_fields_cbox(
+            selected_note_type=selected_note_type,
+            selected_value=config_filter.duplicate_sort_field,
+        )
+
         # Fields are dependent on note-type
         note_type_cbox.currentIndexChanged.connect(
             lambda _: self._update_fields_cbox(field_cbox, note_type_cbox)
@@ -509,6 +535,9 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
             lambda _: self._update_fields_cbox(reading_field_cbox, note_type_cbox)
         )
         note_type_cbox.currentIndexChanged.connect(
+            lambda _: self._update_fields_cbox(duplicate_sort_field_cbox, note_type_cbox)
+        )
+        note_type_cbox.currentIndexChanged.connect(
             lambda index: self._potentially_reset_tags(
                 new_index=index,
                 combo_box=note_type_cbox,
@@ -518,6 +547,10 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
         note_type_cbox.currentIndexChanged.connect(self.notify_subscribers)
 
         self._set_priority_item(row, config_filter.priority_files)
+
+        duplicate_sort_numeric_checkbox = QCheckBox()
+        duplicate_sort_numeric_checkbox.setChecked(config_filter.duplicate_sort_numeric)
+        duplicate_sort_numeric_checkbox.setStyleSheet("margin-left:auto; margin-right:auto;")
 
         read_checkbox = QCheckBox()
         read_checkbox.setChecked(config_filter.read)
@@ -548,6 +581,12 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
             row, self._note_filter_reading_priority_column, reading_priority_cbox
         )
         self.ui.note_filters_table.setCellWidget(
+            row, self._note_filter_duplicate_sort_field_column, duplicate_sort_field_cbox
+        )
+        self.ui.note_filters_table.setCellWidget(
+            row, self._note_filter_duplicate_sort_numeric_column, duplicate_sort_numeric_checkbox
+        )
+        self.ui.note_filters_table.setCellWidget(
             row, self._note_filter_read_column, read_checkbox
         )
         self.ui.note_filters_table.setCellWidget(
@@ -563,6 +602,8 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
                 furigana_field_cbox,
                 reading_field_cbox,
                 reading_priority_cbox,
+                duplicate_sort_field_cbox,
+                duplicate_sort_numeric_checkbox,
                 None,
                 read_checkbox,
                 modify_checkbox,
