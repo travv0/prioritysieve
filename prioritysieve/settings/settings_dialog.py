@@ -13,7 +13,14 @@ from .. import (
     message_box_utils,
     text_preprocessing,
 )
-from ..prioritysieve_config import PrioritySieveConfig
+from ..prioritysieve_config import (
+    LANGUAGE_TYPE_JAPANESE,
+    PrioritySieveConfig,
+    PrioritySieveLanguageConfig,
+    RawConfigKeys,
+    RawConfigLanguageKeys,
+    update_language_config,
+)
 from ..extra_settings import extra_settings_keys
 from ..extra_settings.prioritysieve_extra_settings import PrioritySieveExtraSettings
 from ..ui.settings_dialog_ui import Ui_SettingsDialog
@@ -28,8 +35,9 @@ from .settings_tags_tab import TagsTab
 
 
 class SettingsDialog(QDialog):  # pylint:disable=too-many-instance-attributes
-    def __init__(self) -> None:
+    def __init__(self, language_name: str | None = None) -> None:
         super().__init__(parent=None)  # no parent makes the dialog modeless
+        self._language_name = language_name
 
         tooltip(msg="Preparing settings window, this might take a while...", parent=mw)
         self._init_ui()
@@ -54,51 +62,92 @@ class SettingsDialog(QDialog):  # pylint:disable=too-many-instance-attributes
         self._config = PrioritySieveConfig()
         self._default_config = PrioritySieveConfig(is_default=True)
 
+        # Get the language config for the selected language
+        self._language_config: PrioritySieveLanguageConfig | None = None
+        self._default_language_config: PrioritySieveLanguageConfig | None = None
+
+        if self._language_name:
+            self._language_config = self._config.get_language(self._language_name)
+            # For default, use first language from default config
+            if self._default_config.languages:
+                self._default_language_config = self._default_config.languages[0]
+        else:
+            # Use first language if no name specified
+            if self._config.languages:
+                self._language_config = self._config.languages[0]
+                self._language_name = self._language_config.name
+            if self._default_config.languages:
+                self._default_language_config = self._default_config.languages[0]
+
+        # Update window title to show language
+        if self._language_config:
+            self.setWindowTitle(f"PrioritySieve Settings - {self._language_config.name}")
+
         self._general_tab = GeneralTab(
             parent=self,
             ui=self.ui,
             config=self._config,
             default_config=self._default_config,
+            language_config=self._language_config,
+            default_language_config=self._default_language_config,
         )
         self._note_filters_tab = NoteFiltersTab(
             parent=self,
             ui=self.ui,
             config=self._config,
             default_config=self._default_config,
+            language_config=self._language_config,
+            default_language_config=self._default_language_config,
         )
         self._extra_fields_tab = ExtraFieldsTab(
             parent=self,
             ui=self.ui,
             config=self._config,
             default_config=self._default_config,
+            language_config=self._language_config,
+            default_language_config=self._default_language_config,
         )
         self._tags_tab = TagsTab(
             parent=self,
             ui=self.ui,
             config=self._config,
             default_config=self._default_config,
+            language_config=self._language_config,
+            default_language_config=self._default_language_config,
         )
         self._preprocess_tab = PreprocessTab(
             parent=self,
             ui=self.ui,
             config=self._config,
             default_config=self._default_config,
+            language_config=self._language_config,
+            default_language_config=self._default_language_config,
         )
         self._card_handling_tab = CardHandlingTab(
             parent=self,
             ui=self.ui,
             config=self._config,
             default_config=self._default_config,
+            language_config=self._language_config,
+            default_language_config=self._default_language_config,
         )
         self._shortcut_tab = ShortcutTab(
             parent=self,
             ui=self.ui,
             config=self._config,
             default_config=self._default_config,
+            language_config=self._language_config,
+            default_language_config=self._default_language_config,
         )
 
         self._note_filters_tab.add_subscriber(self._extra_fields_tab)
         self._extra_fields_tab.add_data_provider(self._note_filters_tab)
+
+        # Hide Extra Fields tab for non-Japanese languages (it's for reading field generation)
+        if self._language_config and self._language_config.language_type != LANGUAGE_TYPE_JAPANESE:
+            extra_fields_index = self.ui.tabWidget.indexOf(self.ui.extra_fields_tab)
+            if extra_fields_index != -1:
+                self.ui.tabWidget.removeTab(extra_fields_index)
 
         self._all_tabs: list[SettingsTab] = [
             self._general_tab,
@@ -163,11 +212,55 @@ class SettingsDialog(QDialog):  # pylint:disable=too-many-instance-attributes
     ) -> None:
         assert mw is not None
 
-        new_config: dict[str, str | int | float | bool | object] = {}
-        for _tab in self._all_tabs:
-            new_config.update(_tab.settings_to_dict())
+        # Define which keys are global (not per-language)
+        global_keys = {
+            RawConfigKeys.SHORTCUT_RECALC,
+            RawConfigKeys.SHORTCUT_SETTINGS,
+            RawConfigKeys.SHORTCUT_BROWSE_SAME_UNKNOWN,
+            RawConfigKeys.SHORTCUT_BROWSE_SAME_UNKNOWN_BROAD,
+            RawConfigKeys.SHORTCUT_SET_KNOWN_AND_SKIP,
+            RawConfigKeys.SHORTCUT_LEARN_NOW,
+            RawConfigKeys.SHORTCUT_GENERATORS,
+            RawConfigKeys.SHORTCUT_PROGRESSION,
+            RawConfigKeys.SHORTCUT_KNOWN_ENTRIES_EXPORTER,
+            RawConfigKeys.RECALC_ON_SYNC,
+            RawConfigKeys.RECALC_AFTER_SYNC,
+            RawConfigKeys.TAG_READY,
+            RawConfigKeys.TAG_NOT_READY,
+            RawConfigKeys.TAG_KNOWN_MANUALLY,
+            RawConfigKeys.TAG_SUSPENDED_AUTOMATICALLY,
+            # Toolbar visibility settings are global (but deduplicate is per-language)
+            RawConfigKeys.HIDE_RECALC_TOOLBAR,
+            RawConfigKeys.HIDE_TRACKED_COUNTER,
+            RawConfigKeys.HIDE_REVIEWED_COUNTER,
+        }
 
-        prioritysieve_config.update_configs(new_config)
+        # Collect all settings from tabs
+        all_settings: dict[str, Any] = {}
+        for _tab in self._all_tabs:
+            all_settings.update(_tab.settings_to_dict())
+
+        # Separate global from language-specific settings
+        global_settings: dict[str, Any] = {}
+        language_settings: dict[str, Any] = {}
+
+        for key, value in all_settings.items():
+            if key in global_keys:
+                global_settings[key] = value
+            else:
+                language_settings[key] = value
+
+        # Save using the appropriate function
+        if self._language_name:
+            update_language_config(
+                language_name=self._language_name,
+                language_settings=language_settings,
+                global_settings=global_settings,
+            )
+        else:
+            # Fallback to old method if no language specified
+            prioritysieve_config.update_configs(all_settings)
+
         self._config.update()
 
         for _tab in self._all_tabs:

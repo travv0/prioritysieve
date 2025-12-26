@@ -10,6 +10,7 @@ from .. import prioritysieve_globals as ps_globals
 from .. import message_box_utils
 from ..prioritysieve_config import (
     PrioritySieveConfig,
+    PrioritySieveLanguageConfig,
     FilterTypeAlias,
     RawConfigFilterKeys,
     RawConfigKeys,
@@ -32,12 +33,28 @@ class ExtraFieldsTab(SettingsTab, DataSubscriber, DataExtractor):
         ui: Ui_SettingsDialog,
         config: PrioritySieveConfig,
         default_config: PrioritySieveConfig,
+        language_config: PrioritySieveLanguageConfig | None = None,
+        default_language_config: PrioritySieveLanguageConfig | None = None,
     ) -> None:
-        SettingsTab.__init__(self, parent, ui, config, default_config)
+        SettingsTab.__init__(
+            self,
+            parent,
+            ui,
+            config,
+            default_config,
+            language_config,
+            default_language_config,
+        )
         DataExtractor.__init__(self)
 
+        # Use language config filters if available
+        filters = (
+            self._language_config.filters
+            if self._language_config
+            else self._config.filters
+        )
         self._selected_note_types: list[str] = [
-            _filter.note_type for _filter in self._config.filters
+            _filter.note_type for _filter in filters
         ]
 
         self.ui.groupBox_5.hide()
@@ -101,9 +118,18 @@ class ExtraFieldsTab(SettingsTab, DataSubscriber, DataExtractor):
         self, note_type: str, restore_defaults: bool = False
     ) -> dict[str, bool]:
         is_selected = False
-        filters = (
-            self._default_config.filters if restore_defaults else self._config.filters
-        )
+        if restore_defaults:
+            filters = (
+                self._default_language_config.filters
+                if self._default_language_config
+                else self._default_config.filters
+            )
+        else:
+            filters = (
+                self._language_config.filters
+                if self._language_config
+                else self._config.filters
+            )
 
         for _filter in filters:
             if _filter.note_type == note_type:

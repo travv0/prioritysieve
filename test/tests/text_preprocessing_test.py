@@ -71,7 +71,9 @@ def test_preprocessing_square_brackets(  # pylint:disable=unused-argument
     correct_output: str,
 ) -> None:
     am_config = PrioritySieveConfig()
-    setattr(am_config, preprocess_option, option_enabled)
+    # Set option on first language config (per-language setting)
+    if am_config.languages:
+        setattr(am_config.languages[0], preprocess_option, option_enabled)
     processed_text: str = text_preprocessing.get_processed_text(am_config, input_text)
     assert processed_text == correct_output
 

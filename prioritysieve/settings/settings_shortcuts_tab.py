@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from aqt.qt import QDialog, QKeySequenceEdit  # pylint:disable=no-name-in-module
 
-from ..prioritysieve_config import PrioritySieveConfig, RawConfigKeys
+from ..prioritysieve_config import (
+    PrioritySieveConfig,
+    PrioritySieveLanguageConfig,
+    RawConfigKeys,
+)
 from ..ui.settings_dialog_ui import Ui_SettingsDialog
 from .settings_tab import SettingsTab
 
@@ -14,8 +18,17 @@ class ShortcutTab(SettingsTab):
         ui: Ui_SettingsDialog,
         config: PrioritySieveConfig,
         default_config: PrioritySieveConfig,
+        language_config: PrioritySieveLanguageConfig | None = None,
+        default_language_config: PrioritySieveLanguageConfig | None = None,
     ) -> None:
-        super().__init__(parent, ui, config, default_config)
+        super().__init__(
+            parent,
+            ui,
+            config,
+            default_config,
+            language_config,
+            default_language_config,
+        )
 
         self._raw_config_key_to_key_sequence: dict[str, QKeySequenceEdit] = {
             RawConfigKeys.SHORTCUT_RECALC: self.ui.shortcutRecalcKeySequenceEdit,

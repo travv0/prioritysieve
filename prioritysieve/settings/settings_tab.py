@@ -14,7 +14,7 @@ from aqt.qt import (  # pylint:disable=no-name-in-module
 )
 
 from .. import message_box_utils, prioritysieve_globals
-from ..prioritysieve_config import PrioritySieveConfig
+from ..prioritysieve_config import PrioritySieveConfig, PrioritySieveLanguageConfig
 from ..ui.settings_dialog_ui import Ui_SettingsDialog
 
 
@@ -25,11 +25,15 @@ class SettingsTab(ABC):  # pylint:disable=too-many-instance-attributes
         ui: Ui_SettingsDialog,
         config: PrioritySieveConfig,
         default_config: PrioritySieveConfig,
+        language_config: PrioritySieveLanguageConfig | None = None,
+        default_language_config: PrioritySieveLanguageConfig | None = None,
     ):
         self._parent = parent
         self.ui = ui
         self._config = config
         self._default_config = default_config
+        self._language_config = language_config
+        self._default_language_config = default_language_config
 
         self._raw_config_key_to_radio_button: dict[str, QRadioButton] = {}
         self._raw_config_key_to_check_box: dict[str, QCheckBox] = {}
@@ -87,42 +91,51 @@ class SettingsTab(ABC):  # pylint:disable=too-many-instance-attributes
         return want_reset
 
     def populate(self, use_default_config: bool = False) -> None:
-        source_object: PrioritySieveConfig = self._config
-
+        # Use language config for per-language settings, fall back to global config
         if use_default_config:
-            source_object = self._default_config
+            lang_source = self._default_language_config
+            global_source = self._default_config
+        else:
+            lang_source = self._language_config
+            global_source = self._config
+
+        def get_attr(config_attribute: str) -> object:
+            """Get attribute from language config if available, else from global config."""
+            if lang_source is not None and hasattr(lang_source, config_attribute):
+                return getattr(lang_source, config_attribute)
+            return getattr(global_source, config_attribute)
 
         for (
             config_attribute,
             radio_button,
         ) in self._raw_config_key_to_radio_button.items():
-            is_checked = getattr(source_object, config_attribute)
+            is_checked = get_attr(config_attribute)
             radio_button.setChecked(is_checked)
 
         for config_attribute, checkbox in self._raw_config_key_to_check_box.items():
-            is_checked = getattr(source_object, config_attribute)
+            is_checked = get_attr(config_attribute)
             checkbox.setChecked(is_checked)
 
         for config_attribute, spin_box in self._raw_config_key_to_spin_box.items():
-            value = getattr(source_object, config_attribute)
+            value = get_attr(config_attribute)
             spin_box.setValue(value)
 
         for config_attribute, combo_box in self._raw_config_key_to_combo_box.items():
-            value = getattr(source_object, config_attribute)
+            value = get_attr(config_attribute)
             index = combo_box.findText(value)
 
             if index != -1:
                 combo_box.setCurrentIndex(index)
 
         for config_attribute, line_edit in self._raw_config_key_to_line_edit.items():
-            tag = getattr(source_object, config_attribute)
+            tag = get_attr(config_attribute)
             line_edit.setText(tag)
 
         for (
             config_attribute,
             key_sequence_edit,
         ) in self._raw_config_key_to_key_sequence.items():
-            key_sequence = getattr(source_object, config_attribute)
+            key_sequence = get_attr(config_attribute)
             key_sequence_edit.setKeySequence(key_sequence)
 
     def restore_defaults(self, skip_confirmation: bool = False) -> None:

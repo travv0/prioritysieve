@@ -33,7 +33,11 @@ from ..kanji_utils import (
 )
 from ..priority_files import load_priority_map
 from ..extra_settings.prioritysieve_extra_settings import PrioritySieveExtraSettings
-from ..prioritysieve_config import PrioritySieveConfig, PrioritySieveConfigFilter
+from ..prioritysieve_config import (
+    PrioritySieveConfig,
+    PrioritySieveConfigFilter,
+    PrioritySieveLanguageConfig,
+)
 from ..prioritysieve_globals import DEFAULT_REVIEW_DUE, GENERATOR_DIALOG_NAME
 from ..priority_files import ensure_directories
 from ..exceptions import (
@@ -243,12 +247,30 @@ def recalc(*_args: object, **_kwargs: object) -> None:
     assert mw is not None
 
     am_config = PrioritySieveConfig()
-    read_filters = prioritysieve_config.get_read_enabled_filters()
-    modify_filters = prioritysieve_config.get_modify_enabled_filters()
-    combined_filters = _merge_unique_filters(read_filters + modify_filters)
+
+    # Collect filters from all languages with their language config
+    all_language_filters: list[
+        tuple[PrioritySieveLanguageConfig, list[PrioritySieveConfigFilter]]
+    ] = []
+    all_combined_filters: list[PrioritySieveConfigFilter] = []
+
+    for lang in am_config.languages:
+        read_filters = [f for f in lang.filters if f.read]
+        modify_filters = [f for f in lang.filters if f.modify]
+        combined = _merge_unique_filters(read_filters + modify_filters)
+        if combined:
+            all_language_filters.append((lang, combined))
+            all_combined_filters.extend(combined)
+
+    if not all_combined_filters:
+        message_box_utils.show_warning_box(
+            "No filters configured",
+            "Configure PrioritySieve in Tools → PrioritySieve Settings before running Recalc.",
+        )
+        return
 
     try:
-        _validate_filters(combined_filters)
+        _validate_filters(all_combined_filters)
     except DefaultSettingsException:
         message_box_utils.show_warning_box(
             "Default settings detected",
@@ -259,7 +281,7 @@ def recalc(*_args: object, **_kwargs: object) -> None:
     start_time = time.time()
     operation = CollectionOp(
         parent=mw,
-        op=lambda col: _background_recalc(col, am_config, combined_filters, modify_filters),
+        op=lambda col: _background_recalc(col, am_config, all_language_filters),
     )
     operation.success(lambda _: _on_success(start_time))
     operation.failure(_on_failure)
@@ -554,10 +576,14 @@ def _validate_filters(filters: list[PrioritySieveConfigFilter]) -> None:
 def _background_recalc(
     col: Collection,
     am_config: PrioritySieveConfig,
-    all_filters: list[PrioritySieveConfigFilter],
-    modify_filters: list[PrioritySieveConfigFilter],
+    language_filters: list[tuple[PrioritySieveLanguageConfig, list[PrioritySieveConfigFilter]]],
 ) -> OpChanges:
     ensure_directories()
+
+    # Collect all filters for caching
+    all_filters: list[PrioritySieveConfigFilter] = []
+    for _lang, filters in language_filters:
+        all_filters.extend(filters)
 
     # load priority keys once for all cache_entries calls
     all_priority_files: set[str] = set()
@@ -568,7 +594,11 @@ def _background_recalc(
     caching.cache_entries(am_config, all_filters, priority_keys)
     undo_token = col.add_custom_undo_entry("PrioritySieve Recalc")
     try:
-        _apply_priorities(col, am_config, modify_filters)
+        # Process each language's filters with that language's settings
+        for lang_config, filters in language_filters:
+            modify_filters = [f for f in filters if f.modify]
+            if modify_filters:
+                _apply_priorities(col, am_config, lang_config, modify_filters)
         caching.cache_entries(am_config, all_filters, priority_keys)
     except Exception:
         col.merge_undo_entries(undo_token)
@@ -579,6 +609,7 @@ def _background_recalc(
 def _apply_priorities(
     col: Collection,
     am_config: PrioritySieveConfig,
+    lang_config: PrioritySieveLanguageConfig,
     modify_filters: list[PrioritySieveConfigFilter],
 ) -> None:
     assert mw is not None
@@ -612,9 +643,10 @@ def _apply_priorities(
     tags_removed_counter: Counter[str] = Counter()
     tag_reorder_samples: list[str] = []
 
-    suspended_exception_tags = set(am_config.get_preprocess_ignore_suspended_unless_tag_list())
-    deck_priority_lookup = _build_deck_priority_lookup(am_config.recalc_offset_priority_decks)
-    disabled_decks_set = set(am_config.disabled_decks)
+    # Use per-language settings
+    suspended_exception_tags = set(lang_config.get_preprocess_ignore_suspended_unless_tag_list())
+    deck_priority_lookup = _build_deck_priority_lookup(lang_config.recalc_offset_priority_decks)
+    disabled_decks_set = set(lang_config.disabled_decks)
     deck_name_cache: dict[int, str] = {}
     plans: dict[int, CardPlan] = {}
     duplicates: defaultdict[tuple[str, str], list[CardPlan]] = defaultdict(list)
@@ -663,7 +695,7 @@ def _apply_priorities(
             is_new_card = card_data.type == CARD_TYPE_NEW
             entry_reviewed = entry.reviewed
             base_auto_suspend = (
-                am_config.auto_suspend_unlisted_entries
+                lang_config.auto_suspend_unlisted_entries
                 and entry.key() not in priority_map
             )
 
@@ -762,7 +794,7 @@ def _apply_priorities(
             duplicate_key = (entry.text, canonicalize_long_vowels(entry.reading))
             duplicates[duplicate_key].append(plan)
 
-    _apply_kanji_subset_auto_suspend(am_config, plans)
+    _apply_kanji_subset_auto_suspend(am_config, lang_config, plans)
     _apply_duplicate_rules(am_config, duplicates)
 
     card_cache: dict[int, Card] = {}
@@ -1156,12 +1188,13 @@ def _apply_duplicate_rules(
 
 def _apply_kanji_subset_auto_suspend(
     am_config: PrioritySieveConfig,
+    lang_config: PrioritySieveLanguageConfig,
     plans: dict[int, CardPlan],
 ) -> None:
-    if not am_config.auto_suspend_variant_spellings:
+    if not lang_config.auto_suspend_variant_spellings:
         return
 
-    merge_kana_variants = getattr(am_config, "merge_kana_variant_spellings", False)
+    merge_kana_variants = lang_config.merge_kana_variant_spellings
     reading_groups: dict[str, list[CardPlan]] = defaultdict(list)
     kanji_sequences: dict[int, str] = {}
     pure_kana_variants: dict[int, PureKanaInfo] = {}
@@ -1182,6 +1215,7 @@ def _apply_kanji_subset_auto_suspend(
     for group in reading_groups.values():
         _apply_kanji_subset_rules_for_group(
             am_config,
+            lang_config,
             group,
             kanji_sequences,
             pure_kana_variants,
@@ -1191,6 +1225,7 @@ def _apply_kanji_subset_auto_suspend(
 
 def _apply_kanji_subset_rules_for_group(
     am_config: PrioritySieveConfig,
+    lang_config: PrioritySieveLanguageConfig,
     group: list[CardPlan],
     kanji_sequences: dict[int, str],
     pure_kana_variants: dict[int, PureKanaInfo],
@@ -1238,7 +1273,7 @@ def _apply_kanji_subset_rules_for_group(
                 matches_same = (
                     sequence == candidate_sequence
                     and _should_suspend_same_kanji_variant(
-                        am_config,
+                        lang_config,
                         text,
                         candidate_text,
                         sequence,
@@ -1293,7 +1328,7 @@ def _apply_kanji_subset_rules_for_group(
             if later_sequence == earlier_sequence:
                 if later_sequence:
                     matches_same = _should_suspend_same_kanji_variant(
-                        am_config,
+                        lang_config,
                         later_text,
                         earlier_text,
                         later_sequence,
@@ -1312,12 +1347,12 @@ def _apply_kanji_subset_rules_for_group(
 
 
 def _should_suspend_same_kanji_variant(
-    am_config: PrioritySieveConfig,
+    lang_config: PrioritySieveLanguageConfig,
     candidate_text: str,
     reference_text: str,
     sequence: str,
 ) -> bool:
-    if not am_config.auto_suspend_variant_spellings:
+    if not lang_config.auto_suspend_variant_spellings:
         return False
     if not sequence:
         return False

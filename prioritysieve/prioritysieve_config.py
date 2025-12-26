@@ -43,27 +43,23 @@ class RawConfigFilterKeys:
     LegacyExtraReadingField = "extra_morph_readings"
 
 
-class RawConfigKeys:
+class RawConfigLanguageKeys:
+    """Keys for per-language configuration."""
+
+    NAME = "name"
+    PREFIX = "prefix"
+    LANGUAGE_TYPE = "language_type"
     FILTERS = "filters"
-    SHORTCUT_RECALC = "shortcut_recalc"
-    SHORTCUT_SETTINGS = "shortcut_settings"
-    SHORTCUT_BROWSE_SAME_UNKNOWN = "shortcut_browse_same_unknown"
-    SHORTCUT_BROWSE_SAME_UNKNOWN_BROAD = "shortcut_browse_same_unknown_broad"
-    SHORTCUT_SET_KNOWN_AND_SKIP = "shortcut_set_known_and_skip"
-    SHORTCUT_LEARN_NOW = "shortcut_learn_now"
-    SHORTCUT_GENERATORS = "shortcut_generators"
-    SHORTCUT_PROGRESSION = "shortcut_progression"
-    SHORTCUT_KNOWN_ENTRIES_EXPORTER = "shortcut_known_entries_exporter"
     PREPROCESS_IGNORE_BRACKET_CONTENTS = "preprocess_ignore_bracket_contents"
     PREPROCESS_IGNORE_ROUND_BRACKET_CONTENTS = "preprocess_ignore_round_bracket_contents"
-    PREPROCESS_IGNORE_SLIM_ROUND_BRACKET_CONTENTS = "preprocess_ignore_slim_round_bracket_contents"
+    PREPROCESS_IGNORE_SLIM_ROUND_BRACKET_CONTENTS = (
+        "preprocess_ignore_slim_round_bracket_contents"
+    )
     PREPROCESS_IGNORE_ANGLE_BRACKET_CONTENTS = "preprocess_ignore_angle_bracket_contents"
     PREPROCESS_IGNORE_NUMBERS = "preprocess_ignore_numbers"
     PREPROCESS_IGNORE_CUSTOM_CHARACTERS = "preprocess_ignore_custom_characters"
     PREPROCESS_CUSTOM_CHARACTERS_TO_IGNORE = "preprocess_custom_characters_to_ignore"
     PREPROCESS_IGNORE_SUSPENDED_UNLESS_TAGS = "preprocess_ignore_suspended_unless_tags"
-    RECALC_ON_SYNC = "recalc_on_sync"
-    RECALC_AFTER_SYNC = "recalc_after_sync"
     AUTO_SUSPEND_UNLISTED_ENTRIES = "auto_suspend_unlisted_entries"
     AUTO_SUSPEND_VARIANT_SPELLINGS = "auto_suspend_variant_spellings"
     MERGE_KANA_VARIANT_SPELLINGS = "merge_kana_variant_spellings"
@@ -74,18 +70,96 @@ class RawConfigKeys:
     HIDE_TRACKED_COUNTER = "hide_tracked_counter"
     HIDE_PENDING_COUNTER = "hide_pending_counter"
     DEDUPLICATE_TOOLBAR_COUNTS = "deduplicate_toolbar_counts"
+
+
+# Language types
+LANGUAGE_TYPE_JAPANESE = "japanese"
+LANGUAGE_TYPE_OTHER = "other"
+
+
+class RawConfigKeys:
+    """Keys for global configuration."""
+
+    LANGUAGES = "languages"
+    SHORTCUT_RECALC = "shortcut_recalc"
+    SHORTCUT_SETTINGS = "shortcut_settings"
+    SHORTCUT_BROWSE_SAME_UNKNOWN = "shortcut_browse_same_unknown"
+    SHORTCUT_BROWSE_SAME_UNKNOWN_BROAD = "shortcut_browse_same_unknown_broad"
+    SHORTCUT_SET_KNOWN_AND_SKIP = "shortcut_set_known_and_skip"
+    SHORTCUT_LEARN_NOW = "shortcut_learn_now"
+    SHORTCUT_GENERATORS = "shortcut_generators"
+    SHORTCUT_PROGRESSION = "shortcut_progression"
+    SHORTCUT_KNOWN_ENTRIES_EXPORTER = "shortcut_known_entries_exporter"
+    RECALC_ON_SYNC = "recalc_on_sync"
+    RECALC_AFTER_SYNC = "recalc_after_sync"
     TAG_READY = "tag_ready"
     TAG_NOT_READY = "tag_not_ready"
     TAG_KNOWN_MANUALLY = "tag_known_manually"
     TAG_SUSPENDED_AUTOMATICALLY = "tag_suspended_automatically"
+
+    # Backward compatibility: per-language keys that can be accessed
+    # via PrioritySieveConfig properties (delegate to first language)
+    HIDE_RECALC_TOOLBAR = "hide_recalc_toolbar"
+    HIDE_REVIEWED_COUNTER = "hide_reviewed_counter"
+    HIDE_TRACKED_COUNTER = "hide_tracked_counter"
+    HIDE_PENDING_COUNTER = "hide_pending_counter"
+    DEDUPLICATE_TOOLBAR_COUNTS = "deduplicate_toolbar_counts"
+    AUTO_SUSPEND_VARIANT_SPELLINGS = "auto_suspend_variant_spellings"
+    MERGE_KANA_VARIANT_SPELLINGS = "merge_kana_variant_spellings"
+    AUTO_SUSPEND_UNLISTED_ENTRIES = "auto_suspend_unlisted_entries"
+    PREPROCESS_IGNORE_BRACKET_CONTENTS = "preprocess_ignore_bracket_contents"
+    PREPROCESS_IGNORE_ROUND_BRACKET_CONTENTS = "preprocess_ignore_round_bracket_contents"
+    PREPROCESS_IGNORE_SLIM_ROUND_BRACKET_CONTENTS = (
+        "preprocess_ignore_slim_round_bracket_contents"
+    )
+    PREPROCESS_IGNORE_ANGLE_BRACKET_CONTENTS = "preprocess_ignore_angle_bracket_contents"
+    PREPROCESS_IGNORE_NUMBERS = "preprocess_ignore_numbers"
+    PREPROCESS_IGNORE_CUSTOM_CHARACTERS = "preprocess_ignore_custom_characters"
+    PREPROCESS_CUSTOM_CHARACTERS_TO_IGNORE = "preprocess_custom_characters_to_ignore"
+    PREPROCESS_IGNORE_SUSPENDED_UNLESS_TAGS = "preprocess_ignore_suspended_unless_tags"
+    RECALC_OFFSET_PRIORITY_DECKS = "recalc_offset_priority_decks"
+    DISABLED_DECKS = "disabled_decks"
+    FILTERS = "filters"
+
+    # Legacy keys that are now per-language (used for migration)
+    LEGACY_FILTERS = "filters"
+    LEGACY_PREPROCESS_IGNORE_BRACKET_CONTENTS = "preprocess_ignore_bracket_contents"
+    LEGACY_PREPROCESS_IGNORE_ROUND_BRACKET_CONTENTS = (
+        "preprocess_ignore_round_bracket_contents"
+    )
+    LEGACY_PREPROCESS_IGNORE_SLIM_ROUND_BRACKET_CONTENTS = (
+        "preprocess_ignore_slim_round_bracket_contents"
+    )
+    LEGACY_PREPROCESS_IGNORE_ANGLE_BRACKET_CONTENTS = (
+        "preprocess_ignore_angle_bracket_contents"
+    )
+    LEGACY_PREPROCESS_IGNORE_NUMBERS = "preprocess_ignore_numbers"
+    LEGACY_PREPROCESS_IGNORE_CUSTOM_CHARACTERS = "preprocess_ignore_custom_characters"
+    LEGACY_PREPROCESS_CUSTOM_CHARACTERS_TO_IGNORE = (
+        "preprocess_custom_characters_to_ignore"
+    )
+    LEGACY_PREPROCESS_IGNORE_SUSPENDED_UNLESS_TAGS = (
+        "preprocess_ignore_suspended_unless_tags"
+    )
+    LEGACY_AUTO_SUSPEND_UNLISTED_ENTRIES = "auto_suspend_unlisted_entries"
+    LEGACY_AUTO_SUSPEND_VARIANT_SPELLINGS = "auto_suspend_variant_spellings"
+    LEGACY_MERGE_KANA_VARIANT_SPELLINGS = "merge_kana_variant_spellings"
+    LEGACY_RECALC_OFFSET_PRIORITY_DECKS = "recalc_offset_priority_decks"
+    LEGACY_DISABLED_DECKS = "disabled_decks"
+    LEGACY_HIDE_RECALC_TOOLBAR = "hide_recalc_toolbar"
+    LEGACY_HIDE_REVIEWED_COUNTER = "hide_reviewed_counter"
+    LEGACY_HIDE_TRACKED_COUNTER = "hide_tracked_counter"
+    LEGACY_HIDE_PENDING_COUNTER = "hide_pending_counter"
+    LEGACY_DEDUPLICATE_TOOLBAR_COUNTS = "deduplicate_toolbar_counts"
 
 LEGACY_KEY_RENAMES: dict[str, str] = {
     "shortcut_browse_ready_same_unknown": RawConfigKeys.SHORTCUT_BROWSE_SAME_UNKNOWN,
     "shortcut_browse_all_same_unknown": RawConfigKeys.SHORTCUT_BROWSE_SAME_UNKNOWN,
     "shortcut_browse_ready_same_unknown_lemma": RawConfigKeys.SHORTCUT_BROWSE_SAME_UNKNOWN_BROAD,
     "shortcut_known_morphs_exporter": RawConfigKeys.SHORTCUT_KNOWN_ENTRIES_EXPORTER,
-    "hide_lemma_toolbar": RawConfigKeys.HIDE_REVIEWED_COUNTER,
-    "hide_inflection_toolbar": RawConfigKeys.HIDE_TRACKED_COUNTER,
+    # These are now per-language settings (will be migrated by _migrate_to_language_config)
+    "hide_lemma_toolbar": "hide_reviewed_counter",
+    "hide_inflection_toolbar": "hide_tracked_counter",
 }
 
 LEGACY_KEYS_TO_DROP: set[str] = {
@@ -294,15 +368,191 @@ class PrioritySieveConfigFilter:  # pylint:disable=too-many-instance-attributes
         return filter_item
 
 
+LanguageTypeAlias = dict[
+    str,
+    Union[str, bool, int, list[Any], dict[str, Any], None],
+]
+
+
+class PrioritySieveLanguageConfig:  # pylint:disable=too-many-instance-attributes
+    """Configuration for a single language profile."""
+
+    def __init__(
+        self,
+        language_dict: LanguageTypeAlias,
+        defaults: LanguageTypeAlias,
+        filter_defaults: FilterTypeAlias,
+    ) -> None:
+        try:
+            self._language_dict = language_dict
+            self._defaults = defaults
+            self._filter_defaults = filter_defaults
+            self.has_error: bool = False
+
+            self.name: str = self._get_item(
+                key=RawConfigLanguageKeys.NAME, expected_type=str
+            )
+            self.prefix: str = self._get_item(
+                key=RawConfigLanguageKeys.PREFIX, expected_type=str
+            )
+            self.language_type: str = self._get_language_type()
+            self.filters: list[PrioritySieveConfigFilter] = self._get_filters()
+            self.preprocess_ignore_bracket_contents: bool = self._get_item(
+                key=RawConfigLanguageKeys.PREPROCESS_IGNORE_BRACKET_CONTENTS,
+                expected_type=bool,
+            )
+            self.preprocess_ignore_round_bracket_contents: bool = self._get_item(
+                key=RawConfigLanguageKeys.PREPROCESS_IGNORE_ROUND_BRACKET_CONTENTS,
+                expected_type=bool,
+            )
+            self.preprocess_ignore_slim_round_bracket_contents: bool = self._get_item(
+                key=RawConfigLanguageKeys.PREPROCESS_IGNORE_SLIM_ROUND_BRACKET_CONTENTS,
+                expected_type=bool,
+            )
+            self.preprocess_ignore_angle_bracket_contents: bool = self._get_item(
+                key=RawConfigLanguageKeys.PREPROCESS_IGNORE_ANGLE_BRACKET_CONTENTS,
+                expected_type=bool,
+            )
+            self.preprocess_ignore_numbers: bool = self._get_item(
+                key=RawConfigLanguageKeys.PREPROCESS_IGNORE_NUMBERS,
+                expected_type=bool,
+            )
+            self.preprocess_ignore_custom_characters: bool = self._get_item(
+                key=RawConfigLanguageKeys.PREPROCESS_IGNORE_CUSTOM_CHARACTERS,
+                expected_type=bool,
+            )
+            self.preprocess_custom_characters_to_ignore: str = self._get_item(
+                key=RawConfigLanguageKeys.PREPROCESS_CUSTOM_CHARACTERS_TO_IGNORE,
+                expected_type=str,
+            )
+            self.preprocess_ignore_suspended_unless_tags: str = self._get_item(
+                key=RawConfigLanguageKeys.PREPROCESS_IGNORE_SUSPENDED_UNLESS_TAGS,
+                expected_type=str,
+            )
+            self.auto_suspend_unlisted_entries: bool = self._get_item(
+                key=RawConfigLanguageKeys.AUTO_SUSPEND_UNLISTED_ENTRIES,
+                expected_type=bool,
+            )
+            self.auto_suspend_variant_spellings: bool = self._get_item(
+                key=RawConfigLanguageKeys.AUTO_SUSPEND_VARIANT_SPELLINGS,
+                expected_type=bool,
+            )
+            self.merge_kana_variant_spellings: bool = self._get_item(
+                key=RawConfigLanguageKeys.MERGE_KANA_VARIANT_SPELLINGS,
+                expected_type=bool,
+            )
+            self.recalc_offset_priority_decks: list[str] = self._get_deck_list(
+                RawConfigLanguageKeys.RECALC_OFFSET_PRIORITY_DECKS
+            )
+            self.disabled_decks: list[str] = self._get_deck_list(
+                RawConfigLanguageKeys.DISABLED_DECKS
+            )
+            # Note: hide_recalc_toolbar, hide_reviewed_counter, hide_tracked_counter
+            # are now global settings in PrioritySieveConfig, not per-language
+            self.deduplicate_toolbar_counts: bool = self._get_item(
+                key=RawConfigLanguageKeys.DEDUPLICATE_TOOLBAR_COUNTS,
+                expected_type=bool,
+            )
+
+        except AssertionError:
+            self.has_error = True
+            if not prioritysieve_globals.config_broken:
+                show_critical_config_error()
+                prioritysieve_globals.config_broken = True
+
+    def _get_language_type(self) -> str:
+        default_value = self._defaults.get(
+            RawConfigLanguageKeys.LANGUAGE_TYPE, LANGUAGE_TYPE_JAPANESE
+        )
+        value = self._language_dict.get(
+            RawConfigLanguageKeys.LANGUAGE_TYPE, default_value
+        )
+        if value not in (LANGUAGE_TYPE_JAPANESE, LANGUAGE_TYPE_OTHER):
+            value = default_value
+        self._language_dict[RawConfigLanguageKeys.LANGUAGE_TYPE] = value
+        return str(value)
+
+    def _get_filters(self) -> list[PrioritySieveConfigFilter]:
+        filters_raw = self._language_dict.get(RawConfigLanguageKeys.FILTERS, [])
+        if not isinstance(filters_raw, list):
+            filters_raw = []
+
+        filters: list[PrioritySieveConfigFilter] = []
+        for _filter in filters_raw:
+            if isinstance(_filter, dict):
+                am_filter = PrioritySieveConfigFilter(_filter, self._filter_defaults)
+                if not am_filter.has_error:
+                    filters.append(am_filter)
+        return filters
+
+    def _get_deck_list(self, key: str) -> list[str]:
+        raw_value = self._language_dict.get(key, [])
+        if not isinstance(raw_value, list):
+            raw_value = []
+
+        sanitized: list[str] = []
+        seen: set[str] = set()
+        for deck in raw_value:
+            if not isinstance(deck, str):
+                continue
+            trimmed = deck.strip()
+            if not trimmed or trimmed in seen:
+                continue
+            sanitized.append(trimmed)
+            seen.add(trimmed)
+        return sanitized
+
+    def _get_item(self, key: str, expected_type: type) -> Any:
+        try:
+            item = self._language_dict[key]
+        except KeyError:
+            prioritysieve_globals.new_config_found = True
+            item = self._defaults.get(key)
+            if item is None:
+                # Use empty default for the type
+                if expected_type == bool:
+                    item = False
+                elif expected_type == str:
+                    item = ""
+                elif expected_type == list:
+                    item = []
+                else:
+                    item = None
+        assert isinstance(item, expected_type)
+        return item
+
+    def get_preprocess_ignore_suspended_unless_tag_list(self) -> list[str]:
+        tags_value = self.preprocess_ignore_suspended_unless_tags
+        if not isinstance(tags_value, str):
+            return []
+
+        seen: set[str] = set()
+        sanitized: list[str] = []
+        for raw_tag in tags_value.split(","):
+            tag = raw_tag.strip()
+            if not tag or tag in seen:
+                continue
+            sanitized.append(tag)
+            seen.add(tag)
+
+        return sanitized
+
+    @property
+    def is_japanese(self) -> bool:
+        return self.language_type == LANGUAGE_TYPE_JAPANESE
+
+
 class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes
     def __init__(self, is_default: bool = False) -> None:
         try:
             self._config_dict = normalize_config_keys(get_config_dict())
             self._default_config_dict = get_all_defaults_config_dict()
+            self._is_default = is_default
 
             if not is_default and self._config_dict != get_config_dict():
                 _persist_normalized_config(self._config_dict)
 
+            # Global settings: shortcuts
             self.shortcut_recalc: QKeySequence = self._get_key_sequence_config(
                 key=RawConfigKeys.SHORTCUT_RECALC,
                 expected_type=str,
@@ -356,52 +606,8 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes
                     use_default=is_default,
                 )
             )
-            self.preprocess_ignore_bracket_contents: bool = self._get_config_item(
-                key=RawConfigKeys.PREPROCESS_IGNORE_BRACKET_CONTENTS,
-                expected_type=bool,
-                use_default=is_default,
-            )
-            self.preprocess_ignore_round_bracket_contents: bool = (
-                self._get_config_item(
-                    key=RawConfigKeys.PREPROCESS_IGNORE_ROUND_BRACKET_CONTENTS,
-                    expected_type=bool,
-                    use_default=is_default,
-                )
-            )
-            self.preprocess_ignore_slim_round_bracket_contents: bool = (
-                self._get_config_item(
-                    key=RawConfigKeys.PREPROCESS_IGNORE_SLIM_ROUND_BRACKET_CONTENTS,
-                    expected_type=bool,
-                    use_default=is_default,
-                )
-            )
-            self.preprocess_ignore_angle_bracket_contents: bool = (
-                self._get_config_item(
-                    key=RawConfigKeys.PREPROCESS_IGNORE_ANGLE_BRACKET_CONTENTS,
-                    expected_type=bool,
-                    use_default=is_default,
-                )
-            )
-            self.preprocess_ignore_numbers: bool = self._get_config_item(
-                key=RawConfigKeys.PREPROCESS_IGNORE_NUMBERS,
-                expected_type=bool,
-                use_default=is_default,
-            )
-            self.preprocess_ignore_custom_characters: bool = self._get_config_item(
-                key=RawConfigKeys.PREPROCESS_IGNORE_CUSTOM_CHARACTERS,
-                expected_type=bool,
-                use_default=is_default,
-            )
-            self.preprocess_custom_characters_to_ignore: str = self._get_config_item(
-                key=RawConfigKeys.PREPROCESS_CUSTOM_CHARACTERS_TO_IGNORE,
-                expected_type=str,
-                use_default=is_default,
-            )
-            self.preprocess_ignore_suspended_unless_tags: str = self._get_config_item(
-                key=RawConfigKeys.PREPROCESS_IGNORE_SUSPENDED_UNLESS_TAGS,
-                expected_type=str,
-                use_default=is_default,
-            )
+
+            # Global settings: sync
             self.recalc_on_sync: bool = self._get_config_item(
                 key=RawConfigKeys.RECALC_ON_SYNC,
                 expected_type=bool,
@@ -412,50 +618,8 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes
                 expected_type=bool,
                 use_default=is_default,
             )
-            self.auto_suspend_unlisted_entries: bool = self._get_config_item(
-                key=RawConfigKeys.AUTO_SUSPEND_UNLISTED_ENTRIES,
-                expected_type=bool,
-                use_default=is_default,
-            )
-            self.auto_suspend_variant_spellings: bool = self._get_config_item(
-                key=RawConfigKeys.AUTO_SUSPEND_VARIANT_SPELLINGS,
-                expected_type=bool,
-                use_default=is_default,
-            )
-            self.merge_kana_variant_spellings: bool = self._get_config_item(
-                key=RawConfigKeys.MERGE_KANA_VARIANT_SPELLINGS,
-                expected_type=bool,
-                use_default=is_default,
-            )
-            self.recalc_offset_priority_decks: list[str] = self._get_priority_deck_list(
-                is_default
-            )
-            self.disabled_decks: list[str] = self._get_disabled_deck_list(is_default)
-            self.hide_recalc_toolbar: bool = self._get_config_item(
-                key=RawConfigKeys.HIDE_RECALC_TOOLBAR,
-                expected_type=bool,
-                use_default=is_default,
-            )
-            self.hide_reviewed_counter: bool = self._get_config_item(
-                key=RawConfigKeys.HIDE_REVIEWED_COUNTER,
-                expected_type=bool,
-                use_default=is_default,
-            )
-            self.hide_tracked_counter: bool = self._get_config_item(
-                key=RawConfigKeys.HIDE_TRACKED_COUNTER,
-                expected_type=bool,
-                use_default=is_default,
-            )
-            self.hide_pending_counter: bool = self._get_config_item(
-                key=RawConfigKeys.HIDE_PENDING_COUNTER,
-                expected_type=bool,
-                use_default=is_default,
-            )
-            self.deduplicate_toolbar_counts: bool = self._get_config_item(
-                key=RawConfigKeys.DEDUPLICATE_TOOLBAR_COUNTS,
-                expected_type=bool,
-                use_default=is_default,
-            )
+
+            # Global settings: tags
             self.tag_ready: str = self._get_config_item(
                 key=RawConfigKeys.TAG_READY,
                 expected_type=str,
@@ -477,8 +641,26 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes
                 use_default=is_default,
             )
 
-            self.filters: list[PrioritySieveConfigFilter] = self.get_config_filters(
-                is_default
+            # Global settings: toolbar visibility
+            self.hide_recalc_toolbar: bool = self._get_config_item(
+                key=RawConfigKeys.HIDE_RECALC_TOOLBAR,
+                expected_type=bool,
+                use_default=is_default,
+            )
+            self.hide_reviewed_counter: bool = self._get_config_item(
+                key=RawConfigKeys.HIDE_REVIEWED_COUNTER,
+                expected_type=bool,
+                use_default=is_default,
+            )
+            self.hide_tracked_counter: bool = self._get_config_item(
+                key=RawConfigKeys.HIDE_TRACKED_COUNTER,
+                expected_type=bool,
+                use_default=is_default,
+            )
+
+            # Per-language settings
+            self.languages: list[PrioritySieveLanguageConfig] = (
+                self._get_language_configs()
             )
 
         except AssertionError:
@@ -486,9 +668,155 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes
                 show_critical_config_error()
                 prioritysieve_globals.config_broken = True
 
+    def _get_language_configs(self) -> list[PrioritySieveLanguageConfig]:
+        source = (
+            self._default_config_dict if self._is_default else self._config_dict
+        )
+        languages_raw = source.get(RawConfigKeys.LANGUAGES, [])
+        if not isinstance(languages_raw, list):
+            languages_raw = []
+
+        default_languages = self._default_config_dict.get(RawConfigKeys.LANGUAGES, [])
+        default_language = default_languages[0] if default_languages else {}
+        default_filters = default_language.get(RawConfigLanguageKeys.FILTERS, [])
+        default_filter = default_filters[0] if default_filters else {}
+
+        languages: list[PrioritySieveLanguageConfig] = []
+        for lang_dict in languages_raw:
+            if isinstance(lang_dict, dict):
+                lang_config = PrioritySieveLanguageConfig(
+                    lang_dict, default_language, default_filter
+                )
+                if not lang_config.has_error:
+                    languages.append(lang_config)
+
+        return languages
+
+    @property
+    def filters(self) -> list[PrioritySieveConfigFilter]:
+        """Return all filters from all languages (for backward compatibility)."""
+        all_filters: list[PrioritySieveConfigFilter] = []
+        for lang in self.languages:
+            all_filters.extend(lang.filters)
+        return all_filters
+
+    def get_config_filters(
+        self, is_default: bool = False  # noqa: ARG002
+    ) -> list[PrioritySieveConfigFilter]:
+        """Return all filters from all languages (for backward compatibility)."""
+        return self.filters
+
+    def get_language(self, name: str) -> PrioritySieveLanguageConfig | None:
+        """Get a language config by name."""
+        for lang in self.languages:
+            if lang.name == name:
+                return lang
+        return None
+
+    def get_language_for_note_type(
+        self, note_type: str
+    ) -> PrioritySieveLanguageConfig | None:
+        """Get the language config that contains the given note type."""
+        for lang in self.languages:
+            for flt in lang.filters:
+                if flt.note_type == note_type:
+                    return lang
+        return None
+
+    def get_all_note_types(self) -> set[str]:
+        """Get all note types used across all languages."""
+        note_types: set[str] = set()
+        for lang in self.languages:
+            for flt in lang.filters:
+                if flt.note_type != prioritysieve_globals.NONE_OPTION:
+                    note_types.add(flt.note_type)
+        return note_types
+
     def update(self) -> None:
         new_config = PrioritySieveConfig()
         self.__dict__.update(new_config.__dict__)
+
+    # Backward compatibility properties that delegate to first language
+    @property
+    def _first_language(self) -> PrioritySieveLanguageConfig | None:
+        return self.languages[0] if self.languages else None
+
+    @property
+    def preprocess_ignore_bracket_contents(self) -> bool:
+        lang = self._first_language
+        return lang.preprocess_ignore_bracket_contents if lang else False
+
+    @property
+    def preprocess_ignore_round_bracket_contents(self) -> bool:
+        lang = self._first_language
+        return lang.preprocess_ignore_round_bracket_contents if lang else False
+
+    @property
+    def preprocess_ignore_slim_round_bracket_contents(self) -> bool:
+        lang = self._first_language
+        return lang.preprocess_ignore_slim_round_bracket_contents if lang else False
+
+    @property
+    def preprocess_ignore_angle_bracket_contents(self) -> bool:
+        lang = self._first_language
+        return lang.preprocess_ignore_angle_bracket_contents if lang else False
+
+    @property
+    def preprocess_ignore_numbers(self) -> bool:
+        lang = self._first_language
+        return lang.preprocess_ignore_numbers if lang else False
+
+    @property
+    def preprocess_ignore_custom_characters(self) -> bool:
+        lang = self._first_language
+        return lang.preprocess_ignore_custom_characters if lang else False
+
+    @property
+    def preprocess_custom_characters_to_ignore(self) -> str:
+        lang = self._first_language
+        return lang.preprocess_custom_characters_to_ignore if lang else ""
+
+    @property
+    def preprocess_ignore_suspended_unless_tags(self) -> str:
+        lang = self._first_language
+        return lang.preprocess_ignore_suspended_unless_tags if lang else ""
+
+    @property
+    def auto_suspend_unlisted_entries(self) -> bool:
+        lang = self._first_language
+        return lang.auto_suspend_unlisted_entries if lang else False
+
+    @property
+    def auto_suspend_variant_spellings(self) -> bool:
+        lang = self._first_language
+        return lang.auto_suspend_variant_spellings if lang else False
+
+    @property
+    def merge_kana_variant_spellings(self) -> bool:
+        lang = self._first_language
+        return lang.merge_kana_variant_spellings if lang else False
+
+    @property
+    def recalc_offset_priority_decks(self) -> list[str]:
+        lang = self._first_language
+        return lang.recalc_offset_priority_decks if lang else []
+
+    @property
+    def disabled_decks(self) -> list[str]:
+        lang = self._first_language
+        return lang.disabled_decks if lang else []
+
+    # Note: hide_recalc_toolbar, hide_reviewed_counter, hide_tracked_counter
+    # are now global settings defined in __init__
+
+    @property
+    def deduplicate_toolbar_counts(self) -> bool:
+        lang = self._first_language
+        return lang.deduplicate_toolbar_counts if lang else False
+
+    def get_preprocess_ignore_suspended_unless_tag_list(self) -> list[str]:
+        lang = self._first_language
+        return lang.get_preprocess_ignore_suspended_unless_tag_list() if lang else []
 
     def _get_key_sequence_config(
         self,
@@ -499,140 +827,6 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes
         config_item: str = self._get_config_item(key, expected_type, use_default)
         assert isinstance(config_item, str)
         return QKeySequence(config_item)
-
-    def get_config_filters(
-        self, is_default: bool = False
-    ) -> list[PrioritySieveConfigFilter]:
-        config_filters = self._get_config_item(
-            key=RawConfigKeys.FILTERS,
-            expected_type=list,
-            use_default=is_default,
-        )
-
-        defaults = self._default_config_dict.get(RawConfigKeys.FILTERS, [])
-        default_filter = defaults[0] if defaults else {}
-
-        filters: list[PrioritySieveConfigFilter] = []
-        for _filter in config_filters:
-            if isinstance(_filter, dict):
-                am_filter = PrioritySieveConfigFilter(_filter, default_filter)
-                if not am_filter.has_error:
-                    filters.append(am_filter)
-        return filters
-
-    def _get_priority_deck_list(self, is_default: bool) -> list[str]:
-        key = RawConfigKeys.RECALC_OFFSET_PRIORITY_DECKS
-        legacy_key = "recalc_offset_priority_deck"
-        source = self._default_config_dict if is_default else self._config_dict
-
-        def sanitize(decks: list[object]) -> list[str]:
-            sanitized: list[str] = []
-            seen: set[str] = set()
-            for deck in decks:
-                if not isinstance(deck, str):
-                    continue
-                trimmed = deck.strip()
-                if not trimmed or trimmed in seen:
-                    continue
-                sanitized.append(trimmed)
-                seen.add(trimmed)
-            return sanitized
-
-        if key in source:
-            decks = source[key]
-            assert isinstance(decks, list)
-            sanitized = sanitize(decks)
-            if not is_default and sanitized != decks:
-                self._persist_priority_decks(sanitized)
-                source[key] = sanitized
-            return sanitized
-
-        if not is_default and legacy_key in source:
-            legacy_value = source.get(legacy_key)
-            legacy_list: list[object] = []
-            if isinstance(legacy_value, str):
-                trimmed = legacy_value.strip()
-                if trimmed:
-                    legacy_list = [trimmed]
-            sanitized_legacy = sanitize(legacy_list)
-            self._persist_priority_decks(sanitized_legacy)
-            source[key] = sanitized_legacy
-            source.pop(legacy_key, None)
-            return sanitized_legacy
-
-        default_value = self._default_config_dict.get(key, [])
-        assert isinstance(default_value, list)
-        sanitized_default = sanitize(default_value)
-        if not is_default:
-            self._persist_priority_decks(sanitized_default)
-            source[key] = sanitized_default
-        return sanitized_default
-
-    def _persist_priority_decks(self, decks: list[str]) -> None:
-        assert mw is not None
-        config = get_config_dict()
-        config[RawConfigKeys.RECALC_OFFSET_PRIORITY_DECKS] = decks
-        if "recalc_offset_priority_deck" in config:
-            config.pop("recalc_offset_priority_deck", None)
-        mw.addonManager.writeConfig(__name__, config)
-        save_config_to_am_file(config)
-
-    def _get_disabled_deck_list(self, is_default: bool) -> list[str]:
-        key = RawConfigKeys.DISABLED_DECKS
-        source = self._default_config_dict if is_default else self._config_dict
-
-        def sanitize(decks: list[object]) -> list[str]:
-            sanitized: list[str] = []
-            seen: set[str] = set()
-            for deck in decks:
-                if not isinstance(deck, str):
-                    continue
-                trimmed = deck.strip()
-                if not trimmed or trimmed in seen:
-                    continue
-                sanitized.append(trimmed)
-                seen.add(trimmed)
-            return sanitized
-
-        if key in source:
-            decks = source[key]
-            assert isinstance(decks, list)
-            sanitized = sanitize(decks)
-            if not is_default and sanitized != decks:
-                self._persist_disabled_decks(sanitized)
-                source[key] = sanitized
-            return sanitized
-
-        default_value = self._default_config_dict.get(key, [])
-        assert isinstance(default_value, list)
-        sanitized_default = sanitize(default_value)
-        if not is_default:
-            self._persist_disabled_decks(sanitized_default)
-            source[key] = sanitized_default
-        return sanitized_default
-
-    def _persist_disabled_decks(self, decks: list[str]) -> None:
-        assert mw is not None
-        config = get_config_dict()
-        config[RawConfigKeys.DISABLED_DECKS] = decks
-        mw.addonManager.writeConfig(__name__, config)
-        save_config_to_am_file(config)
-
-    def get_preprocess_ignore_suspended_unless_tag_list(self) -> list[str]:
-        tags_value = self.preprocess_ignore_suspended_unless_tags
-        if not isinstance(tags_value, str):
-            return []
-
-        seen: set[str] = set()
-        sanitized: list[str] = []
-        for raw_tag in tags_value.split(","):
-            tag = raw_tag.strip()
-            if not tag or tag in seen:
-                continue
-            sanitized.append(tag)
-            seen.add(tag)
-
-        return sanitized
 
     def _get_config_item(
         self,
@@ -704,16 +898,118 @@ def normalize_config_keys(configs: dict[str, Any]) -> dict[str, Any]:
     elif legacy_known_auto_tag is not None:
         prioritysieve_globals.new_config_found = True
 
-    filters_obj = normalized.get(RawConfigKeys.FILTERS)
+    # Migrate legacy config structure to new language-based structure
+    if RawConfigKeys.LANGUAGES not in normalized:
+        normalized = _migrate_to_language_config(normalized)
+        prioritysieve_globals.new_config_found = True
+
+    # Normalize filters within each language
     defaults = get_all_defaults_config_dict()
-    default_filters = defaults.get(RawConfigKeys.FILTERS, [])
+    default_languages = defaults.get(RawConfigKeys.LANGUAGES, [])
+    default_language = default_languages[0] if default_languages else {}
+    default_filters = default_language.get(RawConfigLanguageKeys.FILTERS, [])
     default_filter = default_filters[0] if default_filters else {}
-    if isinstance(filters_obj, list):
-        for item in filters_obj:
-            if isinstance(item, dict):
-                _normalize_filter_dict(item, default_filter)
+
+    languages = normalized.get(RawConfigKeys.LANGUAGES, [])
+    if isinstance(languages, list):
+        for lang in languages:
+            if isinstance(lang, dict):
+                filters_obj = lang.get(RawConfigLanguageKeys.FILTERS, [])
+                if isinstance(filters_obj, list):
+                    for item in filters_obj:
+                        if isinstance(item, dict):
+                            _normalize_filter_dict(item, default_filter)
 
     return normalized
+
+
+# Keys to migrate from root to language config
+_LEGACY_LANGUAGE_KEYS = [
+    (RawConfigKeys.LEGACY_FILTERS, RawConfigLanguageKeys.FILTERS),
+    (
+        RawConfigKeys.LEGACY_PREPROCESS_IGNORE_BRACKET_CONTENTS,
+        RawConfigLanguageKeys.PREPROCESS_IGNORE_BRACKET_CONTENTS,
+    ),
+    (
+        RawConfigKeys.LEGACY_PREPROCESS_IGNORE_ROUND_BRACKET_CONTENTS,
+        RawConfigLanguageKeys.PREPROCESS_IGNORE_ROUND_BRACKET_CONTENTS,
+    ),
+    (
+        RawConfigKeys.LEGACY_PREPROCESS_IGNORE_SLIM_ROUND_BRACKET_CONTENTS,
+        RawConfigLanguageKeys.PREPROCESS_IGNORE_SLIM_ROUND_BRACKET_CONTENTS,
+    ),
+    (
+        RawConfigKeys.LEGACY_PREPROCESS_IGNORE_ANGLE_BRACKET_CONTENTS,
+        RawConfigLanguageKeys.PREPROCESS_IGNORE_ANGLE_BRACKET_CONTENTS,
+    ),
+    (
+        RawConfigKeys.LEGACY_PREPROCESS_IGNORE_NUMBERS,
+        RawConfigLanguageKeys.PREPROCESS_IGNORE_NUMBERS,
+    ),
+    (
+        RawConfigKeys.LEGACY_PREPROCESS_IGNORE_CUSTOM_CHARACTERS,
+        RawConfigLanguageKeys.PREPROCESS_IGNORE_CUSTOM_CHARACTERS,
+    ),
+    (
+        RawConfigKeys.LEGACY_PREPROCESS_CUSTOM_CHARACTERS_TO_IGNORE,
+        RawConfigLanguageKeys.PREPROCESS_CUSTOM_CHARACTERS_TO_IGNORE,
+    ),
+    (
+        RawConfigKeys.LEGACY_PREPROCESS_IGNORE_SUSPENDED_UNLESS_TAGS,
+        RawConfigLanguageKeys.PREPROCESS_IGNORE_SUSPENDED_UNLESS_TAGS,
+    ),
+    (
+        RawConfigKeys.LEGACY_AUTO_SUSPEND_UNLISTED_ENTRIES,
+        RawConfigLanguageKeys.AUTO_SUSPEND_UNLISTED_ENTRIES,
+    ),
+    (
+        RawConfigKeys.LEGACY_AUTO_SUSPEND_VARIANT_SPELLINGS,
+        RawConfigLanguageKeys.AUTO_SUSPEND_VARIANT_SPELLINGS,
+    ),
+    (
+        RawConfigKeys.LEGACY_MERGE_KANA_VARIANT_SPELLINGS,
+        RawConfigLanguageKeys.MERGE_KANA_VARIANT_SPELLINGS,
+    ),
+    (
+        RawConfigKeys.LEGACY_RECALC_OFFSET_PRIORITY_DECKS,
+        RawConfigLanguageKeys.RECALC_OFFSET_PRIORITY_DECKS,
+    ),
+    (RawConfigKeys.LEGACY_DISABLED_DECKS, RawConfigLanguageKeys.DISABLED_DECKS),
+    # deduplicate_toolbar_counts stays per-language (depends on variant spelling logic)
+    (
+        RawConfigKeys.LEGACY_DEDUPLICATE_TOOLBAR_COUNTS,
+        RawConfigLanguageKeys.DEDUPLICATE_TOOLBAR_COUNTS,
+    ),
+    # Note: Toolbar visibility settings (hide_recalc_toolbar, hide_reviewed_counter,
+    # hide_tracked_counter) are intentionally NOT migrated to per-language config -
+    # they remain global settings at the root level.
+]
+
+
+def _migrate_to_language_config(configs: dict[str, Any]) -> dict[str, Any]:
+    """Migrate legacy flat config to language-based config."""
+    # Create a "Default" language with settings from root
+    default_language: dict[str, Any] = {
+        RawConfigLanguageKeys.NAME: "Default",
+        RawConfigLanguageKeys.PREFIX: "",
+        RawConfigLanguageKeys.LANGUAGE_TYPE: LANGUAGE_TYPE_JAPANESE,
+    }
+
+    # Move per-language keys from root to language config
+    for legacy_key, new_key in _LEGACY_LANGUAGE_KEYS:
+        if legacy_key in configs:
+            default_language[new_key] = configs.pop(legacy_key)
+
+    # Also handle the legacy single-deck key
+    if "recalc_offset_priority_deck" in configs:
+        legacy_deck = configs.pop("recalc_offset_priority_deck")
+        if isinstance(legacy_deck, str) and legacy_deck.strip():
+            default_language[RawConfigLanguageKeys.RECALC_OFFSET_PRIORITY_DECKS] = [
+                legacy_deck.strip()
+            ]
+
+    configs[RawConfigKeys.LANGUAGES] = [default_language]
+    return configs
 
 
 def load_stored_am_configs(
@@ -735,6 +1031,33 @@ def update_configs(new_configs: dict[str, Any]) -> None:
     assert mw is not None
     config = get_config_dict()
     config.update(new_configs)
+    normalized = normalize_config_keys(config)
+    _persist_normalized_config(normalized)
+
+
+def update_language_config(
+    language_name: str,
+    language_settings: dict[str, Any],
+    global_settings: dict[str, Any] | None = None,
+) -> None:
+    """Update settings for a specific language and optionally global settings."""
+    assert mw is not None
+    config = get_config_dict()
+
+    # Update global settings at root level
+    if global_settings:
+        for key, value in global_settings.items():
+            config[key] = value
+
+    # Update language-specific settings in the languages array
+    languages = config.get(RawConfigKeys.LANGUAGES, [])
+    for lang in languages:
+        if lang.get(RawConfigLanguageKeys.NAME) == language_name:
+            for key, value in language_settings.items():
+                lang[key] = value
+            break
+
+    config[RawConfigKeys.LANGUAGES] = languages
     normalized = normalize_config_keys(config)
     _persist_normalized_config(normalized)
 

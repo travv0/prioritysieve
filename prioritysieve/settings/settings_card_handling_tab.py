@@ -13,7 +13,11 @@ from aqt.qt import (  # pylint:disable=no-name-in-module
 )
 
 from .. import prioritysieve_globals as ps_globals
-from ..prioritysieve_config import PrioritySieveConfig, RawConfigKeys
+from ..prioritysieve_config import (
+    PrioritySieveConfig,
+    PrioritySieveLanguageConfig,
+    RawConfigKeys,
+)
 from ..ui.settings_dialog_ui import Ui_SettingsDialog
 from .settings_tab import SettingsTab
 
@@ -25,8 +29,17 @@ class CardHandlingTab(SettingsTab):
         ui: Ui_SettingsDialog,
         config: PrioritySieveConfig,
         default_config: PrioritySieveConfig,
+        language_config: PrioritySieveLanguageConfig | None = None,
+        default_language_config: PrioritySieveLanguageConfig | None = None,
     ) -> None:
-        super().__init__(parent, ui, config, default_config)
+        super().__init__(
+            parent,
+            ui,
+            config,
+            default_config,
+            language_config,
+            default_language_config,
+        )
 
         self._raw_config_key_to_check_box: dict[str, QCheckBox] = {
             RawConfigKeys.AUTO_SUSPEND_UNLISTED_ENTRIES: self.ui.autoSuspendUnlistedEntriesCheckBox,
@@ -46,12 +59,25 @@ class CardHandlingTab(SettingsTab):
     def populate(self, use_default_config: bool = False) -> None:
         super().populate(use_default_config)
 
-        source = self._default_config if use_default_config else self._config
+        # Use language config for per-language settings
+        if use_default_config:
+            source_lang = self._default_language_config or self._default_config.languages[0] if self._default_config.languages else None
+            source_config = self._default_config
+        else:
+            source_lang = self._language_config or self._config.languages[0] if self._config.languages else None
+            source_config = self._config
 
-        deck_order = self._build_priority_deck_list(
-            source, source.recalc_offset_priority_decks
-        )
-        self._set_priority_deck_items(deck_order, source.disabled_decks)
+        if source_lang:
+            deck_order = self._build_priority_deck_list(
+                source_config, source_lang.recalc_offset_priority_decks
+            )
+            self._set_priority_deck_items(deck_order, source_lang.disabled_decks)
+        else:
+            # Fallback for backward compatibility
+            deck_order = self._build_priority_deck_list(
+                source_config, source_config.recalc_offset_priority_decks
+            )
+            self._set_priority_deck_items(deck_order, source_config.disabled_decks)
 
     def setup_buttons(self) -> None:
         self.ui.restoreCardHandlingPushButton.setAutoDefault(False)
@@ -210,9 +236,15 @@ class CardHandlingTab(SettingsTab):
         if mw is None or mw.col is None or mw.col.db is None:
             return []
 
+        # Use language config filters if available, otherwise fall back to config.filters
+        filters = (
+            self._language_config.filters
+            if self._language_config
+            else config.filters
+        )
         note_type_names = {
             config_filter.note_type
-            for config_filter in config.filters
+            for config_filter in filters
             if config_filter.note_type != ps_globals.NONE_OPTION
         }
 

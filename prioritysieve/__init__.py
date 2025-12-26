@@ -74,6 +74,7 @@ from .recalc.anki_data_utils import AnkiCardData, AnkiDBRowData
 from .recalc.caching import _build_entry
 from .settings import settings_dialog
 from .settings.settings_dialog import SettingsDialog
+from .settings.settings_language_selector import LanguageSelectorDialog
 from .tag_selection_dialog import TagSelectionDialog
 from .toolbar_stats import EntryToolbarStats
 from .priority_files import load_priority_map, KNOWN_ENTRIES_DIR
@@ -241,15 +242,13 @@ def main() -> None:
 
 
 def init_toolbar_items(links: list[str], toolbar: Toolbar) -> None:
-    # Adds the 'L: V:' and 'Recalc' to the toolbar
+    # Adds the per-language stats and 'Recalc' to the toolbar
 
     entry_toolbar_stats = EntryToolbarStats()
     am_config = PrioritySieveConfig()
-    suspended_exception_tags = set(
-        am_config.get_preprocess_ignore_suspended_unless_tag_list()
-    )
 
-    if am_config.hide_recalc_toolbar is False:
+    # Show Recalc button (global setting)
+    if not am_config.hide_recalc_toolbar:
         label = "Recalc"
         links.append(
             toolbar.create_link(
@@ -261,23 +260,17 @@ def init_toolbar_items(links: list[str], toolbar: Toolbar) -> None:
             )
         )
 
-    counter_definitions = [
-        ("tracked", am_config.hide_tracked_counter, "tracked_entries"),
-        ("reviewed", am_config.hide_reviewed_counter, "reviewed_entries"),
-        ("pending", am_config.hide_pending_counter, "pending_entries"),
-    ]
+    # Show per-language stats (format: "PREFIX: reviewed/tracked")
+    for lang_stats in entry_toolbar_stats.language_stats:
+        if not lang_stats.is_visible:
+            continue
 
-    for key, is_hidden, command in counter_definitions:
-        if is_hidden:
-            continue
-        counter = entry_toolbar_stats.get_counter(key)
-        if counter is None:
-            continue
-        message = counter.tooltip
+        command = f"lang_stats_{lang_stats.language_name}"
+        message = lang_stats.tooltip
         links.append(
             toolbar.create_link(
                 cmd=command,
-                label=counter.label,
+                label=lang_stats.label,
                 func=lambda msg=message: tooltip(msg),
                 tip=message,
                 id=command,
@@ -1809,12 +1802,24 @@ def create_recalc_action(am_config: PrioritySieveConfig) -> QAction:
     return action
 
 
+def open_language_selector() -> None:
+    """Open the language selector dialog."""
+
+    def on_language_selected(lang_name: str) -> None:
+        # Open settings dialog for the selected language
+        # We use a custom dialog instead of Anki's dialog manager
+        # to pass the language name
+        dialog = SettingsDialog(language_name=lang_name)
+        dialog.show()
+
+    selector = LanguageSelectorDialog(on_language_selected=on_language_selected)
+    selector.exec()
+
+
 def create_settings_action(am_config: PrioritySieveConfig) -> QAction:
     action = QAction("&Settings", mw)
     action.setShortcut(am_config.shortcut_settings)
-    action.triggered.connect(
-        partial(aqt.dialogs.open, name=ps_globals.SETTINGS_DIALOG_NAME)
-    )
+    action.triggered.connect(open_language_selector)
     return action
 
 

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Iterable as TypingIterable
 
 from anki.consts import CARD_TYPE_NEW, QUEUE_TYPE_SUSPENDED
+from aqt import mw
 
 from .entry import Entry
 from .entry_db import EntryDB, StoredCard
@@ -15,7 +16,10 @@ from .kanji_utils import (
     extract_kanji_sequence,
     is_kanji_subsequence,
 )
-from .prioritysieve_config import PrioritySieveConfig
+from .prioritysieve_config import (
+    PrioritySieveConfig,
+    PrioritySieveLanguageConfig,
+)
 from .reading_utils import normalize_reading
 from .recalc import recalc_main
 
@@ -25,6 +29,7 @@ _COUNTER_DEFINITIONS: tuple[tuple[str, str], ...] = (
     ("pending", "Pending"),
 )
 _LAST_KNOWN_VALUES: dict[str, int] | None = None
+_LAST_KNOWN_LANGUAGE_VALUES: dict[str, dict[str, int]] | None = None
 _HIRAGANA_SCRIPT = "hiragana"
 _KATAKANA_SCRIPT = "katakana"
 
@@ -45,6 +50,62 @@ class ToolbarCounter:
         return f"{self.name} entry count"
 
 
+@dataclass(slots=True)
+class LanguageStats:
+    """Stats for a single language."""
+
+    language_name: str
+    prefix: str
+    tracked: int
+    reviewed: int
+    pending: int
+    hide_recalc_toolbar: bool
+    hide_reviewed_counter: bool
+    hide_tracked_counter: bool
+    hide_pending_counter: bool
+
+    @property
+    def label(self) -> str:
+        """Return label in format 'PREFIX: reviewed/tracked', respecting visibility settings."""
+        parts: list[str] = []
+        if not self.hide_reviewed_counter:
+            parts.append(str(self.reviewed))
+        if not self.hide_tracked_counter:
+            parts.append(str(self.tracked))
+
+        if not parts:
+            # Both counters hidden - shouldn't reach here if is_visible is checked first
+            return ""
+
+        stats_text = "/".join(parts)
+        if self.prefix:
+            return f"{self.prefix}: {stats_text}"
+        return stats_text
+
+    @property
+    def tooltip(self) -> str:
+        """Return tooltip text, respecting visibility settings."""
+        parts: list[str] = []
+        if not self.hide_reviewed_counter:
+            parts.append(f"{self.reviewed} reviewed")
+        if not self.hide_tracked_counter:
+            parts.append(f"{self.tracked} tracked")
+
+        if not parts:
+            return self.language_name
+
+        return f"{self.language_name}: {' / '.join(parts)}"
+
+    @property
+    def is_visible(self) -> bool:
+        """Return True if this language's stats should be shown.
+
+        Stats are hidden only when both reviewed and tracked counters are hidden.
+        hide_recalc_toolbar only affects the Recalc button, not the stats display.
+        """
+        return not (self.hide_reviewed_counter and self.hide_tracked_counter)
+
+
 class EntryToolbarStats:
     def __init__(self) -> None:
         initial_values = _LAST_KNOWN_VALUES or {}
@@ -55,11 +116,16 @@ class EntryToolbarStats:
         self._counter_map: dict[str, ToolbarCounter] = {
             counter.key: counter for counter in self._counters
         }
+        self._language_stats: list[LanguageStats] = []
         self.update_stats()
 
     @property
     def counters(self) -> list[ToolbarCounter]:
         return self._counters
+
+    @property
+    def language_stats(self) -> list[LanguageStats]:
+        return self._language_stats
 
     def get_counter(self, key: str) -> ToolbarCounter | None:
         return self._counter_map.get(key)
@@ -71,32 +137,82 @@ class EntryToolbarStats:
         config = PrioritySieveConfig()
         try:
             with EntryDB() as db:
-                cards = db.get_cards()
-                card_entries = (
-                    db.get_card_entry_cache()
-                    if config.deduplicate_toolbar_counts
-                    else None
-                )
+                all_cards = db.get_cards()
+                card_entries = db.get_card_entry_cache()
         except TypeError:
             return
         except Exception:  # pragma: no cover - safeguard
             return
 
-        tracked_count, reviewed_count = _compute_note_counts(
-            config,
-            cards,
-            card_entries=card_entries,
-            deduplicate=config.deduplicate_toolbar_counts,
-            filter_okurigana=config.auto_suspend_variant_spellings
-            and config.deduplicate_toolbar_counts,
-        )
-        pending_count = max(tracked_count - reviewed_count, 0)
+        # Build note type ID to language mapping
+        note_type_id_to_lang: dict[int, PrioritySieveLanguageConfig] = {}
+        if mw is not None and mw.col is not None:
+            for lang in config.languages:
+                for flt in lang.filters:
+                    note_type_id = mw.col.models.id_for_name(flt.note_type)
+                    if note_type_id is not None:
+                        note_type_id_to_lang[note_type_id] = lang
+
+        # Group cards by language
+        cards_by_lang: dict[str, list[StoredCard]] = {}
+        for card in all_cards:
+            lang = note_type_id_to_lang.get(card.note_type_id)
+            if lang is not None:
+                cards_by_lang.setdefault(lang.name, []).append(card)
+
+        # Compute stats for each language
+        global _LAST_KNOWN_LANGUAGE_VALUES
+        _LAST_KNOWN_LANGUAGE_VALUES = {}
+        language_stats_list: list[LanguageStats] = []
+
+        for lang in config.languages:
+            lang_cards = cards_by_lang.get(lang.name, [])
+            # Deduplicate is per-language (depends on variant spelling logic)
+            use_dedupe = lang.deduplicate_toolbar_counts
+            filter_okuri = lang.auto_suspend_variant_spellings and use_dedupe
+
+            tracked_count, reviewed_count = _compute_note_counts(
+                config,
+                lang_cards,
+                card_entries=card_entries if use_dedupe else None,
+                deduplicate=use_dedupe,
+                filter_okurigana=filter_okuri,
+                exception_tags=set(lang.get_preprocess_ignore_suspended_unless_tag_list()),
+            )
+            pending_count = max(tracked_count - reviewed_count, 0)
+
+            _LAST_KNOWN_LANGUAGE_VALUES[lang.name] = {
+                "tracked": tracked_count,
+                "reviewed": reviewed_count,
+                "pending": pending_count,
+            }
+
+            language_stats_list.append(
+                LanguageStats(
+                    language_name=lang.name,
+                    prefix=lang.prefix,
+                    tracked=tracked_count,
+                    reviewed=reviewed_count,
+                    pending=pending_count,
+                    hide_recalc_toolbar=config.hide_recalc_toolbar,
+                    hide_reviewed_counter=config.hide_reviewed_counter,
+                    hide_tracked_counter=config.hide_tracked_counter,
+                    hide_pending_counter=False,  # Pending is no longer shown
+                )
+            )
+
+        self._language_stats = language_stats_list
+
+        # Also update legacy counters for backward compatibility
+        total_tracked = sum(s.tracked for s in language_stats_list)
+        total_reviewed = sum(s.reviewed for s in language_stats_list)
+        total_pending = max(total_tracked - total_reviewed, 0)
 
         global _LAST_KNOWN_VALUES
         _LAST_KNOWN_VALUES = {
-            "tracked": tracked_count,
-            "reviewed": reviewed_count,
-            "pending": pending_count,
+            "tracked": total_tracked,
+            "reviewed": total_reviewed,
+            "pending": total_pending,
         }
 
         updated_counters = [
@@ -135,14 +251,16 @@ def _compute_note_counts(
     card_entries: dict[int, Entry] | None = None,
     deduplicate: bool = False,
     filter_okurigana: bool = False,
+    exception_tags: set[str] | None = None,
 ) -> tuple[int, int]:
     """Return (tracked_notes, reviewed_notes) counts."""
 
-    exception_tags = {
-        tag.strip()
-        for tag in config.get_preprocess_ignore_suspended_unless_tag_list()
-        if isinstance(tag, str) and tag.strip()
-    }
+    if exception_tags is None:
+        exception_tags = {
+            tag.strip()
+            for tag in config.get_preprocess_ignore_suspended_unless_tag_list()
+            if isinstance(tag, str) and tag.strip()
+        }
 
     note_states: dict[int, _NoteState] = {}
     note_word_infos: dict[int, _WordInfo] = {}

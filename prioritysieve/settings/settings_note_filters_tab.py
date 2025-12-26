@@ -31,8 +31,10 @@ from .. import (
 )
 from ..priority_files import available_priority_files
 from ..prioritysieve_config import (
+    LANGUAGE_TYPE_JAPANESE,
     PrioritySieveConfig,
     PrioritySieveConfigFilter,
+    PrioritySieveLanguageConfig,
     FilterTypeAlias,
     RawConfigFilterKeys,
     RawConfigKeys,
@@ -149,10 +151,20 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
         ui: Ui_SettingsDialog,
         config: PrioritySieveConfig,
         default_config: PrioritySieveConfig,
+        language_config: PrioritySieveLanguageConfig | None = None,
+        default_language_config: PrioritySieveLanguageConfig | None = None,
     ) -> None:
         assert mw is not None
 
-        SettingsTab.__init__(self, parent, ui, config, default_config)
+        SettingsTab.__init__(
+            self,
+            parent,
+            ui,
+            config,
+            default_config,
+            language_config,
+            default_language_config,
+        )
         DataProvider.__init__(self)
 
         self.ui.note_filters_table.cellClicked.connect(
@@ -231,6 +243,26 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
         self.setup_buttons()
         self.update_previous_state()
 
+        # Hide Japanese-specific columns for non-Japanese languages
+        self._update_column_visibility()
+
+    def _update_column_visibility(self) -> None:
+        """Hide Japanese-specific columns when language type is not Japanese."""
+        is_japanese = (
+            self._language_config is not None
+            and self._language_config.language_type == LANGUAGE_TYPE_JAPANESE
+        )
+
+        # Japanese-specific columns
+        japanese_columns = [
+            self._note_filter_furigana_field_column,
+            self._note_filter_reading_field_column,
+            self._note_filter_reading_priority_column,
+        ]
+
+        for col in japanese_columns:
+            self.ui.note_filters_table.setColumnHidden(col, not is_japanese)
+
     def notify_subscribers(self) -> None:
         assert self._subscriber is not None
         selected_note_types = self._get_selected_note_filters()
@@ -284,9 +316,17 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
         filters: list[PrioritySieveConfigFilter]
 
         if use_default_config:
-            filters = self._default_config.filters
+            filters = (
+                self._default_language_config.filters
+                if self._default_language_config
+                else self._default_config.filters
+            )
         else:
-            filters = self._config.filters
+            filters = (
+                self._language_config.filters
+                if self._language_config
+                else self._config.filters
+            )
 
         self._clear_note_filters_table()
         self._setup_note_filters_table(filters)
@@ -694,14 +734,42 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
             self.reset_tags_warning_shown[reason_for_reset] = True
             combo_box.setProperty("previousIndex", new_index)
 
+    def _get_note_types_used_by_other_languages(self) -> set[str]:
+        """Get note types that are used by languages other than the current one."""
+        used_note_types: set[str] = set()
+        current_lang_name = (
+            self._language_config.name if self._language_config else None
+        )
+
+        for lang in self._config.languages:
+            if lang.name == current_lang_name:
+                continue
+            for flt in lang.filters:
+                if flt.note_type != prioritysieve_globals.NONE_OPTION:
+                    used_note_types.add(flt.note_type)
+
+        return used_note_types
+
     def _setup_note_type_cbox(self, config_filter: PrioritySieveConfigFilter) -> QComboBox:
         note_type_cbox = QComboBox(self.ui.note_filters_table)
-        note_types_string: list[str] = [prioritysieve_globals.NONE_OPTION] + [
-            model.name for model in self._note_type_models
-        ]
-        note_type_cbox.addItems(note_types_string)
+
+        # Get note types used by other languages
+        used_by_other_langs = self._get_note_types_used_by_other_languages()
+
+        # Filter available note types - exclude ones used by other languages
+        # unless it's the currently selected note type for this filter
+        available_note_types: list[str] = [prioritysieve_globals.NONE_OPTION]
+        for model in self._note_type_models:
+            if model.name in used_by_other_langs:
+                # Only include if it's the current selection
+                if model.name == config_filter.note_type:
+                    available_note_types.append(model.name)
+            else:
+                available_note_types.append(model.name)
+
+        note_type_cbox.addItems(available_note_types)
         note_type_name_index = table_utils.get_combobox_index(
-            note_types_string, config_filter.note_type
+            available_note_types, config_filter.note_type
         )
         note_type_cbox.setCurrentIndex(note_type_name_index)
         return note_type_cbox
@@ -800,7 +868,7 @@ class NoteFiltersTab(  # pylint:disable=too-many-instance-attributes
         )
 
     def settings_to_dict(self) -> dict[str, str | int | bool | object]:
-        return {}
+        return {RawConfigKeys.FILTERS: self.get_filters()}
 
     def get_data(self) -> Any:
         return self.get_filters()

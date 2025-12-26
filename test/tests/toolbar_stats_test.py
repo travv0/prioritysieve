@@ -12,7 +12,110 @@ from anki.consts import (
 
 from prioritysieve.entry import Entry
 from prioritysieve.entry_db import StoredCard
-from prioritysieve.toolbar_stats import _compute_note_counts
+from prioritysieve.toolbar_stats import _compute_note_counts, LanguageStats
+
+
+# --------------------------------------------------------------------------
+# LanguageStats visibility tests
+# --------------------------------------------------------------------------
+
+
+def _make_language_stats(
+    *,
+    hide_reviewed: bool = False,
+    hide_tracked: bool = False,
+    hide_pending: bool = False,
+    hide_recalc: bool = False,
+    prefix: str = "JP",
+    name: str = "Japanese",
+    reviewed: int = 50,
+    tracked: int = 100,
+    pending: int = 50,
+) -> LanguageStats:
+    return LanguageStats(
+        language_name=name,
+        prefix=prefix,
+        tracked=tracked,
+        reviewed=reviewed,
+        pending=pending,
+        hide_recalc_toolbar=hide_recalc,
+        hide_reviewed_counter=hide_reviewed,
+        hide_tracked_counter=hide_tracked,
+        hide_pending_counter=hide_pending,
+    )
+
+
+def test_language_stats_label_shows_both_counters_by_default() -> None:
+    stats = _make_language_stats()
+    assert stats.label == "JP: 50/100"
+
+
+def test_language_stats_label_hides_reviewed_counter() -> None:
+    stats = _make_language_stats(hide_reviewed=True)
+    assert stats.label == "JP: 100"
+
+
+def test_language_stats_label_hides_tracked_counter() -> None:
+    stats = _make_language_stats(hide_tracked=True)
+    assert stats.label == "JP: 50"
+
+
+def test_language_stats_label_without_prefix() -> None:
+    stats = _make_language_stats(prefix="")
+    assert stats.label == "50/100"
+
+
+def test_language_stats_label_without_prefix_hides_reviewed() -> None:
+    stats = _make_language_stats(prefix="", hide_reviewed=True)
+    assert stats.label == "100"
+
+
+def test_language_stats_tooltip_shows_both_counters_by_default() -> None:
+    stats = _make_language_stats()
+    assert stats.tooltip == "Japanese: 50 reviewed / 100 tracked"
+
+
+def test_language_stats_tooltip_hides_reviewed_counter() -> None:
+    stats = _make_language_stats(hide_reviewed=True)
+    assert stats.tooltip == "Japanese: 100 tracked"
+
+
+def test_language_stats_tooltip_hides_tracked_counter() -> None:
+    stats = _make_language_stats(hide_tracked=True)
+    assert stats.tooltip == "Japanese: 50 reviewed"
+
+
+def test_language_stats_is_visible_when_both_counters_shown() -> None:
+    stats = _make_language_stats()
+    assert stats.is_visible is True
+
+
+def test_language_stats_is_visible_when_reviewed_hidden() -> None:
+    stats = _make_language_stats(hide_reviewed=True)
+    assert stats.is_visible is True
+
+
+def test_language_stats_is_visible_when_tracked_hidden() -> None:
+    stats = _make_language_stats(hide_tracked=True)
+    assert stats.is_visible is True
+
+
+def test_language_stats_not_visible_when_both_counters_hidden() -> None:
+    stats = _make_language_stats(hide_reviewed=True, hide_tracked=True)
+    assert stats.is_visible is False
+
+
+def test_language_stats_is_visible_independent_of_hide_recalc() -> None:
+    """hide_recalc_toolbar should only affect Recalc button, not stats visibility."""
+    stats = _make_language_stats(hide_recalc=True)
+    assert stats.is_visible is True
+
+
+def test_language_stats_hide_recalc_does_not_hide_stats() -> None:
+    """Regression test: hide_recalc_toolbar should not hide per-language stats."""
+    stats = _make_language_stats(hide_recalc=True, hide_reviewed=False, hide_tracked=False)
+    assert stats.is_visible is True
+    assert stats.label == "JP: 50/100"
 
 
 def _config(

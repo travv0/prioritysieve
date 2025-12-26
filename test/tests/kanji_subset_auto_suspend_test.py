@@ -14,14 +14,19 @@ _NOTE_SEQUENCE = 0
 def _config(
     enabled: bool = True,
     kana_variants: bool = False,
-) -> SimpleNamespace:
-    return SimpleNamespace(
-        auto_suspend_variant_spellings=enabled,
-        merge_kana_variant_spellings=kana_variants,
+) -> tuple[SimpleNamespace, SimpleNamespace]:
+    # Global config with tags
+    am_config = SimpleNamespace(
         tag_ready="ps-ready",
         tag_not_ready="ps-not-ready",
         tag_suspended_automatically="ps-auto-suspend",
     )
+    # Per-language config with variant settings
+    lang_config = SimpleNamespace(
+        auto_suspend_variant_spellings=enabled,
+        merge_kana_variant_spellings=kana_variants,
+    )
+    return am_config, lang_config
 
 
 def _plan(
@@ -62,7 +67,7 @@ def _plan(
 
 
 def test_non_new_superset_suspends_new_variant() -> None:
-    config = _config()
+    am_config, lang_config = _config()
     review_plan = _plan(
         text="思い出す",
         reading="おもいだす",
@@ -78,7 +83,7 @@ def test_non_new_superset_suspends_new_variant() -> None:
     )
 
     plans = {review_plan.card_id: review_plan, new_plan.card_id: new_plan}
-    _apply_kanji_subset_auto_suspend(config, plans)
+    _apply_kanji_subset_auto_suspend(am_config, lang_config, plans)
 
     assert new_plan.desired_queue == QUEUE_TYPE_SUSPENDED
     assert new_plan.desired_due == DEFAULT_REVIEW_DUE
@@ -87,7 +92,7 @@ def test_non_new_superset_suspends_new_variant() -> None:
 
 
 def test_non_new_subset_does_not_suspend_new_variant() -> None:
-    config = _config()
+    am_config, lang_config = _config()
     review_plan = _plan(
         text="思いだす",
         reading="おもいだす",
@@ -103,14 +108,14 @@ def test_non_new_subset_does_not_suspend_new_variant() -> None:
     )
 
     plans = {review_plan.card_id: review_plan, new_plan.card_id: new_plan}
-    _apply_kanji_subset_auto_suspend(config, plans)
+    _apply_kanji_subset_auto_suspend(am_config, lang_config, plans)
 
     assert new_plan.desired_queue == QUEUE_TYPE_NEW
     assert new_plan.desired_due == 10
 
 
 def test_long_vowel_reading_variants_share_group() -> None:
-    config = _config()
+    am_config, lang_config = _config()
     review_plan = _plan(
         text="焼き餃子",
         reading="ぎょーざ",
@@ -126,14 +131,14 @@ def test_long_vowel_reading_variants_share_group() -> None:
     )
 
     plans = {review_plan.card_id: review_plan, new_plan.card_id: new_plan}
-    _apply_kanji_subset_auto_suspend(config, plans)
+    _apply_kanji_subset_auto_suspend(am_config, lang_config, plans)
 
     assert new_plan.desired_queue == QUEUE_TYPE_SUSPENDED
     assert new_plan.desired_due == DEFAULT_REVIEW_DUE
 
 
 def test_pure_kanji_subset_does_not_suspend() -> None:
-    config = _config()
+    am_config, lang_config = _config()
     review_plan = _plan(
         text="焼餃子",
         reading="ぎょーざ",
@@ -149,14 +154,14 @@ def test_pure_kanji_subset_does_not_suspend() -> None:
     )
 
     plans = {review_plan.card_id: review_plan, new_plan.card_id: new_plan}
-    _apply_kanji_subset_auto_suspend(config, plans)
+    _apply_kanji_subset_auto_suspend(am_config, lang_config, plans)
 
     assert new_plan.desired_queue == QUEUE_TYPE_NEW
     assert new_plan.desired_due == 10
 
 
 def test_due_order_prefers_kanji_superset_variant() -> None:
-    config = _config()
+    am_config, lang_config = _config()
     early_plan = _plan(
         text="思い出す",
         reading="おもいだす",
@@ -171,7 +176,7 @@ def test_due_order_prefers_kanji_superset_variant() -> None:
     )
 
     plans = {early_plan.card_id: early_plan, late_plan.card_id: late_plan}
-    _apply_kanji_subset_auto_suspend(config, plans)
+    _apply_kanji_subset_auto_suspend(am_config, lang_config, plans)
 
     assert early_plan.desired_queue == QUEUE_TYPE_NEW
     assert late_plan.desired_queue == QUEUE_TYPE_SUSPENDED
@@ -180,7 +185,7 @@ def test_due_order_prefers_kanji_superset_variant() -> None:
 
 
 def test_due_rule_ignored_when_setting_disabled() -> None:
-    config = _config(enabled=False)
+    am_config, lang_config = _config(enabled=False)
     early_plan = _plan(
         text="思い出す",
         reading="おもいだす",
@@ -195,14 +200,14 @@ def test_due_rule_ignored_when_setting_disabled() -> None:
     )
 
     plans = {early_plan.card_id: early_plan, late_plan.card_id: late_plan}
-    _apply_kanji_subset_auto_suspend(config, plans)
+    _apply_kanji_subset_auto_suspend(am_config, lang_config, plans)
 
     assert late_plan.desired_queue == QUEUE_TYPE_NEW
     assert late_plan.desired_due == 10
 
 
 def test_due_rule_skips_superset_that_is_already_suspended() -> None:
-    config = _config()
+    am_config, lang_config = _config()
     early_plan = _plan(
         text="思い出す",
         reading="おもいだす",
@@ -219,13 +224,13 @@ def test_due_rule_skips_superset_that_is_already_suspended() -> None:
     )
 
     plans = {early_plan.card_id: early_plan, late_plan.card_id: late_plan}
-    _apply_kanji_subset_auto_suspend(config, plans)
+    _apply_kanji_subset_auto_suspend(am_config, lang_config, plans)
 
     assert late_plan.desired_queue == QUEUE_TYPE_NEW
 
 
 def test_okurigana_variant_requires_setting() -> None:
-    config = _config(enabled=False)
+    am_config, lang_config = _config(enabled=False)
     review_plan = _plan(
         text="入口",
         reading="いりぐち",
@@ -241,7 +246,7 @@ def test_okurigana_variant_requires_setting() -> None:
     )
 
     plans = {review_plan.card_id: review_plan, new_plan.card_id: new_plan}
-    _apply_kanji_subset_auto_suspend(config, plans)
+    _apply_kanji_subset_auto_suspend(am_config, lang_config, plans)
 
     assert new_plan.desired_queue == QUEUE_TYPE_NEW
     assert new_plan.desired_due == 10
@@ -250,7 +255,7 @@ def test_okurigana_variant_requires_setting() -> None:
 
 
 def test_okurigana_variant_suspends_when_enabled() -> None:
-    config = _config()
+    am_config, lang_config = _config()
     review_plan = _plan(
         text="入口",
         reading="いりぐち",
@@ -266,7 +271,7 @@ def test_okurigana_variant_suspends_when_enabled() -> None:
     )
 
     plans = {review_plan.card_id: review_plan, new_plan.card_id: new_plan}
-    _apply_kanji_subset_auto_suspend(config, plans)
+    _apply_kanji_subset_auto_suspend(am_config, lang_config, plans)
 
     assert new_plan.desired_queue == QUEUE_TYPE_SUSPENDED
     assert new_plan.desired_due == DEFAULT_REVIEW_DUE
@@ -274,7 +279,7 @@ def test_okurigana_variant_suspends_when_enabled() -> None:
 
 
 def test_okurigana_variant_due_rule() -> None:
-    config = _config()
+    am_config, lang_config = _config()
     early_plan = _plan(
         text="入口",
         reading="いりぐち",
@@ -289,14 +294,14 @@ def test_okurigana_variant_due_rule() -> None:
     )
 
     plans = {early_plan.card_id: early_plan, late_plan.card_id: late_plan}
-    _apply_kanji_subset_auto_suspend(config, plans)
+    _apply_kanji_subset_auto_suspend(am_config, lang_config, plans)
 
     assert early_plan.desired_queue == QUEUE_TYPE_NEW
     assert late_plan.desired_queue == QUEUE_TYPE_SUSPENDED
 
 
 def test_okurigana_variant_ignored_for_pure_kana() -> None:
-    config = _config()
+    am_config, lang_config = _config()
     review_plan = _plan(
         text="おもいだす",
         reading="おもいだす",
@@ -312,13 +317,13 @@ def test_okurigana_variant_ignored_for_pure_kana() -> None:
     )
 
     plans = {review_plan.card_id: review_plan, new_plan.card_id: new_plan}
-    _apply_kanji_subset_auto_suspend(config, plans)
+    _apply_kanji_subset_auto_suspend(am_config, lang_config, plans)
 
     assert new_plan.desired_queue == QUEUE_TYPE_NEW
 
 
 def test_kana_variant_non_new_suspends_new() -> None:
-    config = _config(kana_variants=True)
+    am_config, lang_config = _config(kana_variants=True)
     review_plan = _plan(
         text="ゲーム",
         reading="げーむ",
@@ -334,14 +339,14 @@ def test_kana_variant_non_new_suspends_new() -> None:
     )
 
     plans = {review_plan.card_id: review_plan, new_plan.card_id: new_plan}
-    _apply_kanji_subset_auto_suspend(config, plans)
+    _apply_kanji_subset_auto_suspend(am_config, lang_config, plans)
 
     assert new_plan.desired_queue == QUEUE_TYPE_SUSPENDED
     assert new_plan.desired_due == DEFAULT_REVIEW_DUE
 
 
 def test_kana_variant_non_new_requires_setting() -> None:
-    config = _config(kana_variants=False)
+    am_config, lang_config = _config(kana_variants=False)
     review_plan = _plan(
         text="ゲーム",
         reading="げーむ",
@@ -357,14 +362,14 @@ def test_kana_variant_non_new_requires_setting() -> None:
     )
 
     plans = {review_plan.card_id: review_plan, new_plan.card_id: new_plan}
-    _apply_kanji_subset_auto_suspend(config, plans)
+    _apply_kanji_subset_auto_suspend(am_config, lang_config, plans)
 
     assert new_plan.desired_queue == QUEUE_TYPE_NEW
     assert new_plan.desired_due == 10
 
 
 def test_kana_variant_due_prefers_earlier_new_card() -> None:
-    config = _config(kana_variants=True)
+    am_config, lang_config = _config(kana_variants=True)
     early_plan = _plan(
         text="ゲーム",
         reading="げーむ",
@@ -379,14 +384,14 @@ def test_kana_variant_due_prefers_earlier_new_card() -> None:
     )
 
     plans = {early_plan.card_id: early_plan, late_plan.card_id: late_plan}
-    _apply_kanji_subset_auto_suspend(config, plans)
+    _apply_kanji_subset_auto_suspend(am_config, lang_config, plans)
 
     assert early_plan.desired_queue == QUEUE_TYPE_NEW
     assert late_plan.desired_queue == QUEUE_TYPE_SUSPENDED
 
 
 def test_kana_variant_same_script_not_suspended() -> None:
-    config = _config(kana_variants=True)
+    am_config, lang_config = _config(kana_variants=True)
     early_plan = _plan(
         text="げーむ",
         reading="げーむ",
@@ -401,14 +406,14 @@ def test_kana_variant_same_script_not_suspended() -> None:
     )
 
     plans = {early_plan.card_id: early_plan, late_plan.card_id: late_plan}
-    _apply_kanji_subset_auto_suspend(config, plans)
+    _apply_kanji_subset_auto_suspend(am_config, lang_config, plans)
 
     assert early_plan.desired_queue == QUEUE_TYPE_NEW
     assert late_plan.desired_queue == QUEUE_TYPE_NEW
 
 
 def test_pure_kanji_variants_not_suspended() -> None:
-    config = _config()
+    am_config, lang_config = _config()
     review_plan = _plan(
         text="羽",
         reading="はね",
@@ -424,6 +429,6 @@ def test_pure_kanji_variants_not_suspended() -> None:
     )
 
     plans = {review_plan.card_id: review_plan, new_plan.card_id: new_plan}
-    _apply_kanji_subset_auto_suspend(config, plans)
+    _apply_kanji_subset_auto_suspend(am_config, lang_config, plans)
 
     assert new_plan.desired_queue == QUEUE_TYPE_NEW
