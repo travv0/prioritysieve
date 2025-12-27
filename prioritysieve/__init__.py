@@ -480,6 +480,7 @@ def cache_state_before_sync() -> None:
 
     previous_state_json = extra_settings.get_recalc_collection_state()
     previous_settings_state_json = extra_settings.get_recalc_settings_state()
+    print("PrioritySieve pre-sync previous stored state:", previous_state_json)
 
     # Compute per-language state
     current_per_lang_state: dict[str, str] = {}
