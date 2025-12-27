@@ -243,6 +243,24 @@ def compute_modify_filters_state() -> list[dict[str, int | str]]:
     return _collect_filters_state(filters)
 
 
+def compute_per_language_filters_state() -> dict[str, list[dict[str, int | str]]]:
+    """Compute filter state for each language profile.
+
+    Returns a dict mapping language name to the list of filter states for that language.
+    """
+    am_config = PrioritySieveConfig()
+    per_language_state: dict[str, list[dict[str, int | str]]] = {}
+
+    for lang in am_config.languages:
+        read_filters = [f for f in lang.filters if f.read]
+        modify_filters = [f for f in lang.filters if f.modify]
+        combined = _merge_unique_filters(read_filters + modify_filters)
+        if combined:
+            per_language_state[lang.name] = _collect_filters_state(combined)
+
+    return per_language_state
+
+
 def recalc(*_args: object, **_kwargs: object) -> None:
     assert mw is not None
 
@@ -277,6 +295,58 @@ def recalc(*_args: object, **_kwargs: object) -> None:
             "Configure PrioritySieve in Tools → PrioritySieve Settings before running Recalc.",
         )
         return
+
+    start_time = time.time()
+    operation = CollectionOp(
+        parent=mw,
+        op=lambda col: _background_recalc(col, am_config, all_language_filters),
+    )
+    operation.success(lambda _: _on_success(start_time))
+    operation.failure(_on_failure)
+    global _recalc_in_progress
+    _recalc_in_progress = True
+    operation.run_in_background()
+
+
+def recalc_languages(language_names: set[str]) -> None:
+    """Run recalc only for the specified language profiles."""
+    assert mw is not None
+
+    if not language_names:
+        print("PrioritySieve: recalc_languages called with no languages, skipping")
+        return
+
+    am_config = PrioritySieveConfig()
+
+    # Collect filters only from specified languages
+    all_language_filters: list[
+        tuple[PrioritySieveLanguageConfig, list[PrioritySieveConfigFilter]]
+    ] = []
+    all_combined_filters: list[PrioritySieveConfigFilter] = []
+
+    for lang in am_config.languages:
+        if lang.name not in language_names:
+            continue
+        read_filters = [f for f in lang.filters if f.read]
+        modify_filters = [f for f in lang.filters if f.modify]
+        combined = _merge_unique_filters(read_filters + modify_filters)
+        if combined:
+            all_language_filters.append((lang, combined))
+            all_combined_filters.extend(combined)
+
+    if not all_combined_filters:
+        print(
+            f"PrioritySieve: no filters found for languages {language_names}, skipping recalc"
+        )
+        return
+
+    try:
+        _validate_filters(all_combined_filters)
+    except DefaultSettingsException as error:
+        print(f"PrioritySieve: skipping recalc due to invalid filters: {error}")
+        return
+
+    print(f"PrioritySieve: running recalc for languages: {sorted(language_names)}")
 
     start_time = time.time()
     operation = CollectionOp(

@@ -86,8 +86,8 @@ _CONTEXT_MENU: str = "ps_context_menu"
 
 _startup_sync: bool = True
 _showed_update_warning: bool = False
-_state_before_sync_recalc: str | None = None
-_pending_changes_before_sync: bool = False
+_state_before_sync_recalc: dict[str, str] | None = None
+_pending_changes_before_sync: set[str] = set()
 _followup_sync_pending: bool = False
 _last_sync_was_followup: bool = False
 
@@ -473,7 +473,6 @@ def cache_state_before_sync() -> None:
             return
 
     extra_settings = PrioritySieveExtraSettings()
-    am_config = PrioritySieveConfig()
     global _followup_sync_pending
     is_followup_sync = _followup_sync_pending
     _followup_sync_pending = False
@@ -482,19 +481,30 @@ def cache_state_before_sync() -> None:
     previous_state_json = extra_settings.get_recalc_collection_state()
     previous_settings_state_json = extra_settings.get_recalc_settings_state()
 
-    current_state_json: str | None = None
+    # Compute per-language state
+    current_per_lang_state: dict[str, str] = {}
     try:
-        current_state = recalc_main.compute_modify_filters_state()
-        current_state_json = json.dumps(current_state, sort_keys=True)
+        per_lang_state = recalc_main.compute_per_language_filters_state()
+        for lang_name, state in per_lang_state.items():
+            current_per_lang_state[lang_name] = json.dumps(state, sort_keys=True)
     except Exception as error:  # pylint:disable=broad-except
         print(
             f"PrioritySieve: failed to snapshot collection state before sync ({error})"
         )
-        current_state_json = extra_settings.get_recalc_collection_state()
+        # Fall back to cached state
+        if previous_state_json:
+            try:
+                cached = json.loads(previous_state_json)
+                if isinstance(cached, dict):
+                    current_per_lang_state = cached
+            except json.JSONDecodeError:
+                pass
 
     recalc_main.set_followup_sync_callback(None)
 
-    print("PrioritySieve pre-sync snapshot state:", current_state_json)
+    # Store combined state as JSON dict
+    current_state_json = json.dumps(current_per_lang_state, sort_keys=True)
+    print("PrioritySieve pre-sync per-language state:", current_state_json)
 
     current_settings_state_json: str | None = None
     try:
@@ -508,26 +518,17 @@ def cache_state_before_sync() -> None:
         )
         current_settings_state_json = extra_settings.get_recalc_settings_state()
 
-    if current_state_json is not None:
-        extra_settings.set_recalc_collection_state(current_state_json)
+    extra_settings.set_recalc_collection_state(current_state_json)
     if current_settings_state_json is not None:
         extra_settings.set_recalc_settings_state(current_settings_state_json)
 
-    collection_changed = False
-    settings_changed = False
-    pending_changes = False
+    # Determine which languages have pending changes
+    languages_with_changes: set[str] = set()
 
     if is_followup_sync:
-        pending_changes = False
         print("PrioritySieve: skipping pending-change probe (follow-up sync)")
     else:
-        if current_state_json is None:
-            collection_changed = True
-        elif previous_state_json is None:
-            collection_changed = True
-        else:
-            collection_changed = previous_state_json != current_state_json
-
+        # Check for settings changes (affects all languages)
         settings_changed = False
         if current_settings_state_json is None:
             settings_changed = True
@@ -538,21 +539,41 @@ def cache_state_before_sync() -> None:
                 previous_settings_state_json != current_settings_state_json
             )
 
-        pending_changes = collection_changed or settings_changed
+        if settings_changed:
+            # Settings changed, mark all current languages as changed
+            languages_with_changes.update(current_per_lang_state.keys())
+        else:
+            # Check per-language collection state changes
+            previous_per_lang: dict[str, str] = {}
+            if previous_state_json:
+                try:
+                    cached = json.loads(previous_state_json)
+                    if isinstance(cached, dict):
+                        previous_per_lang = cached
+                except json.JSONDecodeError:
+                    # Old format was a list, treat as all languages changed
+                    languages_with_changes.update(current_per_lang_state.keys())
+
+            if not languages_with_changes:
+                # Compare per-language states
+                all_lang_names = set(current_per_lang_state.keys()) | set(previous_per_lang.keys())
+                for lang_name in all_lang_names:
+                    current = current_per_lang_state.get(lang_name)
+                    previous = previous_per_lang.get(lang_name)
+                    if current != previous:
+                        languages_with_changes.add(lang_name)
 
     global _pending_changes_before_sync
-    _pending_changes_before_sync = pending_changes
+    _pending_changes_before_sync = languages_with_changes
     print(
         "PrioritySieve pre-sync change flags:",
         {
-            "collection_changed": not is_followup_sync and collection_changed,
-            "settings_changed": not is_followup_sync and settings_changed,
-            "pending_changes": pending_changes,
+            "languages_with_pending_changes": sorted(languages_with_changes),
             "followup_sync": is_followup_sync,
         },
     )
 
-    _state_before_sync_recalc = current_state_json
+    _state_before_sync_recalc = current_per_lang_state
 
 
 def recalc_after_sync(success: bool | None = None) -> None:
@@ -570,15 +591,18 @@ def recalc_after_sync(success: bool | None = None) -> None:
     if success is False:
         _state_before_sync_recalc = None
         recalc_main.set_followup_sync_callback(None)
-        _pending_changes_before_sync = False
+        _pending_changes_before_sync = set()
         return
 
     am_config = PrioritySieveConfig()
-    pending_changes = _pending_changes_before_sync
+    pending_language_changes = _pending_changes_before_sync
 
+    # Compute post-sync per-language state
+    post_per_lang_state: dict[str, str] = {}
     try:
-        post_state = recalc_main.compute_modify_filters_state()
-        post_state_json = json.dumps(post_state, sort_keys=True)
+        per_lang_state = recalc_main.compute_per_language_filters_state()
+        for lang_name, state in per_lang_state.items():
+            post_per_lang_state[lang_name] = json.dumps(state, sort_keys=True)
     except Exception as error:  # pylint:disable=broad-except
         if was_followup_sync:
             print(
@@ -586,121 +610,153 @@ def recalc_after_sync(success: bool | None = None) -> None:
                 f"({error})"
             )
             try:
-                _state_before_sync_recalc = extra_settings.get_recalc_collection_state()
+                cached = extra_settings.get_recalc_collection_state()
+                if cached:
+                    parsed = json.loads(cached)
+                    if isinstance(parsed, dict):
+                        _state_before_sync_recalc = parsed
+                    else:
+                        _state_before_sync_recalc = None
+                else:
+                    _state_before_sync_recalc = None
             except Exception:  # pylint:disable=broad-except
                 _state_before_sync_recalc = None
-            _pending_changes_before_sync = False
+            _pending_changes_before_sync = set()
             return
         if am_config.recalc_after_sync:
             print(
-                f"PrioritySieve: running post-sync recalc (state snapshot failed: {error})"
+                f"PrioritySieve: running full post-sync recalc (state snapshot failed: {error})"
             )
             recalc_main.set_followup_sync_callback(_schedule_followup_sync)
             recalc_main.recalc()
             try:
-                _state_before_sync_recalc = (
-                    extra_settings.get_recalc_collection_state()
-                )
+                cached = extra_settings.get_recalc_collection_state()
+                if cached:
+                    parsed = json.loads(cached)
+                    if isinstance(parsed, dict):
+                        _state_before_sync_recalc = parsed
+                    else:
+                        _state_before_sync_recalc = None
+                else:
+                    _state_before_sync_recalc = None
             except Exception:  # pylint:disable=broad-except
                 _state_before_sync_recalc = None
-            _pending_changes_before_sync = False
+            _pending_changes_before_sync = set()
             return
         else:
             _state_before_sync_recalc = None
             recalc_main.set_followup_sync_callback(None)
-            _pending_changes_before_sync = False
+            _pending_changes_before_sync = set()
         return
 
-    baseline_state = _state_before_sync_recalc
-    if baseline_state is None:
-        baseline_state = extra_settings.get_recalc_collection_state()
+    post_state_json = json.dumps(post_per_lang_state, sort_keys=True)
 
-    print("PrioritySieve post-sync baseline state:", baseline_state)
-    print("PrioritySieve post-sync observed state:", post_state_json)
-    print(
-        "PrioritySieve post-sync state change:",
-        {
-            "states_equal": baseline_state == post_state_json,
-            "recalc_after_sync": am_config.recalc_after_sync,
-            "pending_changes": pending_changes,
-        },
-    )
+    # Get baseline state (per-language dict)
+    baseline_per_lang: dict[str, str] = {}
+    if _state_before_sync_recalc is not None:
+        baseline_per_lang = _state_before_sync_recalc
+    else:
+        cached = extra_settings.get_recalc_collection_state()
+        if cached:
+            try:
+                parsed = json.loads(cached)
+                if isinstance(parsed, dict):
+                    baseline_per_lang = parsed
+            except json.JSONDecodeError:
+                pass
+
+    baseline_state_json = json.dumps(baseline_per_lang, sort_keys=True) if baseline_per_lang else None
+
+    print("PrioritySieve post-sync baseline per-lang state:", baseline_state_json)
+    print("PrioritySieve post-sync observed per-lang state:", post_state_json)
 
     if was_followup_sync:
         print("PrioritySieve: skipping post-sync recalc (follow-up sync)")
-        if post_state_json is not None:
-            extra_settings.set_recalc_collection_state(post_state_json)
-        _state_before_sync_recalc = post_state_json
+        extra_settings.set_recalc_collection_state(post_state_json)
+        _state_before_sync_recalc = post_per_lang_state
         recalc_main.set_followup_sync_callback(None)
-        _pending_changes_before_sync = False
+        _pending_changes_before_sync = set()
         return
 
     if not am_config.recalc_after_sync:
-        if post_state_json is not None:
-            extra_settings.set_recalc_collection_state(post_state_json)
-        _state_before_sync_recalc = post_state_json
+        extra_settings.set_recalc_collection_state(post_state_json)
+        _state_before_sync_recalc = post_per_lang_state
         recalc_main.set_followup_sync_callback(None)
-        _pending_changes_before_sync = False
+        _pending_changes_before_sync = set()
         return
 
-    if baseline_state is None and not pending_changes:
+    # Determine which languages have changes (from sync downloads)
+    languages_with_sync_changes: set[str] = set()
+    all_lang_names = set(post_per_lang_state.keys()) | set(baseline_per_lang.keys())
+    for lang_name in all_lang_names:
+        post = post_per_lang_state.get(lang_name)
+        baseline = baseline_per_lang.get(lang_name)
+        if post != baseline:
+            languages_with_sync_changes.add(lang_name)
+
+    # Combine with pending changes from before sync
+    languages_needing_recalc = languages_with_sync_changes | pending_language_changes
+
+    print(
+        "PrioritySieve post-sync state change:",
+        {
+            "languages_with_sync_changes": sorted(languages_with_sync_changes),
+            "languages_with_pending_changes": sorted(pending_language_changes),
+            "languages_needing_recalc": sorted(languages_needing_recalc),
+            "recalc_after_sync": am_config.recalc_after_sync,
+        },
+    )
+
+    if not baseline_per_lang and not pending_language_changes:
         print(
             "PrioritySieve: skipping post-sync recalc (no baseline state available)"
         )
-        if post_state_json is not None:
-            extra_settings.set_recalc_collection_state(post_state_json)
-        _state_before_sync_recalc = post_state_json
+        extra_settings.set_recalc_collection_state(post_state_json)
+        _state_before_sync_recalc = post_per_lang_state
         recalc_main.set_followup_sync_callback(None)
-        _pending_changes_before_sync = False
+        _pending_changes_before_sync = set()
         return
 
-    if baseline_state == post_state_json and not pending_changes:
+    if not languages_needing_recalc:
         print(
-            "PrioritySieve post-sync skip (baseline == post) state:",
-            post_state_json,
+            "PrioritySieve: skipping post-sync recalc (no languages have changes)"
         )
-        print(
-            "PrioritySieve: skipping post-sync recalc (no changes downloaded)"
-        )
-        _state_before_sync_recalc = post_state_json
+        _state_before_sync_recalc = post_per_lang_state
         recalc_main.set_followup_sync_callback(None)
-        _pending_changes_before_sync = False
+        _pending_changes_before_sync = set()
         return
 
-    if baseline_state is None:
-        trigger_reason = "missing_baseline"
-    elif baseline_state == post_state_json:
-        trigger_reason = "pending_changes"
-    else:
-        trigger_reason = "state_changed"
     print(
-        "PrioritySieve post-sync recalc triggered:",
-        {
-            "baseline": baseline_state,
-            "post": post_state_json,
-            "reason": trigger_reason,
-        },
+        "PrioritySieve post-sync recalc triggered for languages:",
+        sorted(languages_needing_recalc),
     )
     recalc_main.set_followup_sync_callback(_schedule_followup_sync)
-    recalc_main.recalc()
+    recalc_main.recalc_languages(languages_needing_recalc)
 
     try:
         updated_state = extra_settings.get_recalc_collection_state()
         if updated_state is None:
-            updated_state = json.dumps(
-                recalc_main.compute_modify_filters_state(), sort_keys=True
-            )
+            per_lang = recalc_main.compute_per_language_filters_state()
+            updated_per_lang = {
+                lang_name: json.dumps(state, sort_keys=True)
+                for lang_name, state in per_lang.items()
+            }
+            updated_state = json.dumps(updated_per_lang, sort_keys=True)
     except Exception as error:  # pylint:disable=broad-except
         print(
             f"PrioritySieve: failed to cache post-sync state ({error})"
         )
         updated_state = post_state_json
 
-    _state_before_sync_recalc = updated_state
-    _pending_changes_before_sync = False
+    try:
+        parsed = json.loads(updated_state) if updated_state else {}
+        _state_before_sync_recalc = parsed if isinstance(parsed, dict) else post_per_lang_state
+    except json.JSONDecodeError:
+        _state_before_sync_recalc = post_per_lang_state
+    _pending_changes_before_sync = set()
     print(
         "PrioritySieve post-sync baseline stored state:",
-        _state_before_sync_recalc,
+        json.dumps(_state_before_sync_recalc, sort_keys=True) if _state_before_sync_recalc else None,
     )
 
 
