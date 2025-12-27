@@ -1519,9 +1519,13 @@ def _on_success(start_time: float | None = None) -> None:
     _recalc_in_progress = False
 
     try:
-        filters_state = compute_modify_filters_state()
+        per_lang_state = compute_per_language_filters_state()
+        per_lang_json = {
+            lang_name: json.dumps(state, sort_keys=True)
+            for lang_name, state in per_lang_state.items()
+        }
         settings = PrioritySieveExtraSettings()
-        settings.set_recalc_collection_state(json.dumps(filters_state, sort_keys=True))
+        settings.set_recalc_collection_state(json.dumps(per_lang_json, sort_keys=True))
         try:
             settings_state = json.dumps(
                 prioritysieve_config.get_config_dict(), sort_keys=True

@@ -13,8 +13,8 @@ def test_on_success_updates_toolbar_and_tooltip(monkeypatch):
 
     monkeypatch.setattr(
         recalc_main,
-        "compute_modify_filters_state",
-        lambda: [{"id": "dummy", "card_count": 0}],
+        "compute_per_language_filters_state",
+        lambda: {"Japanese": [{"id": "dummy", "card_count": 0}]},
     )
 
     class _FakeSettings:

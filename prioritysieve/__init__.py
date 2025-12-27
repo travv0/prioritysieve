@@ -550,8 +550,11 @@ def cache_state_before_sync() -> None:
                     cached = json.loads(previous_state_json)
                     if isinstance(cached, dict):
                         previous_per_lang = cached
+                    else:
+                        # Old format was a list, treat as all languages changed
+                        languages_with_changes.update(current_per_lang_state.keys())
                 except json.JSONDecodeError:
-                    # Old format was a list, treat as all languages changed
+                    # Malformed JSON, treat as all languages changed
                     languages_with_changes.update(current_per_lang_state.keys())
 
             if not languages_with_changes:
