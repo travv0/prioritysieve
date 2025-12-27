@@ -13,9 +13,9 @@ def test_entry_db_replace_and_fetch(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr("prioritysieve.entry_db.mw", mw_stub, raising=False)
 
     entries = [
-        {"text": "alpha", "reading": "reading1", "reviewed": 1, "listed": 1},
-        {"text": "alpha", "reading": "reading2", "reviewed": 0, "listed": 1},
-        {"text": "beta", "reading": "", "reviewed": 0, "listed": 1},
+        {"text": "alpha", "reading": "reading1", "language_name": "Test", "reviewed": 1, "listed": 1},
+        {"text": "alpha", "reading": "reading2", "language_name": "Test", "reviewed": 0, "listed": 1},
+        {"text": "beta", "reading": "", "language_name": "Test", "reviewed": 0, "listed": 1},
     ]
     cards = [
         {
@@ -44,9 +44,9 @@ def test_entry_db_replace_and_fetch(tmp_path, monkeypatch) -> None:
         },
     ]
     card_entry_links = [
-        {"card_id": 1, "entry_text": "alpha", "entry_reading": "reading1"},
-        {"card_id": 2, "entry_text": "alpha", "entry_reading": "reading2"},
-        {"card_id": 3, "entry_text": "beta", "entry_reading": ""},
+        {"card_id": 1, "entry_text": "alpha", "entry_reading": "reading1", "entry_language": "Test"},
+        {"card_id": 2, "entry_text": "alpha", "entry_reading": "reading2", "entry_language": "Test"},
+        {"card_id": 3, "entry_text": "beta", "entry_reading": "", "entry_language": "Test"},
     ]
 
     with EntryDB(db_path=db_path) as db:
@@ -73,7 +73,7 @@ def test_entry_db_replace_and_fetch(tmp_path, monkeypatch) -> None:
 
         assert db.get_entry_for_card(2).reading == "reading2"
 
-        entry = Entry(text="alpha", reading="reading2", reviewed=False)
+        entry = Entry(text="alpha", reading="reading2", language_name="Test", reviewed=False)
         ids_with_text = db.get_card_ids_for_entry(entry, include_reviewed=True, text_only=True)
         assert set(ids_with_text) == {1, 2}
 

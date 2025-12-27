@@ -55,13 +55,13 @@ def counts_as_unsuspended(queue: int, tags_text: str | None, exception_tags: Col
 
 
 def entry_keys_with_active_cards(
-    entry_card_map: Mapping[tuple[str, str], Iterable[int]],
+    entry_card_map: Mapping[tuple[str, str, str], Iterable[int]],
     card_status_lookup: Mapping[int, tuple[int, str | None]],
     exception_tags: Collection[str],
-) -> set[tuple[str, str]]:
+) -> set[tuple[str, str, str]]:
     """Return entry keys that have at least one card treated as unsuspended."""
 
-    active_keys: set[tuple[str, str]] = set()
+    active_keys: set[tuple[str, str, str]] = set()
     for entry_key, card_ids in entry_card_map.items():
         for card_id in card_ids:
             status = card_status_lookup.get(card_id)
@@ -75,11 +75,11 @@ def entry_keys_with_active_cards(
 
 
 def find_suspended_only_entry_card_ids(
-    entry_card_map: Mapping[tuple[str, str], Iterable[int]],
+    entry_card_map: Mapping[tuple[str, str, str], Iterable[int]],
     card_status_lookup: Mapping[int, tuple[int, str | None]],
     exception_tags: Collection[str],
     auto_suspend_tag: str | None,
-) -> dict[tuple[str, str], list[int]]:
+) -> dict[tuple[str, str, str], list[int]]:
     """Return card ids grouped by entry when every card is suspended without exception tags."""
 
     sanitized_exception_lowers = {
@@ -90,7 +90,7 @@ def find_suspended_only_entry_card_ids(
     normalized_auto_tag = auto_suspend_tag.strip() if isinstance(auto_suspend_tag, str) else ""
     normalized_auto_tag_lower = normalized_auto_tag.lower() if normalized_auto_tag else ""
 
-    suspended_cards_by_entry: dict[tuple[str, str], list[int]] = {}
+    suspended_cards_by_entry: dict[tuple[str, str, str], list[int]] = {}
 
     for entry_key, card_ids in entry_card_map.items():
         suspended_ids: list[int] = []
@@ -153,7 +153,7 @@ def _pure_kana_variant_info(text: str) -> tuple[str, frozenset[str]] | None:
 
 
 def _active_entries_by_reading(
-    entry_card_map: Mapping[tuple[str, str], Iterable[int]],
+    entry_card_map: Mapping[tuple[str, str, str], Iterable[int]],
     card_status_lookup: Mapping[int, tuple[int, str | None, int]],
     exception_tags: Collection[str],
 ) -> dict[str, list[tuple[str, str, tuple[str, frozenset[str]] | None]]]:
@@ -162,7 +162,7 @@ def _active_entries_by_reading(
     Only cards treated as unsuspended are included (new or review).
     """
     active: dict[str, list[tuple[str, str, tuple[str, frozenset[str]] | None]]] = defaultdict(list)
-    for (text, reading), card_ids in entry_card_map.items():
+    for (text, reading, _language), card_ids in entry_card_map.items():
         reading_key = (reading or "").strip()
         if not reading_key:
             continue
@@ -180,14 +180,14 @@ def _active_entries_by_reading(
 
 
 def _would_be_variant_suspended(
-    entry_key: tuple[str, str],
+    entry_key: tuple[str, str, str],
     card_ids: Iterable[int],
     card_status_lookup: Mapping[int, tuple[int, str | None, int]],
     active_by_reading: Mapping[str, list[tuple[str, str, tuple[str, frozenset[str]] | None]]],
     merge_kana_variants: bool,
     am_config,
 ) -> bool:
-    text, reading = entry_key
+    text, reading, _language = entry_key
     reading_key = (reading or "").strip()
     if not reading_key:
         return False
@@ -238,14 +238,14 @@ def _would_be_variant_suspended(
 
 
 def filter_variant_shadowed_entries(
-    suspended_cards_by_entry: Mapping[tuple[str, str], list[int]],
-    entry_card_map: Mapping[tuple[str, str], Iterable[int]],
+    suspended_cards_by_entry: Mapping[tuple[str, str, str], list[int]],
+    entry_card_map: Mapping[tuple[str, str, str], Iterable[int]],
     card_status_lookup: Mapping[int, tuple[int, str | None, int]],
     exception_tags: Collection[str],
     merge_kana_variants: bool,
     auto_suspend_variants: bool,
     am_config,
-) -> dict[tuple[str, str], list[int]]:
+) -> dict[tuple[str, str, str], list[int]]:
     """
     Drop entries whose suspended cards would be auto-suspended as variant spellings.
     """
@@ -256,7 +256,7 @@ def filter_variant_shadowed_entries(
         entry_card_map, card_status_lookup, exception_tags
     )
 
-    filtered: dict[tuple[str, str], list[int]] = {}
+    filtered: dict[tuple[str, str, str], list[int]] = {}
     for entry_key, card_ids in suspended_cards_by_entry.items():
         if not _would_be_variant_suspended(
             entry_key,

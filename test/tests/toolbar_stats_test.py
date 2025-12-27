@@ -264,10 +264,10 @@ def test_deduplicate_counts_merges_spelling_variants_for_omoi_dasu() -> None:
         ),
     ]
     card_entries = {
-        1: Entry(text="思い出す", reading="おもいだす", reviewed=False),
-        2: Entry(text="思いだす", reading="おもいだす", reviewed=False),
-        3: Entry(text="おもい出す", reading="おもいだす", reviewed=False),
-        4: Entry(text="おもいだす", reading="おもいだす", reviewed=False),
+        1: Entry(text="思い出す", reading="おもいだす", language_name="Japanese", reviewed=False),
+        2: Entry(text="思いだす", reading="おもいだす", language_name="Japanese", reviewed=False),
+        3: Entry(text="おもい出す", reading="おもいだす", language_name="Japanese", reviewed=False),
+        4: Entry(text="おもいだす", reading="おもいだす", language_name="Japanese", reviewed=False),
     }
 
     tracked, reviewed = _compute_note_counts(
@@ -302,8 +302,8 @@ def test_deduplicate_counts_keeps_public_vs_regret_separate() -> None:
         ),
     ]
     card_entries = {
-        1: Entry(text="公開", reading="こうかい", reviewed=False),
-        2: Entry(text="後悔", reading="こうかい", reviewed=False),
+        1: Entry(text="公開", reading="こうかい", language_name="Japanese", reviewed=False),
+        2: Entry(text="後悔", reading="こうかい", language_name="Japanese", reviewed=False),
     }
 
     tracked, reviewed = _compute_note_counts(
@@ -346,9 +346,9 @@ def test_deduplicate_counts_keeps_homophone_au_variants_separate() -> None:
         ),
     ]
     card_entries = {
-        1: Entry(text="会う", reading="あう", reviewed=False),
-        2: Entry(text="逢う", reading="あう", reviewed=False),
-        3: Entry(text="遭う", reading="あう", reviewed=False),
+        1: Entry(text="会う", reading="あう", language_name="Japanese", reviewed=False),
+        2: Entry(text="逢う", reading="あう", language_name="Japanese", reviewed=False),
+        3: Entry(text="遭う", reading="あう", language_name="Japanese", reviewed=False),
     }
 
     tracked, reviewed = _compute_note_counts(
@@ -383,8 +383,8 @@ def test_deduplicate_counts_merges_unambiguous_wakaru_variants() -> None:
         ),
     ]
     card_entries = {
-        1: Entry(text="分る", reading="わかる", reviewed=False),
-        2: Entry(text="わかる", reading="わかる", reviewed=False),
+        1: Entry(text="分る", reading="わかる", language_name="Japanese", reviewed=False),
+        2: Entry(text="わかる", reading="わかる", language_name="Japanese", reviewed=False),
     }
 
     tracked, reviewed = _compute_note_counts(
@@ -419,8 +419,8 @@ def test_deduplicate_counts_merges_iriguchi_okurigana_variants() -> None:
         ),
     ]
     card_entries = {
-        1: Entry(text="入口", reading="いりぐち", reviewed=False),
-        2: Entry(text="入り口", reading="いりぐち", reviewed=False),
+        1: Entry(text="入口", reading="いりぐち", language_name="Japanese", reviewed=False),
+        2: Entry(text="入り口", reading="いりぐち", language_name="Japanese", reviewed=False),
     }
 
     tracked, reviewed = _compute_note_counts(
@@ -463,9 +463,9 @@ def test_deduplicate_counts_keeps_ambiguous_all_kana_separate() -> None:
         ),
     ]
     card_entries = {
-        1: Entry(text="公開", reading="こうかい", reviewed=False),
-        2: Entry(text="後悔", reading="こうかい", reviewed=False),
-        3: Entry(text="こうかい", reading="こうかい", reviewed=False),
+        1: Entry(text="公開", reading="こうかい", language_name="Japanese", reviewed=False),
+        2: Entry(text="後悔", reading="こうかい", language_name="Japanese", reviewed=False),
+        3: Entry(text="こうかい", reading="こうかい", language_name="Japanese", reviewed=False),
     }
 
     tracked, reviewed = _compute_note_counts(
@@ -500,8 +500,8 @@ def test_deduplicate_counts_merge_hiragana_katakana_variants() -> None:
         ),
     ]
     card_entries = {
-        1: Entry(text="げーむ", reading="げーむ", reviewed=False),
-        2: Entry(text="ゲーム", reading="げーむ", reviewed=False),
+        1: Entry(text="げーむ", reading="げーむ", language_name="Japanese", reviewed=False),
+        2: Entry(text="ゲーム", reading="げーむ", language_name="Japanese", reviewed=False),
     }
 
     tracked, reviewed = _compute_note_counts(
@@ -536,8 +536,8 @@ def test_deduplicate_counts_kana_variants_respect_setting() -> None:
         ),
     ]
     card_entries = {
-        1: Entry(text="げーむ", reading="げーむ", reviewed=False),
-        2: Entry(text="ゲーム", reading="げーむ", reviewed=False),
+        1: Entry(text="げーむ", reading="げーむ", language_name="Japanese", reviewed=False),
+        2: Entry(text="ゲーム", reading="げーむ", language_name="Japanese", reviewed=False),
     }
 
     tracked, reviewed = _compute_note_counts(
@@ -572,8 +572,8 @@ def test_deduplicate_counts_require_both_kana_scripts() -> None:
         ),
     ]
     card_entries = {
-        1: Entry(text="げーむ", reading="げーむ", reviewed=False),
-        2: Entry(text="げえむ", reading="げーむ", reviewed=False),
+        1: Entry(text="げーむ", reading="げーむ", language_name="Japanese", reviewed=False),
+        2: Entry(text="げえむ", reading="げーむ", language_name="Japanese", reviewed=False),
     }
 
     tracked, reviewed = _compute_note_counts(
@@ -642,8 +642,8 @@ def test_okurigana_filter_applies_with_dedup() -> None:
         ),
     ]
     card_entries = {
-        1: Entry(text="入口", reading="いりぐち", reviewed=False),
-        2: Entry(text="入り口", reading="いりぐち", reviewed=True),
+        1: Entry(text="入口", reading="いりぐち", language_name="Japanese", reviewed=False),
+        2: Entry(text="入り口", reading="いりぐち", language_name="Japanese", reviewed=True),
     }
 
     tracked, reviewed = _compute_note_counts(
@@ -679,8 +679,8 @@ def test_deduplicate_counts_ignore_pure_kanji_same_sequence() -> None:
         ),
     ]
     card_entries = {
-        1: Entry(text="羽", reading="はね", reviewed=False),
-        2: Entry(text="羽根", reading="はね", reviewed=True),
+        1: Entry(text="羽", reading="はね", language_name="Japanese", reviewed=False),
+        2: Entry(text="羽根", reading="はね", language_name="Japanese", reviewed=True),
     }
 
     tracked, reviewed = _compute_note_counts(

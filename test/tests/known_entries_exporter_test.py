@@ -24,8 +24,8 @@ def test_known_entries_exporter_writes_expected_columns(
     tmp_path: Path, monkeypatch: MonkeyPatch, qtbot: Any
 ) -> None:
     entries = [
-        (Entry(text="犬", reading="いぬ", reviewed=True), 3),
-        (Entry(text="猫", reading="", reviewed=True), 1),
+        (Entry(text="犬", reading="いぬ", language_name="Japanese", reviewed=True), 3),
+        (Entry(text="猫", reading="", language_name="Japanese", reviewed=True), 1),
     ]
 
     fake_db = MagicMock()

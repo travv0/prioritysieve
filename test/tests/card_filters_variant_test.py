@@ -5,10 +5,10 @@ from prioritysieve import card_filters
 
 def test_filter_variant_shadowed_entries_removes_kanji_subset() -> None:
     entry_card_map = {
-        ("入口", "いりぐち"): [1],
-        ("口", "いりぐち"): [2],
+        ("入口", "いりぐち", "Japanese"): [1],
+        ("口", "いりぐち", "Japanese"): [2],
     }
-    suspended_cards_by_entry = {("口", "いりぐち"): [2]}
+    suspended_cards_by_entry = {("口", "いりぐち", "Japanese"): [2]}
     card_status_lookup = {
         1: (0, "", CARD_TYPE_REV),  # active review card
         2: (QUEUE_TYPE_SUSPENDED, "", CARD_TYPE_NEW),  # suspended new card
@@ -29,10 +29,10 @@ def test_filter_variant_shadowed_entries_removes_kanji_subset() -> None:
 
 def test_filter_variant_shadowed_entries_respects_flag() -> None:
     entry_card_map = {
-        ("食べる", "たべる"): [1],
-        ("たべる", "たべる"): [2],
+        ("食べる", "たべる", "Japanese"): [1],
+        ("たべる", "たべる", "Japanese"): [2],
     }
-    suspended_cards_by_entry = {("たべる", "たべる"): [2]}
+    suspended_cards_by_entry = {("たべる", "たべる", "Japanese"): [2]}
     card_status_lookup = {
         1: (0, "", CARD_TYPE_REV),
         2: (QUEUE_TYPE_SUSPENDED, "", CARD_TYPE_NEW),
@@ -53,10 +53,10 @@ def test_filter_variant_shadowed_entries_respects_flag() -> None:
 
 def test_filter_variant_shadowed_entries_merges_kana_scripts() -> None:
     entry_card_map = {
-        ("カタカナ", "かたかな"): [1],
-        ("かたかな", "かたかな"): [2],
+        ("カタカナ", "かたかな", "Japanese"): [1],
+        ("かたかな", "かたかな", "Japanese"): [2],
     }
-    suspended_cards_by_entry = {("かたかな", "かたかな"): [2]}
+    suspended_cards_by_entry = {("かたかな", "かたかな", "Japanese"): [2]}
     card_status_lookup = {
         1: (0, "", CARD_TYPE_REV),
         2: (QUEUE_TYPE_SUSPENDED, "", CARD_TYPE_NEW),
@@ -77,10 +77,10 @@ def test_filter_variant_shadowed_entries_merges_kana_scripts() -> None:
 
 def test_filter_variant_shadowed_entries_respects_kana_setting_disabled() -> None:
     entry_card_map = {
-        ("カタカナ", "かたかな"): [1],
-        ("かたかな", "かたかな"): [2],
+        ("カタカナ", "かたかな", "Japanese"): [1],
+        ("かたかな", "かたかな", "Japanese"): [2],
     }
-    suspended_cards_by_entry = {("かたかな", "かたかな"): [2]}
+    suspended_cards_by_entry = {("かたかな", "かたかな", "Japanese"): [2]}
     card_status_lookup = {
         1: (0, "", CARD_TYPE_REV),
         2: (QUEUE_TYPE_SUSPENDED, "", CARD_TYPE_NEW),

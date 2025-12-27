@@ -22,8 +22,8 @@ SAMPLE_PRIORITY_MAP = {
     }
 }
 SAMPLE_ENTRIES = [
-    StoredEntry(text="alpha", reading="-", reviewed=True),
-    StoredEntry(text="beta", reading="-", reviewed=False),
+    StoredEntry(text="alpha", reading="-", language_name="Test", reviewed=True),
+    StoredEntry(text="beta", reading="-", language_name="Test", reviewed=False),
 ]
 
 default_fake_environment = FakeEnvironmentParams()

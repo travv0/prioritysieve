@@ -15,10 +15,11 @@ from .entry import Entry
 class StoredEntry:
     text: str
     reading: str
+    language_name: str
     reviewed: bool
 
     def to_entry(self) -> Entry:
-        return Entry(text=self.text, reading=self.reading, reviewed=self.reviewed)
+        return Entry(text=self.text, reading=self.reading, language_name=self.language_name, reviewed=self.reviewed)
 
 
 def _profile_folder() -> Path:
@@ -60,9 +61,10 @@ class EntryDB:
                 CREATE TABLE IF NOT EXISTS Entries (
                     text TEXT NOT NULL,
                     reading TEXT NOT NULL,
+                    language_name TEXT NOT NULL,
                     reviewed INTEGER NOT NULL,
                     listed INTEGER NOT NULL DEFAULT 1,
-                    PRIMARY KEY (text, reading)
+                    PRIMARY KEY (text, reading, language_name)
                 )
                 """
             )
@@ -84,8 +86,9 @@ class EntryDB:
                     card_id INTEGER PRIMARY KEY,
                     entry_text TEXT NOT NULL,
                     entry_reading TEXT NOT NULL,
+                    entry_language TEXT NOT NULL,
                     FOREIGN KEY(card_id) REFERENCES Cards(card_id) ON DELETE CASCADE,
-                    FOREIGN KEY(entry_text, entry_reading) REFERENCES Entries(text, reading)
+                    FOREIGN KEY(entry_text, entry_reading, entry_language) REFERENCES Entries(text, reading, language_name)
                 )
                 """
             )
@@ -106,7 +109,7 @@ class EntryDB:
             self.drop_schema()
             self.create_schema()
             self.con.executemany(
-                "INSERT OR REPLACE INTO Entries (text, reading, reviewed, listed) VALUES (:text, :reading, :reviewed, :listed)",
+                "INSERT OR REPLACE INTO Entries (text, reading, language_name, reviewed, listed) VALUES (:text, :reading, :language_name, :reviewed, :listed)",
                 entries,
             )
             self.con.executemany(
@@ -114,7 +117,7 @@ class EntryDB:
                 cards,
             )
             self.con.executemany(
-                "INSERT OR REPLACE INTO CardEntries (card_id, entry_text, entry_reading) VALUES (:card_id, :entry_text, :entry_reading)",
+                "INSERT OR REPLACE INTO CardEntries (card_id, entry_text, entry_reading, entry_language) VALUES (:card_id, :entry_text, :entry_reading, :entry_language)",
                 card_entry_links,
             )
 
@@ -122,17 +125,17 @@ class EntryDB:
         cursor = self.con.cursor()
         cursor.execute(
             """
-            SELECT ce.card_id, e.text, e.reading, e.reviewed
+            SELECT ce.card_id, e.text, e.reading, e.language_name, e.reviewed
             FROM CardEntries ce
-            JOIN Entries e ON e.text = ce.entry_text AND e.reading = ce.entry_reading
+            JOIN Entries e ON e.text = ce.entry_text AND e.reading = ce.entry_reading AND e.language_name = ce.entry_language
             """
         )
-        return {card_id: Entry(text, reading, bool(reviewed)) for card_id, text, reading, reviewed in cursor.fetchall()}
+        return {card_id: Entry(text, reading, language_name, bool(reviewed)) for card_id, text, reading, language_name, reviewed in cursor.fetchall()}
 
     def get_entries(self) -> list[StoredEntry]:
         cursor = self.con.cursor()
-        cursor.execute("SELECT text, reading, reviewed FROM Entries")
-        return [StoredEntry(text, reading, bool(reviewed)) for text, reading, reviewed in cursor.fetchall()]
+        cursor.execute("SELECT text, reading, language_name, reviewed FROM Entries")
+        return [StoredEntry(text, reading, language_name, bool(reviewed)) for text, reading, language_name, reviewed in cursor.fetchall()]
 
     def get_cards(self) -> list[StoredCard]:
         cursor = self.con.cursor()
@@ -176,18 +179,18 @@ class EntryDB:
         where_clause = "WHERE e.reviewed = 1" if reviewed_only else ""
         cursor.execute(
             f"""
-            SELECT e.text, e.reading, e.reviewed, COUNT(ce.card_id)
+            SELECT e.text, e.reading, e.language_name, e.reviewed, COUNT(ce.card_id)
             FROM Entries e
             LEFT JOIN CardEntries ce
-                ON ce.entry_text = e.text AND ce.entry_reading = e.reading
+                ON ce.entry_text = e.text AND ce.entry_reading = e.reading AND ce.entry_language = e.language_name
             {where_clause}
-            GROUP BY e.text, e.reading, e.reviewed
+            GROUP BY e.text, e.reading, e.language_name, e.reviewed
             ORDER BY e.text COLLATE NOCASE, e.reading COLLATE NOCASE
             """
         )
         results: list[tuple[Entry, int]] = []
-        for text, reading, reviewed, count in cursor.fetchall():
-            entry = Entry(text=text, reading=reading, reviewed=bool(reviewed))
+        for text, reading, language_name, reviewed, count in cursor.fetchall():
+            entry = Entry(text=text, reading=reading, language_name=language_name, reviewed=bool(reviewed))
             results.append((entry, int(count)))
         return results
 
@@ -195,10 +198,10 @@ class EntryDB:
         cursor = self.con.cursor()
         cursor.execute(
             """
-            SELECT e.text, e.reading, e.reviewed
+            SELECT e.text, e.reading, e.language_name, e.reviewed
             FROM CardEntries ce
             JOIN Entries e
-                ON e.text = ce.entry_text AND e.reading = ce.entry_reading
+                ON e.text = ce.entry_text AND e.reading = ce.entry_reading AND e.language_name = ce.entry_language
             WHERE ce.card_id = ?
             """,
             (card_id,),
@@ -206,8 +209,8 @@ class EntryDB:
         row = cursor.fetchone()
         if row is None:
             return None
-        text, reading, reviewed = row
-        return Entry(text=text, reading=reading, reviewed=bool(reviewed))
+        text, reading, language_name, reviewed = row
+        return Entry(text=text, reading=reading, language_name=language_name, reviewed=bool(reviewed))
 
     def get_card_ids_for_entry(
         self,
@@ -222,10 +225,10 @@ class EntryDB:
                 SELECT ce.card_id, e.reviewed
                 FROM CardEntries ce
                 JOIN Entries e
-                    ON e.text = ce.entry_text AND e.reading = ce.entry_reading
-                WHERE e.text = ?
+                    ON e.text = ce.entry_text AND e.reading = ce.entry_reading AND e.language_name = ce.entry_language
+                WHERE e.text = ? AND e.language_name = ?
                 """,
-                (entry.text,),
+                (entry.text, entry.language_name),
             )
         else:
             cursor.execute(
@@ -233,10 +236,10 @@ class EntryDB:
                 SELECT ce.card_id, e.reviewed
                 FROM CardEntries ce
                 JOIN Entries e
-                    ON e.text = ce.entry_text AND e.reading = ce.entry_reading
-                WHERE e.text = ? AND e.reading = ?
+                    ON e.text = ce.entry_text AND e.reading = ce.entry_reading AND e.language_name = ce.entry_language
+                WHERE e.text = ? AND e.reading = ? AND e.language_name = ?
                 """,
-                (entry.text, entry.reading),
+                (entry.text, entry.reading, entry.language_name),
             )
 
         result: list[int] = []
@@ -245,50 +248,52 @@ class EntryDB:
                 result.append(int(card_id))
         return result
 
-    def get_card_ids_grouped_by_entry(self) -> dict[tuple[str, str], list[int]]:
+    def get_card_ids_grouped_by_entry(self) -> dict[tuple[str, str, str], list[int]]:
         cursor = self.con.cursor()
         cursor.execute(
             """
-            SELECT entry_text, entry_reading, card_id
+            SELECT entry_text, entry_reading, entry_language, card_id
             FROM CardEntries
             """
         )
-        groups: dict[tuple[str, str], list[int]] = {}
-        for text, reading, card_id in cursor.fetchall():
-            key = (text, reading)
+        groups: dict[tuple[str, str, str], list[int]] = {}
+        for text, reading, language, card_id in cursor.fetchall():
+            key = (text, reading, language)
             groups.setdefault(key, []).append(int(card_id))
         return groups
 
-    def get_non_new_card_ids_grouped_by_entry(self) -> dict[tuple[str, str], set[int]]:
+    def get_non_new_card_ids_grouped_by_entry(self) -> dict[tuple[str, str, str], set[int]]:
         cursor = self.con.cursor()
         cursor.execute(
             """
-            SELECT ce.entry_text, ce.entry_reading, ce.card_id, IFNULL(c.card_type, ?)
+            SELECT ce.entry_text, ce.entry_reading, ce.entry_language, ce.card_id, IFNULL(c.card_type, ?)
             FROM CardEntries ce
             LEFT JOIN Cards c ON c.card_id = ce.card_id
             """,
             (CARD_TYPE_NEW,),
         )
-        result: dict[tuple[str, str], set[int]] = {}
-        for text, reading, card_id, card_type in cursor.fetchall():
+        result: dict[tuple[str, str, str], set[int]] = {}
+        for text, reading, language, card_id, card_type in cursor.fetchall():
             if int(card_type) == CARD_TYPE_NEW:
                 continue
-            key = (text, reading)
+            key = (text, reading, language)
             result.setdefault(key, set()).add(int(card_id))
         return result
 
-    def get_listed_entries(self) -> set[tuple[str, str]]:
+    def get_listed_entries(self) -> set[tuple[str, str, str]]:
         cursor = self.con.cursor()
         try:
             cursor.execute(
                 """
-                SELECT text, reading FROM Entries WHERE listed = 1
+                SELECT text, reading, language_name FROM Entries WHERE listed = 1
                 """
             )
         except sqlite3.OperationalError:
-            # legacy db without listed column - assume all entries are listed
+            # legacy db without listed or language_name column - assume all entries are listed
             cursor.execute("SELECT text, reading FROM Entries")
-        return {(text, reading) for text, reading in cursor.fetchall()}
+            # Return empty set for legacy databases - they will be rebuilt on next recalc
+            return set()
+        return {(text, reading, language) for text, reading, language in cursor.fetchall()}
 
 
 @dataclass(slots=True)

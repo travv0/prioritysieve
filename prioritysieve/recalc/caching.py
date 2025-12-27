@@ -18,43 +18,53 @@ from .anki_data_utils import create_card_data_dict
 
 def cache_entries(
     am_config: PrioritySieveConfig,
-    filters: Iterable[PrioritySieveConfigFilter],
+    language_filters: list[tuple[str, list[PrioritySieveConfigFilter]]],
     priority_keys: set[tuple[str, str]] | None = None,
 ) -> None:
-    """Collect cards for provided filters and rebuild the entry cache."""
+    """Collect cards for provided filters and rebuild the entry cache.
+
+    Args:
+        am_config: The PrioritySieve configuration.
+        language_filters: List of (language_name, filters) tuples associating filters with their language.
+        priority_keys: Optional pre-loaded priority keys from priority files.
+    """
 
     assert mw is not None
 
-    filters_list = list(filters)
+    # Flatten filters for priority key loading if needed
+    all_filters: list[PrioritySieveConfigFilter] = []
+    for _lang, filters in language_filters:
+        all_filters.extend(filters)
 
     # use provided priority keys or load from files
     if priority_keys is not None:
         all_priority_keys = priority_keys
     else:
         all_priority_files: set[str] = set()
-        for config_filter in filters_list:
+        for config_filter in all_filters:
             all_priority_files.update(config_filter.priority_files)
         all_priority_keys = set(load_priority_map(all_priority_files).keys())
 
     entries: dict[int, Entry] = OrderedDict()
     cards_rows: dict[int, dict[str, object]] = OrderedDict()
-    card_entry_rows: dict[int, tuple[str, str]] = OrderedDict()
+    card_entry_rows: dict[int, tuple[str, str, str]] = OrderedDict()
 
-    for config_filter in filters_list:
-        card_data_dict = create_card_data_dict(am_config, config_filter)
-        for card_id, card_data in card_data_dict.items():
-            entry = _build_entry(am_config, config_filter, card_data)
-            entries[card_id] = entry
+    for language_name, filters in language_filters:
+        for config_filter in filters:
+            card_data_dict = create_card_data_dict(am_config, config_filter)
+            for card_id, card_data in card_data_dict.items():
+                entry = _build_entry(am_config, config_filter, card_data, language_name)
+                entries[card_id] = entry
 
-            cards_rows[card_id] = {
-                "card_id": card_id,
-                "note_id": card_data.note_id,
-                "note_type_id": card_data.note_type_id,
-                "card_type": card_data.type,
-                "tags": getattr(card_data, "tags_text", ""),
-                "card_queue": getattr(card_data, "queue", 0),
-            }
-            card_entry_rows[card_id] = entry.key()
+                cards_rows[card_id] = {
+                    "card_id": card_id,
+                    "note_id": card_data.note_id,
+                    "note_type_id": card_data.note_type_id,
+                    "card_type": card_data.type,
+                    "tags": getattr(card_data, "tags_text", ""),
+                    "card_queue": getattr(card_data, "queue", 0),
+                }
+                card_entry_rows[card_id] = entry.key()
 
     ensure_directories()
     with EntryDB() as db:
@@ -67,6 +77,7 @@ def cache_entries(
                     "card_id": card_id,
                     "entry_text": key[0],
                     "entry_reading": key[1],
+                    "entry_language": key[2],
                 }
                 for card_id, key in card_entry_rows.items()
             ),
@@ -77,16 +88,19 @@ def _collapse_entries(
     entries: Iterable[Entry],
     priority_keys: set[tuple[str, str]],
 ) -> list[dict[str, object]]:
-    by_key: dict[tuple[str, str], dict[str, object]] = {}
+    by_key: dict[tuple[str, str, str], dict[str, object]] = {}
     for entry in entries:
         key = entry.key()
         existing = by_key.get(key)
+        # Priority keys are (text, reading) tuples without language
+        text_reading_key = (entry.text, entry.reading)
         if existing is None:
             by_key[key] = {
                 "text": entry.text,
                 "reading": entry.reading,
+                "language_name": entry.language_name,
                 "reviewed": int(entry.reviewed),
-                "listed": int(key in priority_keys),
+                "listed": int(text_reading_key in priority_keys),
             }
         elif entry.reviewed and not existing["reviewed"]:
             existing["reviewed"] = 1
@@ -97,6 +111,7 @@ def _build_entry(
     am_config: PrioritySieveConfig,
     config_filter: PrioritySieveConfigFilter,
     card_data,
+    language_name: str,
 ) -> Entry:
     text = _normalise_expression(am_config, card_data.expression)
     reading = _extract_reading(am_config, config_filter, card_data)
@@ -107,7 +122,7 @@ def _build_entry(
     )
     reviewed = is_active_review or card_data.manually_known_tag
 
-    return Entry(text=text, reading=reading, reviewed=reviewed)
+    return Entry(text=text, reading=reading, language_name=language_name, reviewed=reviewed)
 
 
 def _normalise_expression(am_config: PrioritySieveConfig, expression: str) -> str:

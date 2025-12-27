@@ -125,7 +125,7 @@ def get_first_entry_card_stats(
     deck_name_cache: dict[int, str] = {}
 
     # first pass: find oldest card for each entry and collect variant info
-    first_cards_by_entry: dict[tuple[str, str], int] = {}
+    first_cards_by_entry: dict[tuple[str, str, str], int] = {}
     # entries with non-new cards (first card is non-new): reading -> [(kanji_seq, kana_info, card_id)]
     # kana_info is (normalized_text, scripts) or None
     entries_with_non_new: dict[str, list[tuple[str, _KanaInfo | None, int]]] = (
@@ -147,7 +147,7 @@ def get_first_entry_card_stats(
     )
 
     for entry_key, card_ids in card_ids_by_entry.items():
-        text, reading = entry_key
+        text, reading, _language = entry_key
         first_card_id = _find_first_entry_card(
             card_ids=card_ids,
             card_info=card_info,
@@ -200,7 +200,7 @@ def get_first_entry_card_stats(
     first_entry_card_ids: set[int] = set()
 
     for entry_key, first_card_id in first_cards_by_entry.items():
-        text, reading = entry_key
+        text, reading, _language = entry_key
         canon_reading = canonicalize_long_vowels(reading)
         kanji_seq = extract_kanji_sequence(text)
         kana_info = _get_kana_info(text) if merge_kana_variants else None

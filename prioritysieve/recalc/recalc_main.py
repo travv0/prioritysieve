@@ -68,7 +68,7 @@ def recalc_in_progress() -> bool:
 class CardPlan:
     card_id: int
     note_id: int
-    entry_key: tuple[str, str]
+    entry_key: tuple[str, str, str]
     is_new_card: bool
     entry_reviewed: bool
     deck_priority: int
@@ -650,7 +650,12 @@ def _background_recalc(
 ) -> OpChanges:
     ensure_directories()
 
-    # Collect all filters for caching
+    # Build language_filters in the format expected by cache_entries: (language_name, filters)
+    cache_language_filters: list[tuple[str, list[PrioritySieveConfigFilter]]] = [
+        (lang_config.name, filters) for lang_config, filters in language_filters
+    ]
+
+    # Collect all filters for priority key loading
     all_filters: list[PrioritySieveConfigFilter] = []
     for _lang, filters in language_filters:
         all_filters.extend(filters)
@@ -661,7 +666,7 @@ def _background_recalc(
         all_priority_files.update(config_filter.priority_files)
     priority_keys = set(load_priority_map(all_priority_files).keys())
 
-    caching.cache_entries(am_config, all_filters, priority_keys)
+    caching.cache_entries(am_config, cache_language_filters, priority_keys)
     undo_token = col.add_custom_undo_entry("PrioritySieve Recalc")
     try:
         # Process each language's filters with that language's settings
@@ -669,7 +674,7 @@ def _background_recalc(
             modify_filters = [f for f in filters if f.modify]
             if modify_filters:
                 _apply_priorities(col, am_config, lang_config, modify_filters)
-        caching.cache_entries(am_config, all_filters, priority_keys)
+        caching.cache_entries(am_config, cache_language_filters, priority_keys)
     except Exception:
         col.merge_undo_entries(undo_token)
         raise
@@ -719,7 +724,7 @@ def _apply_priorities(
     disabled_decks_set = set(lang_config.disabled_decks)
     deck_name_cache: dict[int, str] = {}
     plans: dict[int, CardPlan] = {}
-    duplicates: defaultdict[tuple[str, str], list[CardPlan]] = defaultdict(list)
+    duplicates: defaultdict[tuple[str, str, str], list[CardPlan]] = defaultdict(list)
 
     for config_filter in modify_filters:
         # Get duplicate sort field index for this filter's note type
@@ -759,14 +764,17 @@ def _apply_priorities(
                 entry = Entry(
                     text=card_data.expression,
                     reading="",
+                    language_name=lang_config.name,
                     reviewed=card_data.type != CARD_TYPE_NEW,
                 )
 
             is_new_card = card_data.type == CARD_TYPE_NEW
             entry_reviewed = entry.reviewed
+            # Priority map uses (text, reading) keys (without language)
+            priority_key = (entry.text, entry.reading)
             base_auto_suspend = (
                 lang_config.auto_suspend_unlisted_entries
-                and entry.key() not in priority_map
+                and priority_key not in priority_map
             )
 
             # Check if card is from a disabled deck
@@ -800,7 +808,7 @@ def _apply_priorities(
                 if entry_reviewed or auto_suspend:
                     desired_due = DEFAULT_REVIEW_DUE
                 else:
-                    desired_due = priority_map.get(entry.key(), DEFAULT_REVIEW_DUE)
+                    desired_due = priority_map.get(priority_key, DEFAULT_REVIEW_DUE)
 
                 allowed_new_queues = (QUEUE_TYPE_NEW, QUEUE_TYPE_SUSPENDED)
                 if (
@@ -861,7 +869,7 @@ def _apply_priorities(
 
             plans[card_id] = plan
             card_original_state.setdefault(card_id, (plan.original_due, plan.original_queue))
-            duplicate_key = (entry.text, canonicalize_long_vowels(entry.reading))
+            duplicate_key = (entry.text, canonicalize_long_vowels(entry.reading), entry.language_name)
             duplicates[duplicate_key].append(plan)
 
     _apply_kanji_subset_auto_suspend(am_config, lang_config, plans)
@@ -1146,7 +1154,7 @@ def _force_suspend_plan(plan: CardPlan, am_config: PrioritySieveConfig) -> None:
 
 def _apply_duplicate_rules(
     am_config: PrioritySieveConfig,
-    duplicates: defaultdict[tuple[str, str], list[CardPlan]],
+    duplicates: defaultdict[tuple[str, str, str], list[CardPlan]],
 ) -> None:
     suspended_exception_tags = set(am_config.get_preprocess_ignore_suspended_unless_tag_list())
 

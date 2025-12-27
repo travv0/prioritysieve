@@ -48,7 +48,7 @@ def test_run_browse_entry_text_only(monkeypatch) -> None:
 
         def get_entry_for_card(self, card_id: int) -> Entry:
             assert card_id == 1
-            return Entry(text="alpha", reading="reading2", reviewed=False)
+            return Entry(text="alpha", reading="reading2", language_name="Test", reviewed=False)
 
         def get_card_ids_for_entry(
             self, entry: Entry, include_reviewed: bool, text_only: bool
@@ -114,7 +114,7 @@ def test_run_browse_entry_unknowns_no_matches(monkeypatch) -> None:
             return None
 
         def get_entry_for_card(self, card_id: int) -> Entry:
-            return Entry(text="alpha", reading="", reviewed=False)
+            return Entry(text="alpha", reading="", language_name="Test", reviewed=False)
 
         def get_card_ids_for_entry(
             self, entry: Entry, include_reviewed: bool, text_only: bool

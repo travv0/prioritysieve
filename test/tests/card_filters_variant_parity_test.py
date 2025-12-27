@@ -43,70 +43,70 @@ def _filter(
 
 
 def test_non_new_superset_suspends_new_variant() -> None:
-    entry_card_map = {("思い出す", "おもいだす"): [1], ("思いだす", "おもいだす"): [2]}
-    suspended = {("思いだす", "おもいだす"): [2]}
+    entry_card_map = {("思い出す", "おもいだす", "Japanese"): [1], ("思いだす", "おもいだす", "Japanese"): [2]}
+    suspended = {("思いだす", "おもいだす", "Japanese"): [2]}
     filtered = _filter(entry_card_map, suspended)
     assert filtered == {}
 
 
 def test_non_new_subset_keeps_new_variant() -> None:
-    entry_card_map = {("思いだす", "おもいだす"): [1], ("思い出す", "おもいだす"): [2]}
-    suspended = {("思い出す", "おもいだす"): [2]}
+    entry_card_map = {("思いだす", "おもいだす", "Japanese"): [1], ("思い出す", "おもいだす", "Japanese"): [2]}
+    suspended = {("思い出す", "おもいだす", "Japanese"): [2]}
     filtered = _filter(entry_card_map, suspended)
     assert filtered == suspended
 
 
 def test_okurigana_variant_requires_setting() -> None:
-    entry_card_map = {("入口", "いりぐち"): [1], ("入り口", "いりぐち"): [2]}
-    suspended = {("入り口", "いりぐち"): [2]}
+    entry_card_map = {("入口", "いりぐち", "Japanese"): [1], ("入り口", "いりぐち", "Japanese"): [2]}
+    suspended = {("入り口", "いりぐち", "Japanese"): [2]}
     filtered = _filter(entry_card_map, suspended, auto_suspend=False)
     assert filtered == suspended
 
 
 def test_okurigana_variant_suspends_when_enabled() -> None:
-    entry_card_map = {("入口", "いりぐち"): [1], ("入り口", "いりぐち"): [2]}
-    suspended = {("入り口", "いりぐち"): [2]}
+    entry_card_map = {("入口", "いりぐち", "Japanese"): [1], ("入り口", "いりぐち", "Japanese"): [2]}
+    suspended = {("入り口", "いりぐち", "Japanese"): [2]}
     filtered = _filter(entry_card_map, suspended, auto_suspend=True)
     assert filtered == {}
 
 
 def test_kana_variant_requires_setting() -> None:
-    entry_card_map = {("ゲーム", "げーむ"): [1], ("げーむ", "げーむ"): [2]}
-    suspended = {("げーむ", "げーむ"): [2]}
+    entry_card_map = {("ゲーム", "げーむ", "Japanese"): [1], ("げーむ", "げーむ", "Japanese"): [2]}
+    suspended = {("げーむ", "げーむ", "Japanese"): [2]}
     filtered = _filter(entry_card_map, suspended, merge_kana_variants=False)
     assert filtered == suspended
 
 
 def test_kana_variant_suspends_when_enabled() -> None:
-    entry_card_map = {("ゲーム", "げーむ"): [1], ("げーむ", "げーむ"): [2]}
-    suspended = {("げーむ", "げーむ"): [2]}
+    entry_card_map = {("ゲーム", "げーむ", "Japanese"): [1], ("げーむ", "げーむ", "Japanese"): [2]}
+    suspended = {("げーむ", "げーむ", "Japanese"): [2]}
     filtered = _filter(entry_card_map, suspended, merge_kana_variants=True)
     assert filtered == {}
 
 
 def test_kana_vs_kanji_variant_suppressed() -> None:
-    entry_card_map = {("嬉しい", "うれしい"): [1], ("うれしい", "うれしい"): [2]}
-    suspended = {("うれしい", "うれしい"): [2]}
+    entry_card_map = {("嬉しい", "うれしい", "Japanese"): [1], ("うれしい", "うれしい", "Japanese"): [2]}
+    suspended = {("うれしい", "うれしい", "Japanese"): [2]}
     filtered = _filter(entry_card_map, suspended, merge_kana_variants=False, auto_suspend=True)
     assert filtered == {}
 
 
 def test_kanji_not_hidden_by_active_kana() -> None:
-    entry_card_map = {("うれしい", "うれしい"): [1], ("嬉しい", "うれしい"): [2]}
-    suspended = {("嬉しい", "うれしい"): [2]}
+    entry_card_map = {("うれしい", "うれしい", "Japanese"): [1], ("嬉しい", "うれしい", "Japanese"): [2]}
+    suspended = {("嬉しい", "うれしい", "Japanese"): [2]}
     filtered = _filter(entry_card_map, suspended, merge_kana_variants=True, auto_suspend=True)
     assert filtered == suspended
 
 
 def test_kana_same_script_not_suspended() -> None:
-    entry_card_map = {("げーむ", "げーむ"): [1], ("げーむ", "げーむ"): [2]}
-    suspended = {("げーむ", "げーむ"): [2]}
+    entry_card_map = {("げーむ", "げーむ", "Japanese"): [1], ("げーむ", "げーむ", "Japanese"): [2]}
+    suspended = {("げーむ", "げーむ", "Japanese"): [2]}
     filtered = _filter(entry_card_map, suspended, merge_kana_variants=True)
     assert filtered == suspended
 
 
 def test_pure_kanji_variants_not_suspended() -> None:
-    entry_card_map = {("羽", "はね"): [1], ("羽根", "はね"): [2]}
-    suspended = {("羽根", "はね"): [2]}
+    entry_card_map = {("羽", "はね", "Japanese"): [1], ("羽根", "はね", "Japanese"): [2]}
+    suspended = {("羽根", "はね", "Japanese"): [2]}
     filtered = _filter(entry_card_map, suspended, auto_suspend=True)
     assert filtered == suspended

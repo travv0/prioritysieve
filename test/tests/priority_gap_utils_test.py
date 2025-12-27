@@ -10,8 +10,8 @@ Entry = importlib.import_module("prioritysieve.entry").Entry
 
 def test_find_missing_priority_entries_respects_priority_order(monkeypatch: pytest.MonkeyPatch) -> None:
     entries = [
-        Entry(text="known", reading="", reviewed=True),
-        Entry(text="lemmaOnly", reading="テスト", reviewed=False),
+        Entry(text="known", reading="", language_name="Japanese", reviewed=True),
+        Entry(text="lemmaOnly", reading="テスト", language_name="Japanese", reviewed=False),
     ]
 
     priorities: dict[tuple[str, str], int] = {
@@ -68,7 +68,7 @@ def test_find_missing_priority_entries_suppresses_fallback_when_readings_present
 
 
 def test_find_missing_priority_entries_includes_fallback_when_no_readings(monkeypatch: pytest.MonkeyPatch) -> None:
-    entries = [Entry(text="covered", reading="", reviewed=False)]
+    entries = [Entry(text="covered", reading="", language_name="Japanese", reviewed=False)]
     priorities: dict[tuple[str, str], int] = {
         ("covered", ""): 3,
         ("unused", ""): 4,

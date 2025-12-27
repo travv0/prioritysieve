@@ -7,7 +7,8 @@ from dataclasses import dataclass
 class Entry:
     text: str
     reading: str
+    language_name: str
     reviewed: bool
 
-    def key(self) -> tuple[str, str]:
-        return (self.text, self.reading)
+    def key(self) -> tuple[str, str, str]:
+        return (self.text, self.reading, self.language_name)

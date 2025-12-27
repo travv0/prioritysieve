@@ -123,9 +123,22 @@ def read_entries_for_files(
 
 
 def build_reviewed_lookup() -> dict[tuple[str, str], bool]:
+    """Build a lookup mapping (text, reading) to whether it's reviewed.
+
+    Since entries are now language-specific, we aggregate across languages:
+    if an entry is reviewed in ANY language, we consider it reviewed.
+    """
     with EntryDB() as entry_db:
         stored = entry_db.get_entries()
-    return {(entry.text, entry.reading): entry.reviewed for entry in stored}
+    # Aggregate reviewed status across languages - if reviewed in any, mark as reviewed
+    lookup: dict[tuple[str, str], bool] = {}
+    for entry in stored:
+        key = (entry.text, entry.reading)
+        if entry.reviewed:
+            lookup[key] = True
+        elif key not in lookup:
+            lookup[key] = False
+    return lookup
 
 
 def compute_file_stats(

@@ -857,7 +857,7 @@ def find_duplicate_non_new_entry_cards() -> None:
         tooltip("Run Recalc before searching for duplicate entries.")
         return
 
-    duplicates: dict[tuple[str, str], list[int]] = {}
+    duplicates: dict[tuple[str, str, str], list[int]] = {}
 
     for entry_key, card_ids in entry_map.items():
         active_ids: list[int] = []
@@ -1231,7 +1231,7 @@ def _are_variant_spellings(left: _VariantCard, right: _VariantCard) -> bool:
 
 
 def _merge_suspended_entry_cards(
-    entry_card_map: dict[tuple[str, str], list[int]],
+    entry_card_map: dict[tuple[str, str, str], list[int]],
     am_config: PrioritySieveConfig,
 ) -> None:
     suspended_cards_by_entry = _load_suspended_entry_cards(am_config)
@@ -1250,115 +1250,117 @@ def _merge_suspended_entry_cards(
 
 def _load_suspended_entry_cards(
     am_config: PrioritySieveConfig,
-) -> dict[tuple[str, str], list[int]]:
+) -> dict[tuple[str, str, str], list[int]]:
     assert mw is not None
     assert mw.col is not None
 
-    cards_by_entry: dict[tuple[str, str], list[int]] = {}
+    cards_by_entry: dict[tuple[str, str, str], list[int]] = {}
     tag_manager = TagManager(mw.col)
     model_manager = mw.col.models
 
-    for config_filter in am_config.filters:
-        note_type_id = model_manager.id_for_name(config_filter.note_type)
-        if note_type_id is None:
-            continue
+    for lang in am_config.languages:
+        language_name = lang.name
+        for config_filter in lang.filters:
+            note_type_id = model_manager.id_for_name(config_filter.note_type)
+            if note_type_id is None:
+                continue
 
-        note_type_dict = model_manager.get(note_type_id)
-        if note_type_dict is None:
-            continue
+            note_type_dict = model_manager.get(note_type_id)
+            if note_type_dict is None:
+                continue
 
-        existing_field_names = model_manager.field_names(note_type_dict)
-        if config_filter.field not in existing_field_names:
-            continue
+            existing_field_names = model_manager.field_names(note_type_dict)
+            if config_filter.field not in existing_field_names:
+                continue
 
-        expression_field_index = existing_field_names.index(config_filter.field)
+            expression_field_index = existing_field_names.index(config_filter.field)
 
-        if (
-            config_filter.furigana_field != ps_globals.NONE_OPTION
-            and config_filter.furigana_field in existing_field_names
-        ):
-            furigana_field_index: int | None = existing_field_names.index(
-                config_filter.furigana_field
-            )
-        else:
-            furigana_field_index = None
+            if (
+                config_filter.furigana_field != ps_globals.NONE_OPTION
+                and config_filter.furigana_field in existing_field_names
+            ):
+                furigana_field_index: int | None = existing_field_names.index(
+                    config_filter.furigana_field
+                )
+            else:
+                furigana_field_index = None
 
-        if (
-            config_filter.reading_field != ps_globals.NONE_OPTION
-            and config_filter.reading_field in existing_field_names
-        ):
-            reading_field_index: int | None = existing_field_names.index(
-                config_filter.reading_field
-            )
-        else:
-            reading_field_index = None
+            if (
+                config_filter.reading_field != ps_globals.NONE_OPTION
+                and config_filter.reading_field in existing_field_names
+            ):
+                reading_field_index: int | None = existing_field_names.index(
+                    config_filter.reading_field
+                )
+            else:
+                reading_field_index = None
 
-        if (
-            config_filter.extra_reading_field
-            and ps_globals.EXTRA_FIELD_READING in existing_field_names
-        ):
-            extra_reading_field_index: int | None = existing_field_names.index(
-                ps_globals.EXTRA_FIELD_READING
-            )
-        else:
-            extra_reading_field_index = None
+            if (
+                config_filter.extra_reading_field
+                and ps_globals.EXTRA_FIELD_READING in existing_field_names
+            ):
+                extra_reading_field_index: int | None = existing_field_names.index(
+                    ps_globals.EXTRA_FIELD_READING
+                )
+            else:
+                extra_reading_field_index = None
 
-        tags_object = config_filter.tags
-        excluded_tags = tags_object["exclude"]
-        included_tags = tags_object["include"]
-        tags_search_string = ""
+            tags_object = config_filter.tags
+            excluded_tags = tags_object["exclude"]
+            included_tags = tags_object["include"]
+            tags_search_string = ""
 
-        if excluded_tags:
-            tags_search_string += "".join(
-                f" AND notes.tags NOT LIKE '% {tag} %'" for tag in excluded_tags
-            )
-        if included_tags:
-            tags_search_string += "".join(
-                f" AND notes.tags LIKE '% {tag} %'" for tag in included_tags
-            )
+            if excluded_tags:
+                tags_search_string += "".join(
+                    f" AND notes.tags NOT LIKE '% {tag} %'" for tag in excluded_tags
+                )
+            if included_tags:
+                tags_search_string += "".join(
+                    f" AND notes.tags LIKE '% {tag} %'" for tag in included_tags
+                )
 
-        suspended_rows = mw.col.db.all(
-            """
-            SELECT
-                cards.id,
-                cards.ivl,
-                cards.type,
-                cards.queue,
-                cards.due,
-                cards.did,
-                COALESCE(cards.odid, 0),
-                notes.id,
-                notes.flds,
-                notes.tags
-            FROM cards
-            INNER JOIN notes ON cards.nid = notes.id
-            WHERE notes.mid = ?
-              AND cards.queue = ?
-            """
-            + tags_search_string,
-            note_type_id,
-            QUEUE_TYPE_SUSPENDED,
-        )
-
-        if not suspended_rows:
-            continue
-
-        for row in suspended_rows:
-            row_data = AnkiDBRowData(row)
-
-            card_data = AnkiCardData(
-                am_config=am_config,
-                tag_manager=tag_manager,
-                note_type_id=note_type_id,
-                expression_field_index=expression_field_index,
-                furigana_field_index=furigana_field_index,
-                reading_field_index=reading_field_index,
-                extra_reading_field_index=extra_reading_field_index,
-                anki_row_data=row_data,
+            suspended_rows = mw.col.db.all(
+                """
+                SELECT
+                    cards.id,
+                    cards.ivl,
+                    cards.type,
+                    cards.queue,
+                    cards.due,
+                    cards.did,
+                    COALESCE(cards.odid, 0),
+                    notes.id,
+                    notes.flds,
+                    notes.tags
+                FROM cards
+                INNER JOIN notes ON cards.nid = notes.id
+                WHERE notes.mid = ?
+                  AND cards.queue = ?
+                """
+                + tags_search_string,
+                note_type_id,
+                QUEUE_TYPE_SUSPENDED,
             )
 
-            entry = _build_entry(am_config, config_filter, card_data)
-            cards_by_entry.setdefault(entry.key(), []).append(row_data.card_id)
+            if not suspended_rows:
+                continue
+
+            for row in suspended_rows:
+                row_data = AnkiDBRowData(row)
+
+                card_data = AnkiCardData(
+                    am_config=am_config,
+                    tag_manager=tag_manager,
+                    note_type_id=note_type_id,
+                    expression_field_index=expression_field_index,
+                    furigana_field_index=furigana_field_index,
+                    reading_field_index=reading_field_index,
+                    extra_reading_field_index=extra_reading_field_index,
+                    anki_row_data=row_data,
+                )
+
+                entry = _build_entry(am_config, config_filter, card_data, language_name)
+                cards_by_entry.setdefault(entry.key(), []).append(row_data.card_id)
 
     return cards_by_entry
 
@@ -1421,9 +1423,10 @@ def show_suspended_only_entry_cards() -> None:
         auto_suspend_tag=auto_suspend_tag,
     )
 
-    def _is_priority_entry(entry_key: tuple[str, str]) -> bool:
-        text, reading = entry_key
+    def _is_priority_entry(entry_key: tuple[str, str, str]) -> bool:
+        text, reading, _language = entry_key
         normalized_reading = normalize_reading(reading)
+        # Priority maps use (text, reading) keys without language
         key_exact = (text, normalized_reading)
         if key_exact in priority_map:
             return True
@@ -1594,7 +1597,7 @@ def show_missing_priority_cards() -> None:
         return
 
     entry_lookup = {
-        (stored.text, stored.reading): stored.to_entry()
+        (stored.text, stored.reading, stored.language_name): stored.to_entry()
         for stored in stored_entries
     }
     all_card_ids: set[int] = set()
@@ -1785,7 +1788,7 @@ def find_entries_missing_priority_lists() -> None:
     )
     card_status_map = {card_id: (queue, card_type) for card_id, queue, card_type in card_rows}
 
-    missing_entries: dict[tuple[str, str], list[int]] = {}
+    missing_entries: dict[tuple[str, str, str], list[int]] = {}
 
     priority_keys = {
         (text, normalize_reading(reading))
@@ -1806,8 +1809,9 @@ def find_entries_missing_priority_lists() -> None:
         if not active_cards:
             continue
 
-        text, reading = entry_key
+        text, reading, _language = entry_key
         normalized_reading = normalize_reading(reading)
+        # Priority keys use (text, reading) without language
         key_exact = (text, normalized_reading)
         has_priority = key_exact in priority_keys
 
