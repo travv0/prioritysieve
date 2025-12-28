@@ -104,10 +104,37 @@ class EntryDB:
         entries: Iterable[dict[str, object]],
         cards: Iterable[dict[str, object]],
         card_entry_links: Iterable[dict[str, object]],
+        languages_to_replace: Iterable[str] | None = None,
     ) -> None:
         with self.con:
-            self.drop_schema()
-            self.create_schema()
+            if languages_to_replace is None:
+                # Full replacement: drop and recreate all tables
+                self.drop_schema()
+                self.create_schema()
+            else:
+                # Partial replacement: only clear data for specified languages
+                self.create_schema()  # ensure schema exists
+                languages = list(languages_to_replace)
+                if languages:
+                    placeholders = ",".join("?" for _ in languages)
+                    # Delete card entries for the specified languages
+                    self.con.execute(
+                        f"DELETE FROM CardEntries WHERE entry_language IN ({placeholders})",
+                        languages,
+                    )
+                    # Delete entries for the specified languages
+                    self.con.execute(
+                        f"DELETE FROM Entries WHERE language_name IN ({placeholders})",
+                        languages,
+                    )
+                    # Get card IDs that no longer have entries and delete them
+                    self.con.execute(
+                        """
+                        DELETE FROM Cards WHERE card_id NOT IN (
+                            SELECT card_id FROM CardEntries
+                        )
+                        """
+                    )
             self.con.executemany(
                 "INSERT OR REPLACE INTO Entries (text, reading, language_name, reviewed, listed) VALUES (:text, :reading, :language_name, :reviewed, :listed)",
                 entries,

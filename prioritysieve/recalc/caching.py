@@ -67,6 +67,8 @@ def cache_entries(
                 card_entry_rows[card_id] = entry.key()
 
     ensure_directories()
+    # Extract language names to replace only those languages' data
+    languages_to_replace = [lang_name for lang_name, _filters in language_filters]
     with EntryDB() as db:
         entry_rows = _collapse_entries(entries.values(), all_priority_keys)
         db.replace_data(
@@ -81,6 +83,7 @@ def cache_entries(
                 }
                 for card_id, key in card_entry_rows.items()
             ),
+            languages_to_replace=languages_to_replace,
         )
 
 
