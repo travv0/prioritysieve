@@ -69,6 +69,7 @@ def get_first_entry_card_stats(
     bucket_size_days: int,
     num_buckets: int | None,
     additional_filter: str,
+    selected_deck_id: int | None = None,
 ) -> list[tuple[int, int]]:
     """
     Calculate stats for cards that introduced new entries.
@@ -321,6 +322,28 @@ def get_first_entry_card_stats(
 
         if not dominated:
             first_entry_card_ids.add(first_card_id)
+
+    if not first_entry_card_ids:
+        return []
+
+    # Filter by selected deck if specified
+    if selected_deck_id is not None:
+        selected_deck = mw.col.decks.get(selected_deck_id)
+        if selected_deck:
+            selected_deck_name = selected_deck.get("name", "")
+            selected_prefix = selected_deck_name + "::"
+
+            filtered_card_ids: set[int] = set()
+            for card_id in first_entry_card_ids:
+                info = card_info.get(card_id)
+                if info is None:
+                    continue
+                effective_did = info.odid or info.deck_id
+                deck_name = _get_deck_name(effective_did, 0, deck_name_cache)
+                # Include if it's the selected deck or a child deck
+                if deck_name == selected_deck_name or deck_name.startswith(selected_prefix):
+                    filtered_card_ids.add(card_id)
+            first_entry_card_ids = filtered_card_ids
 
     if not first_entry_card_ids:
         return []
@@ -580,7 +603,7 @@ def _round_down_min(min_val: int | float) -> int:
 
 
 _graph_counter = 0
-_stats_graph_cache: dict[int, dict] = {}  # webview id -> cached graph data
+_stats_graph_cache: dict[tuple[int, int | None], dict] = {}  # (webview id, deck_id) -> cached graph data
 
 
 def _plot_first_entry_cards(
@@ -721,15 +744,19 @@ def _inject_new_stats_graph(webview) -> None:
     if getattr(config, "disable_stats_graph", False):
         return
 
-    webview_id = id(webview)
+    # Get the currently selected deck
+    current_deck_id: int | None = mw.col.decks.current().get("id")
 
-    # Check if we have cached data for this webview
-    if webview_id in _stats_graph_cache:
-        _inject_graph_with_data(webview, _stats_graph_cache[webview_id])
+    webview_id = id(webview)
+    cache_key = (webview_id, current_deck_id)
+
+    # Check if we have cached data for this webview and deck
+    if cache_key in _stats_graph_cache:
+        _inject_graph_with_data(webview, _stats_graph_cache[cache_key])
     else:
         # Inject placeholder first, then load data in background
         _inject_loading_placeholder(webview)
-        _load_stats_in_background(webview, webview_id)
+        _load_stats_in_background(webview, cache_key, current_deck_id)
 
 
 def _inject_loading_placeholder(webview) -> None:
@@ -765,7 +792,9 @@ def _inject_loading_placeholder(webview) -> None:
     webview.eval(js_code)
 
 
-def _load_stats_in_background(webview, webview_id: int) -> None:
+def _load_stats_in_background(
+    webview, cache_key: tuple[int, int | None], selected_deck_id: int | None
+) -> None:
     """Load stats data in a background thread."""
     from aqt.operations import QueryOp
 
@@ -778,6 +807,7 @@ def _load_stats_in_background(webview, webview_id: int) -> None:
             bucket_size_days=1,
             num_buckets=31,
             additional_filter="",
+            selected_deck_id=selected_deck_id,
         )
         x_values = [x for x, y in data]
         y_values = [y for x, y in data]
@@ -793,7 +823,7 @@ def _load_stats_in_background(webview, webview_id: int) -> None:
         }
 
     def on_success(graph_data: dict) -> None:
-        _stats_graph_cache[webview_id] = graph_data
+        _stats_graph_cache[cache_key] = graph_data
         # Clean up old cache entries (keep only last 5)
         if len(_stats_graph_cache) > 5:
             oldest_key = next(iter(_stats_graph_cache))
