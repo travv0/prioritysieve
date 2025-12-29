@@ -717,41 +717,28 @@ def _inject_new_stats_graph(webview) -> None:
 
     day_cutoff = mw.col.sched.dayCutoff
 
-    # Generate data for all 4 time ranges:
-    # 0: 1 month (31 days, bucket=1)
-    # 1: 3 months (93 days, bucket=1)
-    # 2: 1 year (365 days, bucket=1)
-    # 3: All time (no limit, bucket=1)
-    ranges = [
-        (31, 1),    # 1 month
-        (93, 1),    # 3 months
-        (365, 1),   # 1 year
-        (None, 1),  # all time
-    ]
+    # Generate data for 1 month only (31 days, bucket=1)
+    data = get_first_entry_card_stats(
+        day_cutoff_seconds=day_cutoff,
+        bucket_size_days=1,
+        num_buckets=31,
+        additional_filter="",
+    )
+    x_values = [x for x, y in data]
+    y_values = [y for x, y in data]
+    cumulative = []
+    total = 0
+    for y in y_values:
+        total += y
+        cumulative.append(total)
+    graph_data = {
+        "x": x_values,
+        "y": y_values,
+        "cum": cumulative,
+    }
 
-    all_data = []
-    for num_buckets, bucket_size in ranges:
-        data = get_first_entry_card_stats(
-            day_cutoff_seconds=day_cutoff,
-            bucket_size_days=bucket_size,
-            num_buckets=num_buckets,
-            additional_filter="",
-        )
-        x_values = [x for x, y in data]
-        y_values = [y for x, y in data]
-        cumulative = []
-        total = 0
-        for y in y_values:
-            total += y
-            cumulative.append(total)
-        all_data.append({
-            "x": x_values,
-            "y": y_values,
-            "cum": cumulative,
-        })
-
-    # Skip if no data for any range
-    if not any(d["x"] for d in all_data):
+    # Skip if no data
+    if not graph_data["x"]:
         return
 
     import json
@@ -763,9 +750,9 @@ def _inject_new_stats_graph(webview) -> None:
                 return true;
             }}
 
-            const allData = {json.dumps(all_data)};
+            const data = {json.dumps(graph_data)};
 
-            if (!allData.some(d => d.x.length > 0)) {{
+            if (!data.x.length) {{
                 return true;
             }}
 
@@ -774,7 +761,6 @@ def _inject_new_stats_graph(webview) -> None:
                 return false;
             }}
 
-            let currentRange = 0;
             const svgNS = 'http://www.w3.org/2000/svg';
             const width = 600;
             const height = 250;
@@ -833,30 +819,8 @@ def _inject_new_stats_graph(webview) -> None:
 
             const subtitle = document.createElement('div');
             subtitle.className = 'subtitle svelte-3fyu6y';
-            subtitle.textContent = 'エントリーごとの最初のカード追加数';
+            subtitle.textContent = 'エントリーごとの最初のカード追加数（過去1か月）';
             graphWrapper.appendChild(subtitle);
-
-            // Range selector
-            const rangeSelector = document.createElement('div');
-            rangeSelector.className = 'svelte-1a4bkik';
-            const labels = ['1か月', '3か月', '1年', '全期間'];
-            labels.forEach((label, idx) => {{
-                const lbl = document.createElement('label');
-                const radio = document.createElement('input');
-                radio.type = 'radio';
-                radio.name = 'prioritysieve-range';
-                radio.value = idx;
-                if (idx === 0) radio.checked = true;
-                radio.addEventListener('change', () => {{
-                    currentRange = idx;
-                    renderGraph();
-                }});
-                lbl.appendChild(radio);
-                lbl.appendChild(document.createTextNode(' ' + label));
-                rangeSelector.appendChild(lbl);
-                rangeSelector.appendChild(document.createTextNode(' '));
-            }});
-            graphWrapper.appendChild(rangeSelector);
 
             // SVG container
             const svgContainer = document.createElement('div');
@@ -872,16 +836,9 @@ def _inject_new_stats_graph(webview) -> None:
             container.appendChild(graphWrapper);
 
             function renderGraph() {{
-                const data = allData[currentRange];
                 const xData = data.x;
                 const yData = data.y;
                 const cumData = data.cum;
-
-                if (!xData.length) {{
-                    svgContainer.innerHTML = '<div style="text-align:center;padding:40px;opacity:0.5;">データなし</div>';
-                    tableWrapper.innerHTML = '';
-                    return;
-                }}
 
                 const totalEntries = cumData[cumData.length - 1] || 0;
                 const avgPerDay = yData.length > 0 ? (totalEntries / yData.length).toFixed(0) : 0;
@@ -999,7 +956,7 @@ def _inject_new_stats_graph(webview) -> None:
                 xDomain.setAttribute('stroke', 'currentColor');
                 xDomain.setAttribute('d', `M${{margin.left}},0H${{width - margin.right}}`);
                 xTicksGroup.appendChild(xDomain);
-                const xTickInterval = xData.length <= 31 ? 5 : (xData.length <= 93 ? 10 : (xData.length <= 365 ? 30 : 100));
+                const xTickInterval = 5;
                 for (let i = 0; i < xData.length; i++) {{
                     if (xData[i] % xTickInterval === 0) {{
                         const x = margin.left + i * totalBarWidth + barWidth / 2;
