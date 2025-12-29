@@ -127,28 +127,28 @@ def get_first_entry_card_stats(
 
     # first pass: find oldest card for each entry and collect variant info
     first_cards_by_entry: dict[tuple[str, str, str], int] = {}
-    # entries with non-new cards (first card is non-new): reading -> [(kanji_seq, kana_info, card_id)]
+    # entries with non-new cards (first card is non-new): (reading, language) -> [(kanji_seq, kana_info, card_id)]
     # kana_info is (normalized_text, scripts) or None
-    entries_with_non_new: dict[str, list[tuple[str, _KanaInfo | None, int]]] = (
+    entries_with_non_new: dict[tuple[str, str], list[tuple[str, _KanaInfo | None, int]]] = (
         defaultdict(list)
     )
-    # entries with new cards (first card is new): reading -> [(kanji_seq, kana_info, card_id, due)]
-    entries_with_new: dict[str, list[tuple[str, _KanaInfo | None, int, int]]] = (
+    # entries with new cards (first card is new): (reading, language) -> [(kanji_seq, kana_info, card_id, due)]
+    entries_with_new: dict[tuple[str, str], list[tuple[str, _KanaInfo | None, int, int]]] = (
         defaultdict(list)
     )
     # entries that have ANY non-new card (for variant detection even if first card is new)
-    # reading -> [(kanji_seq, kana_info, oldest_non_new_card_id)]
-    entries_with_any_non_new: dict[str, list[tuple[str, _KanaInfo | None, int]]] = (
+    # (reading, language) -> [(kanji_seq, kana_info, oldest_non_new_card_id)]
+    entries_with_any_non_new: dict[tuple[str, str], list[tuple[str, _KanaInfo | None, int]]] = (
         defaultdict(list)
     )
     # entries with ANY new card, using minimum due (for variant detection when first card is auto-suspended)
-    # reading -> [(kanji_seq, kana_info, oldest_new_card_id, min_due)]
-    entries_with_any_new: dict[str, list[tuple[str, _KanaInfo | None, int, int]]] = (
+    # (reading, language) -> [(kanji_seq, kana_info, oldest_new_card_id, min_due)]
+    entries_with_any_new: dict[tuple[str, str], list[tuple[str, _KanaInfo | None, int, int]]] = (
         defaultdict(list)
     )
 
     for entry_key, card_ids in card_ids_by_entry.items():
-        text, reading, _language = entry_key
+        text, reading, language = entry_key
         first_card_id = _find_first_entry_card(
             card_ids=card_ids,
             card_info=card_info,
@@ -158,29 +158,33 @@ def get_first_entry_card_stats(
         if first_card_id is not None:
             first_cards_by_entry[entry_key] = first_card_id
 
-            # track entries by canonicalized reading for variant detection
+            # track entries by canonicalized reading and language for variant detection
             info = card_info.get(first_card_id)
             if info is not None:
                 canon_reading = canonicalize_long_vowels(reading)
+                variant_key = (canon_reading, language)
                 kanji_seq = extract_kanji_sequence(text)
                 kana_info = _get_kana_info(text) if merge_kana_variants else None
                 if info.card_type != CARD_TYPE_NEW:
-                    entries_with_non_new[canon_reading].append(
+                    entries_with_non_new[variant_key].append(
                         (kanji_seq, kana_info, first_card_id)
                     )
                 else:
-                    entries_with_new[canon_reading].append(
+                    entries_with_new[variant_key].append(
                         (kanji_seq, kana_info, first_card_id, info.due)
                     )
 
         # also track oldest non-new card for this entry (regardless of first card type)
         # this is needed for variant detection when the first card is new but entry has older non-new cards
-        canon_reading = canonicalize_long_vowels(reading)
-        kanji_seq = extract_kanji_sequence(text)
-        kana_info = _get_kana_info(text) if merge_kana_variants else None
+        if first_card_id is None:
+            # Need to compute these if not already done above
+            canon_reading = canonicalize_long_vowels(reading)
+            variant_key = (canon_reading, language)
+            kanji_seq = extract_kanji_sequence(text)
+            kana_info = _get_kana_info(text) if merge_kana_variants else None
         oldest_non_new_id = _find_oldest_non_new_card(card_ids, card_info)
         if oldest_non_new_id is not None:
-            entries_with_any_non_new[canon_reading].append(
+            entries_with_any_non_new[variant_key].append(
                 (kanji_seq, kana_info, oldest_non_new_id)
             )
 
@@ -188,7 +192,7 @@ def get_first_entry_card_stats(
         new_card_info = _find_new_card_info(card_ids, card_info)
         if new_card_info is not None:
             oldest_new_id, min_due = new_card_info
-            entries_with_any_new[canon_reading].append(
+            entries_with_any_new[variant_key].append(
                 (kanji_seq, kana_info, oldest_new_id, min_due)
             )
 
@@ -201,8 +205,9 @@ def get_first_entry_card_stats(
     first_entry_card_ids: set[int] = set()
 
     for entry_key, first_card_id in first_cards_by_entry.items():
-        text, reading, _language = entry_key
+        text, reading, language = entry_key
         canon_reading = canonicalize_long_vowels(reading)
+        variant_key = (canon_reading, language)
         kanji_seq = extract_kanji_sequence(text)
         kana_info = _get_kana_info(text) if merge_kana_variants else None
         info = card_info.get(first_card_id)
@@ -212,7 +217,7 @@ def get_first_entry_card_stats(
         # get min due for this entry (in case first card is auto-suspended with max due)
         min_due_for_entry = card_due
         for other_seq, other_kana, other_card_id, other_due in entries_with_any_new.get(
-            canon_reading, []
+            variant_key, []
         ):
             if other_seq == kanji_seq and other_kana == kana_info:
                 min_due_for_entry = other_due
@@ -222,7 +227,7 @@ def get_first_entry_card_stats(
 
         # check non-new cards (already reviewed -> would dominate)
         for other_seq, other_kana, other_card_id in entries_with_non_new.get(
-            canon_reading, []
+            variant_key, []
         ):
             if other_card_id >= first_card_id:
                 continue  # not older
@@ -245,7 +250,7 @@ def get_first_entry_card_stats(
         # this catches cases like ぱらぱら where first card is new but there's an older non-new card
         if not dominated:
             for other_seq, other_kana, other_card_id in entries_with_any_non_new.get(
-                canon_reading, []
+                variant_key, []
             ):
                 if other_card_id >= first_card_id:
                     continue  # not older
@@ -267,7 +272,7 @@ def get_first_entry_card_stats(
         # check new cards (due before this card -> would be reviewed first)
         if not dominated and is_new:
             for other_seq, other_kana, other_card_id, other_due in entries_with_new.get(
-                canon_reading, []
+                variant_key, []
             ):
                 if other_card_id >= first_card_id:
                     continue  # not older
@@ -295,7 +300,7 @@ def get_first_entry_card_stats(
         # also check entries that have ANY new card with min due (for auto-suspended first cards)
         if not dominated and is_new:
             for other_seq, other_kana, other_card_id, other_min_due in entries_with_any_new.get(
-                canon_reading, []
+                variant_key, []
             ):
                 if other_card_id >= first_card_id:
                     continue  # not older
