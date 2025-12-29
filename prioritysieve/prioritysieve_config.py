@@ -96,6 +96,7 @@ class RawConfigKeys:
     TAG_NOT_READY = "tag_not_ready"
     TAG_KNOWN_MANUALLY = "tag_known_manually"
     TAG_SUSPENDED_AUTOMATICALLY = "tag_suspended_automatically"
+    DISABLE_STATS_GRAPH = "disable_stats_graph"
 
     # Backward compatibility: per-language keys that can be accessed
     # via PrioritySieveConfig properties (delegate to first language)
@@ -654,6 +655,11 @@ class PrioritySieveConfig:  # pylint:disable=too-many-instance-attributes
             )
             self.hide_tracked_counter: bool = self._get_config_item(
                 key=RawConfigKeys.HIDE_TRACKED_COUNTER,
+                expected_type=bool,
+                use_default=is_default,
+            )
+            self.disable_stats_graph: bool = self._get_config_item(
+                key=RawConfigKeys.DISABLE_STATS_GRAPH,
                 expected_type=bool,
                 use_default=is_default,
             )

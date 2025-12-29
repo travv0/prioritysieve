@@ -126,6 +126,13 @@
              </property>
             </widget>
            </item>
+           <item>
+            <widget class="QCheckBox" name="disableStatsGraphCheckBox">
+             <property name="text">
+              <string>Disable stats graph (improves stats page load time)</string>
+             </property>
+            </widget>
+           </item>
           </layout>
          </widget>
         </item>

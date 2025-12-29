@@ -580,6 +580,7 @@ def _round_down_min(min_val: int | float) -> int:
 
 
 _graph_counter = 0
+_stats_graph_cache: dict[int, dict] = {}  # webview id -> cached graph data
 
 
 def _plot_first_entry_cards(
@@ -715,39 +716,121 @@ def _inject_new_stats_graph(webview) -> None:
     if mw.col is None:
         return
 
+    # Check if stats graph is disabled
+    config = PrioritySieveConfig()
+    if getattr(config, "disable_stats_graph", False):
+        return
+
+    webview_id = id(webview)
+
+    # Check if we have cached data for this webview
+    if webview_id in _stats_graph_cache:
+        _inject_graph_with_data(webview, _stats_graph_cache[webview_id])
+    else:
+        # Inject placeholder first, then load data in background
+        _inject_loading_placeholder(webview)
+        _load_stats_in_background(webview, webview_id)
+
+
+def _inject_loading_placeholder(webview) -> None:
+    """Inject a loading placeholder while data is being computed."""
+    js_code = """
+    (function() {
+        if (document.getElementById('prioritysieve-new-entries-graph')) {
+            return;
+        }
+        let gridContainer = document.querySelector('.graphs-container');
+        if (!gridContainer) {
+            return;
+        }
+        const container = document.createElement('div');
+        container.id = 'prioritysieve-new-entries-graph';
+        container.className = 'container d-flex flex-column svelte-dkvlwr light';
+        container.style.cssText = '--gutter-block: 2px; --container-margin: 0;';
+        const titleWrapper = document.createElement('div');
+        titleWrapper.className = 'position-relative';
+        const titleEl = document.createElement('h1');
+        titleEl.className = 'svelte-dkvlwr';
+        titleEl.textContent = '追加（エントリー）';
+        titleWrapper.appendChild(titleEl);
+        container.appendChild(titleWrapper);
+        const loading = document.createElement('div');
+        loading.id = 'prioritysieve-loading';
+        loading.style.cssText = 'text-align:center;padding:40px;opacity:0.5;';
+        loading.textContent = '読み込み中...';
+        container.appendChild(loading);
+        gridContainer.appendChild(container);
+    })();
+    """
+    webview.eval(js_code)
+
+
+def _load_stats_in_background(webview, webview_id: int) -> None:
+    """Load stats data in a background thread."""
+    from aqt.operations import QueryOp
+
+    assert mw is not None
     day_cutoff = mw.col.sched.dayCutoff
 
-    # Generate data for 1 month only (31 days, bucket=1)
-    data = get_first_entry_card_stats(
-        day_cutoff_seconds=day_cutoff,
-        bucket_size_days=1,
-        num_buckets=31,
-        additional_filter="",
-    )
-    x_values = [x for x, y in data]
-    y_values = [y for x, y in data]
-    cumulative = []
-    total = 0
-    for y in y_values:
-        total += y
-        cumulative.append(total)
-    graph_data = {
-        "x": x_values,
-        "y": y_values,
-        "cum": cumulative,
-    }
+    def compute_data(col) -> dict:  # noqa: ARG001
+        data = get_first_entry_card_stats(
+            day_cutoff_seconds=day_cutoff,
+            bucket_size_days=1,
+            num_buckets=31,
+            additional_filter="",
+        )
+        x_values = [x for x, y in data]
+        y_values = [y for x, y in data]
+        cumulative = []
+        total = 0
+        for y in y_values:
+            total += y
+            cumulative.append(total)
+        return {
+            "x": x_values,
+            "y": y_values,
+            "cum": cumulative,
+        }
+
+    def on_success(graph_data: dict) -> None:
+        _stats_graph_cache[webview_id] = graph_data
+        # Clean up old cache entries (keep only last 5)
+        if len(_stats_graph_cache) > 5:
+            oldest_key = next(iter(_stats_graph_cache))
+            del _stats_graph_cache[oldest_key]
+        _inject_graph_with_data(webview, graph_data)
+
+    QueryOp(parent=mw, op=compute_data, success=on_success).run_in_background()
+
+
+def _inject_graph_with_data(webview, graph_data: dict) -> None:
+    """Inject the actual graph with computed data."""
+    import json
 
     # Skip if no data
     if not graph_data["x"]:
+        # Remove loading placeholder if present
+        webview.eval("""
+            (function() {
+                var container = document.getElementById('prioritysieve-new-entries-graph');
+                if (container) container.remove();
+            })();
+        """)
         return
-
-    import json
 
     js_code = f"""
     (function() {{
         function injectGraph() {{
-            if (document.getElementById('prioritysieve-new-entries-graph')) {{
-                return true;
+            // Remove loading placeholder if present
+            var existing = document.getElementById('prioritysieve-new-entries-graph');
+            if (existing) {{
+                // If it's the loading placeholder, remove it
+                if (existing.querySelector('#prioritysieve-loading')) {{
+                    existing.remove();
+                }} else {{
+                    // Already has the full graph
+                    return true;
+                }}
             }}
 
             const data = {json.dumps(graph_data)};

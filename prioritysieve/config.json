@@ -56,5 +56,6 @@
   "tag_ready": "ps-ready",
   "tag_not_ready": "ps-not-ready",
   "tag_known_manually": "ps-known-manually",
-  "tag_suspended_automatically": "ps-suspended-automatically"
+  "tag_suspended_automatically": "ps-suspended-automatically",
+  "disable_stats_graph": false
 }

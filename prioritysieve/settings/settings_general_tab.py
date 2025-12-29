@@ -39,6 +39,7 @@ class GeneralTab(SettingsTab):
             RawConfigKeys.HIDE_TRACKED_COUNTER: self.ui.hideTrackedCheckBox,
             RawConfigKeys.HIDE_REVIEWED_COUNTER: self.ui.hideReviewedCheckBox,
             RawConfigKeys.DEDUPLICATE_TOOLBAR_COUNTS: self.ui.deduplicateToolbarCountsCheckBox,
+            RawConfigKeys.DISABLE_STATS_GRAPH: self.ui.disableStatsGraphCheckBox,
             RawConfigKeys.AUTO_SUSPEND_VARIANT_SPELLINGS: self.ui.autoSuspendKanjiSubsetCheckBox,
             RawConfigKeys.MERGE_KANA_VARIANT_SPELLINGS: self.ui.mergeKanaVariantsCheckBox,
         }
