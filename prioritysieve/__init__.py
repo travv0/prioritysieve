@@ -378,6 +378,7 @@ def init_tool_menu_and_actions() -> None:
     progression_action = create_progression_dialog_action(am_config)
     reset_tags_action = create_tag_reset_action()
     duplicate_entries_action = create_duplicate_entries_action()
+    honorific_duplicates_action = create_honorific_duplicates_action()
     variant_entries_action = create_variant_entries_action()
     suspended_only_entries_action = create_suspended_only_entries_action()
     missing_priority_cards_action = create_missing_priority_cards_action()
@@ -394,6 +395,7 @@ def init_tool_menu_and_actions() -> None:
     am_tool_menu.addAction(known_entries_exporter_action)
     am_tool_menu.addAction(reset_tags_action)
     am_tool_menu.addAction(duplicate_entries_action)
+    am_tool_menu.addAction(honorific_duplicates_action)
     am_tool_menu.addAction(variant_entries_action)
     am_tool_menu.addAction(suspended_only_entries_action)
     am_tool_menu.addAction(missing_priority_cards_action)
@@ -910,6 +912,145 @@ def find_duplicate_non_new_entry_cards() -> None:
 
     tooltip(
         f"Found {len(duplicates)} duplicate entry group(s); opened Browser with {len(card_ids_to_browse)} card(s)."
+    )
+
+
+# Japanese honorific prefixes that can be stripped
+_HONORIFIC_PREFIXES = ("お", "ご", "御")
+
+
+def _strip_honorific_prefix(text: str, reading: str) -> tuple[str, str] | None:
+    """Strip Japanese honorific prefix from text and reading.
+
+    Returns (base_text, base_reading) if a prefix was stripped, or None if no prefix found.
+    """
+    for prefix in _HONORIFIC_PREFIXES:
+        if text.startswith(prefix) and len(text) > len(prefix):
+            base_text = text[len(prefix):]
+            # Strip matching prefix from reading (お/ご are their own readings, 御 maps to お or ご)
+            base_reading = reading
+            if prefix == "御":
+                # 御 can be read as お or ご
+                if reading.startswith("お") or reading.startswith("ご"):
+                    base_reading = reading[1:]
+            elif reading.startswith(prefix):
+                base_reading = reading[len(prefix):]
+            return (base_text, base_reading)
+    return None
+
+
+def find_honorific_duplicate_entries() -> None:
+    """Show non-new entries that have honorific prefix duplicates (e.g., 水/お水, 両親/ご両親)."""
+    assert mw is not None
+    assert mw.col is not None
+    assert mw.col.db is not None
+
+    am_config = PrioritySieveConfig()
+    suspended_exception_tags = set(
+        am_config.get_preprocess_ignore_suspended_unless_tag_list()
+    )
+
+    # Get Japanese language names from config
+    japanese_languages: set[str] = set()
+    for lang_config in am_config.languages:
+        if lang_config.language_type == prioritysieve_config.LANGUAGE_TYPE_JAPANESE:
+            japanese_languages.add(lang_config.name)
+
+    if not japanese_languages:
+        tooltip("No Japanese language profiles configured.")
+        return
+
+    try:
+        with EntryDB() as entry_db:
+            entry_map = entry_db.get_non_new_card_ids_grouped_by_entry()
+    except sqlite3.OperationalError:
+        tooltip("Run Recalc before searching for honorific duplicates.")
+        return
+
+    # Build a mapping from (base_text, base_reading, language) -> list of entry keys
+    # where base_text/base_reading have honorific prefix stripped (if any)
+    base_to_entries: dict[tuple[str, str, str], list[tuple[str, str, str]]] = {}
+
+    for entry_key in entry_map.keys():
+        text, reading, language = entry_key
+
+        # Only process Japanese languages
+        if language not in japanese_languages:
+            continue
+
+        # Map this entry by its base form (with prefix stripped from both text and reading)
+        stripped = _strip_honorific_prefix(text, reading)
+        if stripped is not None:
+            base_text, base_reading = stripped
+            base_key = (base_text, base_reading, language)
+            base_to_entries.setdefault(base_key, []).append(entry_key)
+
+        # Also map entries by their own text/reading (so we can find the base form)
+        own_key = (text, reading, language)
+        base_to_entries.setdefault(own_key, []).append(entry_key)
+
+    # Find groups where multiple distinct entries share the same base form
+    honorific_groups: dict[tuple[str, str, str], set[tuple[str, str, str]]] = {}
+
+    for base_key, entry_keys in base_to_entries.items():
+        unique_entries = set(entry_keys)
+        if len(unique_entries) >= 2:
+            # We have multiple entries for this base form
+            honorific_groups[base_key] = unique_entries
+
+    if not honorific_groups:
+        tooltip("No honorific duplicate entries found.")
+        return
+
+    # Collect all card IDs from the duplicate groups
+    card_ids_to_browse: set[int] = set()
+
+    for entries in honorific_groups.values():
+        for entry_key in entries:
+            card_ids = entry_map.get(entry_key, set())
+            for card_id in card_ids:
+                row = mw.col.db.first(
+                    """
+                    SELECT cards.queue, cards.type, notes.tags
+                    FROM cards
+                    JOIN notes ON notes.id = cards.nid
+                    WHERE cards.id = ?
+                    """,
+                    card_id,
+                )
+                if row is None:
+                    continue
+                queue, card_type, note_tags = row
+                queue = int(queue)
+                card_type = int(card_type)
+                if card_type == CARD_TYPE_NEW:
+                    continue
+                if not card_filters.counts_as_unsuspended(
+                    queue=queue,
+                    tags_text=note_tags,
+                    exception_tags=suspended_exception_tags,
+                ):
+                    continue
+                card_ids_to_browse.add(card_id)
+
+    if not card_ids_to_browse:
+        tooltip("No honorific duplicate entries found among active non-new cards.")
+        return
+
+    query = "cid:" + ",".join(str(cid) for cid in sorted(card_ids_to_browse))
+
+    browser_instance = aqt.dialogs.open("Browser", mw)
+    assert browser_instance is not None
+
+    browser_utils.browser = browser_instance
+    search_edit = browser_instance.form.searchEdit.lineEdit()
+    assert search_edit is not None
+
+    search_edit.setText(query)
+    browser_instance.onSearchActivated()
+
+    tooltip(
+        f"Found {len(honorific_groups)} honorific duplicate group(s); opened Browser with {len(card_ids_to_browse)} card(s)."
     )
 
 
@@ -1890,6 +2031,12 @@ def create_settings_action(am_config: PrioritySieveConfig) -> QAction:
 def create_duplicate_entries_action() -> QAction:
     action = QAction("&Find Duplicate Entry Cards", mw)
     action.triggered.connect(find_duplicate_non_new_entry_cards)
+    return action
+
+
+def create_honorific_duplicates_action() -> QAction:
+    action = QAction("&Find Honorific Duplicates", mw)
+    action.triggered.connect(find_honorific_duplicate_entries)
     return action
 
 
