@@ -57,6 +57,7 @@ class CardHandlingTab(SettingsTab):
 
         self.populate()
         self.setup_buttons()
+        self._update_unlisted_checkbox_state()
         self.update_previous_state()
 
     def populate(self, use_default_config: bool = False) -> None:
@@ -86,6 +87,10 @@ class CardHandlingTab(SettingsTab):
         self.ui.restoreCardHandlingPushButton.setAutoDefault(False)
         self.ui.restoreCardHandlingPushButton.clicked.connect(self.restore_defaults)
 
+        self.ui.priorityThresholdSpinBox.valueChanged.connect(
+            self._update_unlisted_checkbox_state
+        )
+
         self._priority_deck_move_up_button.clicked.connect(
             self._move_priority_deck_up
         )
@@ -98,6 +103,15 @@ class CardHandlingTab(SettingsTab):
         self._priority_deck_list_widget.currentRowChanged.connect(
             self._on_priority_deck_selection_changed
         )
+
+    def _update_unlisted_checkbox_state(self) -> None:
+        threshold = self.ui.priorityThresholdSpinBox.value()
+        checkbox = self.ui.autoSuspendUnlistedEntriesCheckBox
+        if threshold > 0:
+            checkbox.setEnabled(False)
+            checkbox.setChecked(True)
+        else:
+            checkbox.setEnabled(True)
 
     def settings_to_dict(self) -> dict[str, str | int | float | bool | object]:
         settings = super().settings_to_dict()

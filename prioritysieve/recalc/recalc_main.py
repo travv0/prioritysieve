@@ -773,17 +773,16 @@ def _apply_priorities(
             # Priority map uses (text, reading) keys (without language)
             priority_key = (entry.text, entry.reading)
             priority_rank = priority_map.get(priority_key)
+            threshold = lang_config.auto_suspend_priority_threshold
             base_auto_suspend = (
                 lang_config.auto_suspend_unlisted_entries
                 and priority_rank is None
             )
 
             # Suspend if priority rank exceeds threshold (0 means disabled)
-            threshold = lang_config.auto_suspend_priority_threshold
-            priority_threshold_auto_suspend = (
-                threshold > 0
-                and priority_rank is not None
-                and priority_rank > threshold
+            # Also suspend unlisted entries when threshold is set
+            priority_threshold_auto_suspend = threshold > 0 and (
+                priority_rank is None or priority_rank > threshold
             )
 
             # Check if card is from a disabled deck
