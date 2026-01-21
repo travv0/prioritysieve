@@ -32,6 +32,7 @@
       "preprocess_custom_characters_to_ignore": "",
       "preprocess_ignore_suspended_unless_tags": "kanjicards_new",
       "auto_suspend_unlisted_entries": false,
+      "auto_suspend_priority_threshold": 0,
       "auto_suspend_variant_spellings": false,
       "merge_kana_variant_spellings": false,
       "recalc_offset_priority_decks": [],

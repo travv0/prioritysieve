@@ -772,9 +772,18 @@ def _apply_priorities(
             entry_reviewed = entry.reviewed
             # Priority map uses (text, reading) keys (without language)
             priority_key = (entry.text, entry.reading)
+            priority_rank = priority_map.get(priority_key)
             base_auto_suspend = (
                 lang_config.auto_suspend_unlisted_entries
-                and priority_key not in priority_map
+                and priority_rank is None
+            )
+
+            # Suspend if priority rank exceeds threshold (0 means disabled)
+            threshold = lang_config.auto_suspend_priority_threshold
+            priority_threshold_auto_suspend = (
+                threshold > 0
+                and priority_rank is not None
+                and priority_rank > threshold
             )
 
             # Check if card is from a disabled deck
@@ -785,7 +794,12 @@ def _apply_priorities(
             )
             from_disabled_deck = deck_name in disabled_decks_set
 
-            auto_suspend = base_auto_suspend or (entry_reviewed and is_new_card) or from_disabled_deck
+            auto_suspend = (
+                base_auto_suspend
+                or priority_threshold_auto_suspend
+                or (entry_reviewed and is_new_card)
+                or from_disabled_deck
+            )
 
             manually_suspended_exception = (
                 card_data.queue == QUEUE_TYPE_SUSPENDED
@@ -808,7 +822,7 @@ def _apply_priorities(
                 if entry_reviewed or auto_suspend:
                     desired_due = DEFAULT_REVIEW_DUE
                 else:
-                    desired_due = priority_map.get(priority_key, DEFAULT_REVIEW_DUE)
+                    desired_due = priority_rank if priority_rank is not None else DEFAULT_REVIEW_DUE
 
                 allowed_new_queues = (QUEUE_TYPE_NEW, QUEUE_TYPE_SUSPENDED)
                 if (

@@ -61,6 +61,7 @@ class RawConfigLanguageKeys:
     PREPROCESS_CUSTOM_CHARACTERS_TO_IGNORE = "preprocess_custom_characters_to_ignore"
     PREPROCESS_IGNORE_SUSPENDED_UNLESS_TAGS = "preprocess_ignore_suspended_unless_tags"
     AUTO_SUSPEND_UNLISTED_ENTRIES = "auto_suspend_unlisted_entries"
+    AUTO_SUSPEND_PRIORITY_THRESHOLD = "auto_suspend_priority_threshold"
     AUTO_SUSPEND_VARIANT_SPELLINGS = "auto_suspend_variant_spellings"
     MERGE_KANA_VARIANT_SPELLINGS = "merge_kana_variant_spellings"
     RECALC_OFFSET_PRIORITY_DECKS = "recalc_offset_priority_decks"
@@ -433,6 +434,10 @@ class PrioritySieveLanguageConfig:  # pylint:disable=too-many-instance-attribute
             self.auto_suspend_unlisted_entries: bool = self._get_item(
                 key=RawConfigLanguageKeys.AUTO_SUSPEND_UNLISTED_ENTRIES,
                 expected_type=bool,
+            )
+            self.auto_suspend_priority_threshold: int = self._get_item(
+                key=RawConfigLanguageKeys.AUTO_SUSPEND_PRIORITY_THRESHOLD,
+                expected_type=int,
             )
             self.auto_suspend_variant_spellings: bool = self._get_item(
                 key=RawConfigLanguageKeys.AUTO_SUSPEND_VARIANT_SPELLINGS,

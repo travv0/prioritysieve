@@ -17,6 +17,7 @@ from ..prioritysieve_config import (
     PrioritySieveConfig,
     PrioritySieveLanguageConfig,
     RawConfigKeys,
+    RawConfigLanguageKeys,
 )
 from ..ui.settings_dialog_ui import Ui_SettingsDialog
 from .settings_tab import SettingsTab
@@ -45,7 +46,9 @@ class CardHandlingTab(SettingsTab):
             RawConfigKeys.AUTO_SUSPEND_UNLISTED_ENTRIES: self.ui.autoSuspendUnlistedEntriesCheckBox,
         }
 
-        self._raw_config_key_to_spin_box: dict[str, QSpinBox | QDoubleSpinBox] = {}
+        self._raw_config_key_to_spin_box: dict[str, QSpinBox | QDoubleSpinBox] = {
+            RawConfigLanguageKeys.AUTO_SUSPEND_PRIORITY_THRESHOLD: self.ui.priorityThresholdSpinBox,
+        }
 
         self._priority_deck_list_widget: QListWidget = self.ui.priorityDecksListWidget
         self._priority_deck_move_up_button: QPushButton = self.ui.priorityDeckMoveUpButton
