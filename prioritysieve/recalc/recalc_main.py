@@ -758,6 +758,19 @@ def _apply_priorities(
                 max_value=total_cards,
             )
 
+            # Check disabled deck early to skip suspended cards before heavier work
+            deck_name = _get_deck_name_for_ids(
+                deck_name_cache=deck_name_cache,
+                original_deck_id=card_data.original_deck_id,
+                current_deck_id=card_data.deck_id,
+            )
+            from_disabled_deck = deck_name in disabled_decks_set
+
+            if from_disabled_deck and _should_skip_disabled_deck_card(
+                queue=card_data.queue
+            ):
+                continue
+
             tags_list = list(card_data.original_tags)
             tags_set = {tag for tag in tags_list if tag}
             has_exception_tag = any(tag in tags_set for tag in suspended_exception_tags)
@@ -793,19 +806,6 @@ def _apply_priorities(
             priority_threshold_auto_suspend = threshold > 0 and (
                 priority_rank is None or priority_rank > threshold
             )
-
-            # Check if card is from a disabled deck
-            deck_name = _get_deck_name_for_ids(
-                deck_name_cache=deck_name_cache,
-                original_deck_id=card_data.original_deck_id,
-                current_deck_id=card_data.deck_id,
-            )
-            from_disabled_deck = deck_name in disabled_decks_set
-
-            if from_disabled_deck and _should_skip_disabled_deck_card(
-                queue=card_data.queue
-            ):
-                continue
 
             auto_suspend = (
                 base_auto_suspend
