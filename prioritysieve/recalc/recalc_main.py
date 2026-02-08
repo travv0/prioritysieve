@@ -750,6 +750,22 @@ def _apply_priorities(
         priority_map = load_priority_map(config_filter.priority_files)
         card_data_dict = create_card_data_dict(am_config, config_filter)
 
+        # Pre-filter disabled deck cards that don't need processing
+        if disabled_decks_set:
+            card_data_dict = {
+                card_id: card_data
+                for card_id, card_data in card_data_dict.items()
+                if not (
+                    _get_deck_name_for_ids(
+                        deck_name_cache=deck_name_cache,
+                        original_deck_id=card_data.original_deck_id,
+                        current_deck_id=card_data.deck_id,
+                    )
+                    in disabled_decks_set
+                    and _should_skip_disabled_deck_card(queue=card_data.queue)
+                )
+            }
+
         total_cards = len(card_data_dict)
         for index, (card_id, card_data) in enumerate(card_data_dict.items(), start=1):
             progress_utils.background_update_progress_potentially_cancel(
@@ -758,18 +774,13 @@ def _apply_priorities(
                 max_value=total_cards,
             )
 
-            # Check disabled deck early to skip suspended cards before heavier work
+            # Resolve deck name (may already be cached from pre-filter)
             deck_name = _get_deck_name_for_ids(
                 deck_name_cache=deck_name_cache,
                 original_deck_id=card_data.original_deck_id,
                 current_deck_id=card_data.deck_id,
             )
             from_disabled_deck = deck_name in disabled_decks_set
-
-            if from_disabled_deck and _should_skip_disabled_deck_card(
-                queue=card_data.queue
-            ):
-                continue
 
             tags_list = list(card_data.original_tags)
             tags_set = {tag for tag in tags_list if tag}
