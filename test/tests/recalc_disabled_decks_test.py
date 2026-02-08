@@ -3,7 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-from anki.consts import CARD_TYPE_NEW, QUEUE_TYPE_NEW, QUEUE_TYPE_SUSPENDED
+from anki.consts import QUEUE_TYPE_NEW, QUEUE_TYPE_SUSPENDED
 
 from prioritysieve.recalc.recalc_main import _should_skip_disabled_deck_card
 
@@ -76,22 +76,17 @@ def test_disabled_decks_empty_list() -> None:
     assert from_disabled_deck is False
 
 
-def test_skip_disabled_deck_new_suspended_card() -> None:
-    """New suspended cards in disabled decks are already suspended, skip them."""
-    assert _should_skip_disabled_deck_card(is_new_card=True, queue=QUEUE_TYPE_SUSPENDED)
-
-
-def test_skip_disabled_deck_non_new_non_suspended_card() -> None:
-    """Non-new (review/learning) cards in disabled decks don't benefit from
-    processing since auto_suspend only affects the new card code path."""
-    assert _should_skip_disabled_deck_card(is_new_card=False, queue=QUEUE_TYPE_NEW)
-
-
-def test_skip_disabled_deck_non_new_suspended_card() -> None:
-    """Non-new suspended cards in disabled decks are already suspended, skip them."""
-    assert _should_skip_disabled_deck_card(is_new_card=False, queue=QUEUE_TYPE_SUSPENDED)
+def test_skip_disabled_deck_suspended_card() -> None:
+    """Suspended cards in disabled decks are already suspended, skip them."""
+    assert _should_skip_disabled_deck_card(queue=QUEUE_TYPE_SUSPENDED)
 
 
 def test_process_disabled_deck_new_non_suspended_card() -> None:
     """New non-suspended cards in disabled decks need processing to get auto-suspended."""
-    assert not _should_skip_disabled_deck_card(is_new_card=True, queue=QUEUE_TYPE_NEW)
+    assert not _should_skip_disabled_deck_card(queue=QUEUE_TYPE_NEW)
+
+
+def test_process_disabled_deck_non_new_non_suspended_card() -> None:
+    """Non-new non-suspended cards in disabled decks need processing for
+    variant/duplicate checking."""
+    assert not _should_skip_disabled_deck_card(queue=0)
