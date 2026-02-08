@@ -117,6 +117,16 @@ def _should_skip_card(
     return True
 
 
+def _should_skip_disabled_deck_card(
+    is_new_card: bool,
+    queue: int,
+) -> bool:
+    """Cards from disabled decks only need processing if they are new and
+    non-suspended (so the addon can auto-suspend them). All other cards
+    in disabled decks can be skipped."""
+    return not is_new_card or queue == QUEUE_TYPE_SUSPENDED
+
+
 def _collect_filters_state(filters: list[PrioritySieveConfigFilter]) -> list[dict[str, int | str]]:
     assert mw is not None
     if mw.col is None or mw.col.db is None:
@@ -792,6 +802,11 @@ def _apply_priorities(
                 current_deck_id=card_data.deck_id,
             )
             from_disabled_deck = deck_name in disabled_decks_set
+
+            if from_disabled_deck and _should_skip_disabled_deck_card(
+                is_new_card=is_new_card, queue=card_data.queue
+            ):
+                continue
 
             auto_suspend = (
                 base_auto_suspend
