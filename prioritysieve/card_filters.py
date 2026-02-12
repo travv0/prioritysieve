@@ -237,6 +237,44 @@ def _would_be_variant_suspended(
     return False
 
 
+def entry_keys_variant_suspended(
+    entry_card_map: Mapping[tuple[str, str, str], Iterable[int]],
+    active_entry_keys: set[tuple[str, str, str]],
+    card_status_lookup: Mapping[int, tuple[int, str | None, int]],
+    exception_tags: Collection[str],
+    merge_kana_variants: bool,
+    auto_suspend_variants: bool,
+    am_config,
+) -> set[tuple[str, str, str]]:
+    """Return entry keys whose cards are all suspended due to being variant spellings."""
+
+    if not auto_suspend_variants:
+        return set()
+
+    suspended_only_keys = set(entry_card_map.keys()) - active_entry_keys
+    if not suspended_only_keys:
+        return set()
+
+    active_by_reading = _active_entries_by_reading(
+        entry_card_map, card_status_lookup, exception_tags
+    )
+
+    variant_keys: set[tuple[str, str, str]] = set()
+    for entry_key in suspended_only_keys:
+        card_ids = entry_card_map[entry_key]
+        if _would_be_variant_suspended(
+            entry_key,
+            card_ids,
+            card_status_lookup,
+            active_by_reading,
+            merge_kana_variants,
+            am_config,
+        ):
+            variant_keys.add(entry_key)
+
+    return variant_keys
+
+
 def filter_variant_shadowed_entries(
     suspended_cards_by_entry: Mapping[tuple[str, str, str], list[int]],
     entry_card_map: Mapping[tuple[str, str, str], Iterable[int]],

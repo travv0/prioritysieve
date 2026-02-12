@@ -1746,14 +1746,25 @@ def show_missing_priority_cards() -> None:
         all_card_ids.update(int(card_id) for card_id in card_ids)
 
     card_status_lookup = _load_card_status_lookup(all_card_ids)
+    card_status_with_type = _load_card_status_lookup_with_type(all_card_ids)
     active_entry_keys = card_filters.entry_keys_with_active_cards(
         entry_card_map=entry_card_map,
         card_status_lookup=card_status_lookup,
         exception_tags=suspended_exception_tags,
     )
+    variant_suspended_keys = card_filters.entry_keys_variant_suspended(
+        entry_card_map=entry_card_map,
+        active_entry_keys=active_entry_keys,
+        card_status_lookup=card_status_with_type,
+        exception_tags=suspended_exception_tags,
+        merge_kana_variants=am_config.merge_kana_variant_spellings,
+        auto_suspend_variants=am_config.auto_suspend_variant_spellings,
+        am_config=am_config,
+    )
+    known_entry_keys = active_entry_keys | variant_suspended_keys
     entries = [
         entry_lookup[key]
-        for key in sorted(active_entry_keys)
+        for key in sorted(known_entry_keys)
         if key in entry_lookup
     ]
     missing_entries = priority_gap_utils.find_missing_priority_entries(
