@@ -18,7 +18,7 @@ venv
 docs/book
 
 # misc ankimorphs files
-ankimorphs/meta.json
+prioritysieve/meta.json
 ankimorphs.db
 ankimorphs*.ankiaddon
 anki_output.txt
